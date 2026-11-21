@@ -137,7 +137,8 @@ touches wizardry.
 - **Cordis is the lowest level.** `boot()` creates a Cordis root context. The action registry, the
   plugin loader, the file and shell tools, and Pi itself are all plugins on it.
 - **Every plugin is a tool call.** A plugin's only route to the agent is `ctx.actions.register(...)`.
-  Plugins add nothing to the system prompt and get no hooks into the agent's turn, so the
+  Plugins add nothing to the system prompt and get no hooks into the agent's turn (with one
+  exception, `defintire`, which keeps a few lines there: see below), so the
   agent is not steered by them. It sees a list of actions and picks.
 - **An action is something the agent does, not something it is.** Actions that change the agent
   (`become`, `focus`, `think`) exist, and are never applied for it.
@@ -297,7 +298,11 @@ A few default plugins ship in [`defaults/`](defaults) and are on for everyone:
   a long search to the one and exact quantities to the other. They are about 650 MB together with
   the Python they need, so they are not in the plain install: the full install (see Install) adds
   them, inside `~/.wizardry/tools`, and the method gives the same command for later. Definitions are kept in
-  `~/.wizardry/defintire/`, so export and delete take them along.
+  `~/.wizardry/defintire/`, so export and delete take them along. It is the one plugin let into
+  the agent's head: while loaded it keeps a few lines in the standing prompt (at most 1200
+  characters), a habit of saying what a thing is before working on it and the definitions kept.
+  wizardry admits it by name, and it is proven that no other plugin can add anything there;
+  `plugin_unload defintire` takes the lines out.
 
 Switch a default off with `plugin_unload` and `persist: true`; change one by putting a file or
 folder of the same name in `~/.wizardry/plugins/`.

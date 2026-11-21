@@ -402,4 +402,9 @@ export const core = {
   /** Of what would load at a start, what is switched off when the plugins loaded now become the default. */
   keptOff: (wouldLoad: readonly string[], loaded: readonly string[]): string[] => array(bend.kept_off(list(wouldLoad), list(loaded))),
   defaultSaid: (model: string, thinking: string, plugins: readonly string[]): string => bend.default_said(model, thinking, list(plugins)),
+
+  /** What a plugin's text in the standing prompt comes to: nothing unless the owner named the plugin. */
+  thoughtOf: (owner: string, text: string): string => bend.thought_of(owner, text),
+  /** The base prompt with a plugin's thought after it. */
+  minded: (base: string, thought: string): string => bend.minded(base, thought),
 }

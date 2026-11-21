@@ -1924,3 +1924,24 @@ def or_unset(+value: String) -> String:
 def default_said(model: String, thinking: String, plugins: List<&2, String>) -> String:
   String.concat(["New sessions now start as this one. Model: ", or_unset(model), ". Thinking: ", or_unset(thinking),
     ". Plugins: ", String.join(plugins, ", "), "."])
+
+# The one way into the agent's head
+# ---------------------------------
+
+# A plugin's only route to the agent is its actions, with these exceptions, made by the owner:
+# the plugins named here may put a little text of their own in the standing prompt.
+def minds() -> List<&2, String>:
+  ["defintire"]
+
+# How much a plugin may say there, in characters.
+def little() -> Nat:
+  240n
+
+# What a plugin's text comes to: nothing unless the plugin is one of those named, and never more
+# than a little.
+def thought_of(owner: String, text: String) -> String:
+  Bool.pick(String, has(minds(), owner), clip(String.trim(text), Nat.mul(5n, little())), "")
+
+# The base prompt with a plugin's thought after it.
+def minded(+base: String, +thought: String) -> String:
+  Bool.pick(String, String.is_empty(thought), base, String.concat([base, "\n\n", thought]))

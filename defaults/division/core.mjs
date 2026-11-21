@@ -2309,6 +2309,23 @@ function $______bend_core_default_said(_model_0, _thinking_0, _plugins_0) {
   return $String_concat({$: "Con", "head": "New sessions now start as this one. Model: ", "tail": {$: "Con", "head": $$______bend_core_or_unset(_model_0), "tail": {$: "Con", "head": ". Thinking: ", "tail": {$: "Con", "head": $$______bend_core_or_unset(_thinking_0), "tail": {$: "Con", "head": ". Plugins: ", "tail": {$: "Con", "head": $$String_join(_plugins_0, ", "), "tail": {$: "Con", "head": ".", "tail": {$: "Nil"}}}}}}}});
 }
 
+function $______bend_core_minds() {
+  return {$: "Con", "head": "defintire", "tail": {$: "Nil"}};
+}
+
+function $______bend_core_little() {
+  return 240;
+}
+
+function $______bend_core_thought_of(_owner_0, _text_0) {
+  const _x_0 = $$______bend_core_little();
+  return $Bool_pick($$______bend_core_has($$______bend_core_minds(), _owner_0), $$______bend_core_clip($$String_trim(_text_0), nat_chk(5 * _x_0)), "");
+}
+
+function $______bend_core_minded(_base_0, _thought_0) {
+  return $Bool_pick($$String_is_empty(_thought_0), _base_0, $$String_concat({$: "Con", "head": _base_0, "tail": {$: "Con", "head": "\n\n", "tail": {$: "Con", "head": _thought_0, "tail": {$: "Nil"}}}}));
+}
+
 function $is_folder(_entry_0) {
   return $String_ends_with(_entry_0, "/");
 }
@@ -3749,6 +3766,8 @@ const $$______bend_core_link_lines = $______bend_core_link_lines;
 const $$______bend_core_export_line = $______bend_core_export_line;
 const $$______bend_core_setting = $______bend_core_setting;
 const $$______bend_core_or_unset = $______bend_core_or_unset;
+const $$______bend_core_minds = $______bend_core_minds;
+const $$______bend_core_little = $______bend_core_little;
 const $$is_folder = $is_folder;
 const $$covers = $covers;
 const $$may_write = $may_write;
@@ -4091,6 +4110,10 @@ const $$String_join_go = $String_join_go;export default {
   "../../bend/core:kept_off": run_lib((a0,a1) => run_loop($______bend_core_kept_off(a0,a1)), 2),
   "../../bend/core:or_unset": run_lib((a0) => str_out(run_loop($______bend_core_or_unset(str_in(a0)))), 1),
   "../../bend/core:default_said": run_lib((a0,a1,a2) => str_out(run_loop($______bend_core_default_said(str_in(a0),str_in(a1),a2))), 3),
+  "../../bend/core:minds": run_lib(() => run_loop($______bend_core_minds()), 0),
+  "../../bend/core:little": run_lib(() => run_loop($______bend_core_little()), 0),
+  "../../bend/core:thought_of": run_lib((a0,a1) => str_out(run_loop($______bend_core_thought_of(str_in(a0),str_in(a1)))), 2),
+  "../../bend/core:minded": run_lib((a0,a1) => str_out(run_loop($______bend_core_minded(str_in(a0),str_in(a1)))), 2),
   "is_folder": run_lib((a0) => run_loop($is_folder(str_in(a0))), 1),
   "covers": run_lib((a0,a1) => run_loop($covers(str_in(a0),str_in(a1))), 2),
   "may_write": run_lib((a0,a1) => run_loop($may_write(a0,str_in(a1))), 2),

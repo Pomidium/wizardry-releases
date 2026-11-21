@@ -12,7 +12,8 @@ to the running install. The short manual for writing plugins in-session is the `
 
 **Pi on Cordis.** `boot()` builds a Cordis root context; the action registry, the plugin loader,
 the fs/shell tools and Pi itself are plugins on it. A plugin's only route to the agent is
-`ctx.actions.register(...)`: plugins add nothing to the system prompt and get no hooks into the
+`ctx.actions.register(...)`: plugins add nothing to the system prompt (one exception, by name:
+see "The defintire default") and get no hooks into the
 agent's turn. Actions that change the agent (`become`, `focus`, `think`) exist but are never
 applied for it. Nothing asks for approval; `gate` is an optional plugin.
 
@@ -211,6 +212,13 @@ so a lemma renamed there is renamed here too.
 `defaults/defintire/` is built here like division: edit `defintire.bend`, run `npm run core`,
 commit `core.mjs` with it. Its proofs import wizardry's own (`../../PROOF.bend`).
 
+- **It is in the agent's head, a little, by the owner's exception.** `ctx.pi.mind(() => text)`
+  (`src/pi.ts`) puts a plugin's text after the base prompt and before what the agent wrote with
+  `become`, read again every turn and gone on unload. Who may use it is `minds()` in
+  `bend/core.bend`, which names defintire alone; from any other plugin the call adds nothing
+  (`only_named_plugins_think`), and the text is cut to 1200 characters. What defintire says is
+  `mind` in `defintire.bend`. Adding a name to `minds()` is the owner's decision, never an
+  agent's: do not do it to make a plugin work.
 - A definition is a folder, `$WIZARDRY_HOME/defintire/<slug>/`: `definition.json` (what the
   actions read), `definition.md` (the same, written out), `scores.jsonl`, `ratings.json`,
   `climbs/`. Being a folder of the home, it is exported as it is and deleted with `all`.
@@ -250,7 +258,7 @@ commit `core.mjs` with it. Its proofs import wizardry's own (`../../PROOF.bend`)
 - It is the one plugin that reaches the agent other than through an action: it answers Pi's
   `session_before_compact` with a summary made of its observations (`api.on(...)` on the API that
   `pi/ready` and `pi/session-start` hand out, undone on unload). That was a decision, not a
-  precedent: a plugin still adds nothing to the system prompt.
+  precedent: memory still adds nothing to the system prompt.
 - It writes `memory:start`, `memory:observed` and `memory:switch` custom entries to the session,
   which is how what was observed follows a branch through `/tree`.
 - Never point `--session` at the file of a session that is open: a second process appends to it.

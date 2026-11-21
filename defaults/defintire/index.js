@@ -35,6 +35,10 @@
 // points between the two compared, and a climb never goes downhill. This file only does what
 // Bend cannot: it keeps the files, runs the commands, asks the judge and starts the agents.
 //
+// One exception to "a plugin reaches the agent only through actions", made by the owner: while it
+// is loaded, defintire puts a few lines in the standing prompt, a habit of saying what a thing is
+// before working on it, and the definitions kept. `plugin_unload defintire` takes them out.
+//
 // Definitions are kept in ~/.wizardry/defintire/<name>/ (definition.json, definition.md,
 // scores.jsonl, ratings.json, climbs/), so `wizardry export` and `wizardry delete` take them along.
 //
@@ -190,6 +194,20 @@ export function apply(ctx, config) {
       throw new Error(core.noDefinition(text(asked), known()))
     }
   }
+
+  // The one thing defintire does besides its actions, by the owner's exception: a habit of mind
+  // and the names of what is defined go into the standing prompt, read again at every turn.
+  // wizardry lets this plugin in by name and cuts the text short (core.bend, "The one way in").
+  try {
+    ctx.get('pi')?.mind(() => bend.mind(list(known().slice(0, 6).map((slug) => {
+      try {
+        const def = JSON.parse(readFileSync(join(home, slug, 'definition.json'), 'utf8'))
+        return { $: 'Known', name: String(def.name ?? slug), answers: String(def.answers ?? '') }
+      } catch {
+        return { $: 'Known', name: slug, answers: '' }
+      }
+    }))))
+  } catch {}
 
   // ---- the judge -------------------------------------------------------------------------
 

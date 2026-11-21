@@ -2309,6 +2309,23 @@ function $default_said(_model_0, _thinking_0, _plugins_0) {
   return $String_concat({$: "Con", "head": "New sessions now start as this one. Model: ", "tail": {$: "Con", "head": $$or_unset(_model_0), "tail": {$: "Con", "head": ". Thinking: ", "tail": {$: "Con", "head": $$or_unset(_thinking_0), "tail": {$: "Con", "head": ". Plugins: ", "tail": {$: "Con", "head": $$String_join(_plugins_0, ", "), "tail": {$: "Con", "head": ".", "tail": {$: "Nil"}}}}}}}});
 }
 
+function $minds() {
+  return {$: "Con", "head": "defintire", "tail": {$: "Nil"}};
+}
+
+function $little() {
+  return 240;
+}
+
+function $thought_of(_owner_0, _text_0) {
+  const _x_0 = $$little();
+  return $Bool_pick($$has($$minds(), _owner_0), $$clip($$String_trim(_text_0), nat_chk(5 * _x_0)), "");
+}
+
+function $minded(_base_0, _thought_0) {
+  return $Bool_pick($$String_is_empty(_thought_0), _base_0, $$String_concat({$: "Con", "head": _base_0, "tail": {$: "Con", "head": "\n\n", "tail": {$: "Con", "head": _thought_0, "tail": {$: "Nil"}}}}));
+}
+
 function $String_eq(_a_0, _b_0) {
   return $Cmp_is_eq($$String_order(_a_0, _b_0));
 }
@@ -3085,6 +3102,8 @@ const $$link_lines = $link_lines;
 const $$export_line = $export_line;
 const $$setting = $setting;
 const $$or_unset = $or_unset;
+const $$minds = $minds;
+const $$little = $little;
 const $$String_order = $String_order;
 const $$Nat_show_put = $Nat_show_put;
 const $$String_split = $String_split;
@@ -3377,4 +3396,8 @@ const $$String_join_go = $String_join_go;export default {
   "kept_off": run_lib((a0,a1) => run_loop($kept_off(a0,a1)), 2),
   "or_unset": run_lib((a0) => str_out(run_loop($or_unset(str_in(a0)))), 1),
   "default_said": run_lib((a0,a1,a2) => str_out(run_loop($default_said(str_in(a0),str_in(a1),a2))), 3),
+  "minds": run_lib(() => run_loop($minds()), 0),
+  "little": run_lib(() => run_loop($little()), 0),
+  "thought_of": run_lib((a0,a1) => str_out(run_loop($thought_of(str_in(a0),str_in(a1)))), 2),
+  "minded": run_lib((a0,a1) => str_out(run_loop($minded(str_in(a0),str_in(a1)))), 2),
 };

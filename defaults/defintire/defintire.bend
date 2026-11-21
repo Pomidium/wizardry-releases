@@ -744,3 +744,33 @@ def cannot_judge() -> String:
 
 def no_candidate(what: String) -> String:
   String.concat(["There is nothing to score: \"", what, "\" is not a file here, and no text was given."])
+
+# What defintire puts in the agent's head
+# ---------------------------------------
+
+# A definition kept, as the agent is reminded of it.
+type Known is Data:
+  Known{name: String, answers: String}
+
+def known_lines(known: List<&2, Known>, room: Nat) -> List<&2, String>:
+  match known room:
+    case Nil{} _:
+      Nil{}
+    case Con{h, t} 0n:
+      ["- and more: `defintire` lists them"]
+    case Con{Known{name, answers}, t} 1n+p:
+      String.concat(["- ", name, ": ", C.clip(C.squash(answers, False{}), 110n)]) <> known_lines(t, p)
+
+def known_part(known: List<&2, Known>) -> List<&2, String>:
+  match known:
+    case Nil{}:
+      Nil{}
+    case Con{h, t}:
+      "Defined already (score against these with `defintire_measure` rather than by feel):" <> known_lines(h <> t, 5n)
+
+# The little that defintire adds to the standing prompt: a habit of mind, and what is defined.
+# wizardry lets it in by name and cuts it short; every other plugin reaches the agent by actions.
+def mind(known: List<&2, Known>) -> String:
+  String.join(List.append(&2, String, [
+    "A habit you keep (from defintire): when what you are asked to make, judge or improve is vague, say what it is before you work on it — the things it speaks of, the condition that must hold of them, and one thing that fails it. When something is called better, name the number that would show it. Keep this to a line or two unless asked for more; `defintire` holds the full method."],
+    known_part(known)), "\n")

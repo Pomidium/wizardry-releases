@@ -1274,3 +1274,21 @@ def Laws.default_keeps_what_is_loaded(would_load, loaded):
 
 def Laws.default_writes_only_what_is_set():
   {==}
+
+def Laws.only_named_plugins_think(owner, text, unnamed):
+  %Equal.sym(Bool, C.has(C.minds(), owner), False{}, unnamed) : {Bool.pick(String, _, C.clip(String.trim(text), Nat.mul(5n, C.little())), "") == "" : String}
+  {==}
+
+def Laws.defintire_is_the_exception():
+  {==}
+
+def minded_step(b: Bool, +base: String, -thought: String) ->
+  {String.starts_with(Bool.pick(String, b, base, String.concat([base, "\n\n", thought])), base) == True{} : Bool}:
+  match b:
+    case True{}:
+      starts_self(base)
+    case False{}:
+      starts(base, String.concat(["\n\n", thought]))
+
+def Laws.a_thought_keeps_the_base(base, thought):
+  ({==}, minded_step(String.is_empty(thought), base, thought))

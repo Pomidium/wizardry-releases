@@ -2309,6 +2309,23 @@ function $______bend_core_default_said(_model_0, _thinking_0, _plugins_0) {
   return $String_concat({$: "Con", "head": "New sessions now start as this one. Model: ", "tail": {$: "Con", "head": $$______bend_core_or_unset(_model_0), "tail": {$: "Con", "head": ". Thinking: ", "tail": {$: "Con", "head": $$______bend_core_or_unset(_thinking_0), "tail": {$: "Con", "head": ". Plugins: ", "tail": {$: "Con", "head": $$String_join(_plugins_0, ", "), "tail": {$: "Con", "head": ".", "tail": {$: "Nil"}}}}}}}});
 }
 
+function $______bend_core_minds() {
+  return {$: "Con", "head": "defintire", "tail": {$: "Nil"}};
+}
+
+function $______bend_core_little() {
+  return 240;
+}
+
+function $______bend_core_thought_of(_owner_0, _text_0) {
+  const _x_0 = $$______bend_core_little();
+  return $Bool_pick($$______bend_core_has($$______bend_core_minds(), _owner_0), $$______bend_core_clip($$String_trim(_text_0), nat_chk(5 * _x_0)), "");
+}
+
+function $______bend_core_minded(_base_0, _thought_0) {
+  return $Bool_pick($$String_is_empty(_thought_0), _base_0, $$String_concat({$: "Con", "head": _base_0, "tail": {$: "Con", "head": "\n\n", "tail": {$: "Con", "head": _thought_0, "tail": {$: "Nil"}}}}));
+}
+
 function $kind_pick(_exact_0, _proxy_0, _judged_0) {
   if (_exact_0) {
     return {$: "Exact"};
@@ -3069,6 +3086,37 @@ function $cannot_judge() {
 
 function $no_candidate(_what_0) {
   return $String_concat({$: "Con", "head": "There is nothing to score: \"", "tail": {$: "Con", "head": _what_0, "tail": {$: "Con", "head": "\" is not a file here, and no text was given.", "tail": {$: "Nil"}}}});
+}
+
+function $known_lines(_known_0, _room_0) {
+  if (_known_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _known_0["head"];
+    const _name_0 = _t_0["name"];
+    const _answers_0 = _t_0["answers"];
+    const _t_1 = _known_0["tail"];
+    if (_room_0 == 0) {
+      return {$: "Con", "head": "- and more: `defintire` lists them", "tail": {$: "Nil"}};
+    } else {
+      const _p_0 = (_room_0 - 1);
+      return {$: "Con", "head": $$String_concat({$: "Con", "head": "- ", "tail": {$: "Con", "head": _name_0, "tail": {$: "Con", "head": ": ", "tail": {$: "Con", "head": $$______bend_core_clip($$______bend_core_squash(_answers_0, false), 110), "tail": {$: "Nil"}}}}}), "tail": $$known_lines(_t_1, _p_0)};
+    }
+  }
+}
+
+function $known_part(_known_0) {
+  if (_known_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _h_0 = _known_0["head"];
+    const _t_0 = _known_0["tail"];
+    return {$: "Con", "head": "Defined already (score against these with `defintire_measure` rather than by feel):", "tail": $$known_lines({$: "Con", "head": _h_0, "tail": _t_0}, 5)};
+  }
+}
+
+function $mind(_known_0) {
+  return $String_join($$List_append({$: "Con", "head": "A habit you keep (from defintire): when what you are asked to make, judge or improve is vague, say what it is before you work on it — the things it speaks of, the condition that must hold of them, and one thing that fails it. When something is called better, name the number that would show it. Keep this to a line or two unless asked for more; `defintire` holds the full method.", "tail": {$: "Nil"}}, $$known_part(_known_0)), "\n");
 }
 
 function $String_eq(_a_0, _b_0) {
@@ -4089,6 +4137,8 @@ const $$______bend_core_link_lines = $______bend_core_link_lines;
 const $$______bend_core_export_line = $______bend_core_export_line;
 const $$______bend_core_setting = $______bend_core_setting;
 const $$______bend_core_or_unset = $______bend_core_or_unset;
+const $$______bend_core_minds = $______bend_core_minds;
+const $$______bend_core_little = $______bend_core_little;
 const $$is_exact = $is_exact;
 const $$all_exact = $all_exact;
 const $$say_if = $say_if;
@@ -4144,6 +4194,8 @@ const $$placed = $placed;
 const $$sorted = $sorted;
 const $$first_set = $first_set;
 const $$option = $option;
+const $$known_lines = $known_lines;
+const $$known_part = $known_part;
 const $$String_order = $String_order;
 const $$Nat_show_put = $Nat_show_put;
 const $$F32_max = $F32_max;
@@ -4443,6 +4495,10 @@ const $$String_is_le = $String_is_le;export default {
   "../../bend/core:kept_off": run_lib((a0,a1) => run_loop($______bend_core_kept_off(a0,a1)), 2),
   "../../bend/core:or_unset": run_lib((a0) => str_out(run_loop($______bend_core_or_unset(str_in(a0)))), 1),
   "../../bend/core:default_said": run_lib((a0,a1,a2) => str_out(run_loop($______bend_core_default_said(str_in(a0),str_in(a1),a2))), 3),
+  "../../bend/core:minds": run_lib(() => run_loop($______bend_core_minds()), 0),
+  "../../bend/core:little": run_lib(() => run_loop($______bend_core_little()), 0),
+  "../../bend/core:thought_of": run_lib((a0,a1) => str_out(run_loop($______bend_core_thought_of(str_in(a0),str_in(a1)))), 2),
+  "../../bend/core:minded": run_lib((a0,a1) => str_out(run_loop($______bend_core_minded(str_in(a0),str_in(a1)))), 2),
   "kind_pick": run_lib((a0,a1,a2) => run_loop($kind_pick(a0,a1,a2)), 3),
   "kind_of": run_lib((a0) => run_loop($kind_of(str_in(a0))), 1),
   "is_exact": run_lib((a0) => run_loop($is_exact(a0)), 1),
@@ -4542,4 +4598,7 @@ const $$String_is_le = $String_is_le;export default {
   "needs_two": run_lib(() => str_out(run_loop($needs_two())), 0),
   "cannot_judge": run_lib(() => str_out(run_loop($cannot_judge())), 0),
   "no_candidate": run_lib((a0) => str_out(run_loop($no_candidate(str_in(a0)))), 1),
+  "known_lines": run_lib((a0,a1) => run_loop($known_lines(a0,nat_in(a1))), 2),
+  "known_part": run_lib((a0) => run_loop($known_part(a0)), 1),
+  "mind": run_lib((a0) => str_out(run_loop($mind(a0))), 1),
 };

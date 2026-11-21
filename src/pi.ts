@@ -65,6 +65,7 @@ export class Pi extends Service {
   resumed?: Handoff
   private live?: ExtensionContext
   private commands = new Map<string, Command>()
+  private minds = new Map<string, () => string>()
   private restartWanted = false
   private restartNote?: string
 
@@ -80,7 +81,32 @@ export class Pi extends Service {
   }
 
   systemPrompt(cwd: string) {
-    return core.systemPrompt(basePrompt(cwd), this.identity)
+    let base = basePrompt(cwd)
+    for (const [owner, thought] of this.minds) {
+      let text = ''
+      try {
+        text = String(thought() ?? '')
+      } catch {}
+      // Whether this plugin may say anything, and how much, is decided in Bend (LAWS.bend,
+      // only_named_plugins_think): the owner names the exceptions, one by one.
+      base = core.minded(base, core.thoughtOf(owner, text))
+    }
+    return core.systemPrompt(base, this.identity)
+  }
+
+  /**
+   * Put a little text in the agent's standing prompt for as long as the calling plugin stays
+   * loaded, read again at every turn. It is an exception to "a plugin reaches the agent only
+   * through actions", and only for the plugins Bend names: from any other it adds nothing.
+   */
+  mind(thought: () => string) {
+    const owner = this.ctx.fiber.name
+    return this.ctx.effect(() => {
+      this.minds.set(owner, thought)
+      return () => {
+        if (this.minds.get(owner) === thought) this.minds.delete(owner)
+      }
+    }, 'pi.mind')
   }
 
   /** Record the agent's self-authored instructions; they apply from the next turn. */

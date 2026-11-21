@@ -501,3 +501,24 @@ law default_keeps_what_is_loaded:
 # A session with no model or thinking level to speak of changes neither default.
 law default_writes_only_what_is_set:
   {C.default_settings("", "", "") == Nil{} : List<&2, C.Var>}
+
+# The one way into the agent's head
+# ---------------------------------
+
+# A plugin the owner did not name puts nothing in the standing prompt, whatever it says.
+law only_named_plugins_think:
+  for +owner: String
+  for text: String
+  for unnamed: {C.has(C.minds(), owner) == False{} : Bool}
+  {C.thought_of(owner, text) == "" : String}
+
+# defintire is the one named.
+law defintire_is_the_exception:
+  {C.minds() == ["defintire"] : List<&2, String>}
+
+# A plugin with nothing to say changes nothing, and what one does say comes after the base
+# prompt and never replaces it.
+law a_thought_keeps_the_base:
+  for +base: String
+  for +thought: String
+  {C.minded(base, "") == base : String} & {String.starts_with(C.minded(base, thought), base) == True{} : Bool}
