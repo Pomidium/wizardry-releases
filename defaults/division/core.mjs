@@ -1978,7 +1978,7 @@ function $______bend_core_or_nothing(_lines_0) {
 }
 
 function $______bend_core_own_folders() {
-  return {$: "Con", "head": "app", "tail": {$: "Con", "head": "plugins", "tail": {$: "Con", "head": "sessions", "tail": {$: "Con", "head": "pi", "tail": {$: "Con", "head": "update.lock", "tail": {$: "Nil"}}}}}};
+  return {$: "Con", "head": "app", "tail": {$: "Con", "head": "plugins", "tail": {$: "Con", "head": "sessions", "tail": {$: "Con", "head": "pi", "tail": {$: "Con", "head": "update.lock", "tail": {$: "Con", "head": "tools", "tail": {$: "Con", "head": "bin", "tail": {$: "Nil"}}}}}}}};
 }
 
 function $______bend_core_left_over(_folders_0, _written_0) {

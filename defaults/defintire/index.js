@@ -22,6 +22,9 @@
 //   jacobian (https://github.com/morluto/jacobian, MIT): typed mathematical operations whose
 //     results are exact where they claim to be. When it is installed, the method says how a
 //     criterion's command calls it.
+// hillclimb and jacobian are programs of some size (about 650 MB together, with the Python they
+// need), so they are installed only when asked for: by the installer with WIZARDRY_WITH_TOOLS=1,
+// or by the command the method gives. They go into wizardry's own directory (tools/, bin/).
 // Its own: the definition as a record with stipulated axioms marked, the three kinds of
 // criterion and the rule that only an all-exact score is called verified, ratings from pairwise
 // comparison for what has no trustworthy absolute number, and the laws about all of it.
@@ -112,20 +115,23 @@ export const core = {
   attemptLine: (round, n, score, best, how) => bend.attempt_line(round, n, score, best, how ?? ''),
   climbed: (name, file, from, to, standing, lines, backup) => bend.climbed(name, file, from, to, standing, list(lines), backup),
   agentArgs: (model, sessionModel, thinking, sessionThinking) => array(bend.agent_args(model ?? '', sessionModel ?? '', thinking ?? '', sessionThinking ?? '')),
-  method: (hillclimb, jacobian, saved) => bend.method(hillclimb, jacobian, list(saved)),
+  method: (hillclimb, jacobian, home, saved) => bend.method(hillclimb ?? '', jacobian ?? '', home, list(saved)),
 }
 
 // ---- what only Node can do --------------------------------------------------------------------
 
-function onPath(program) {
-  return (process.env.PATH ?? '').split(delimiter).filter(Boolean).some((dir) => {
+/** Where a program is: its name when it is on PATH, its full path when wizardry has it in `bin`, undefined when nowhere. */
+function found(program, bin) {
+  const runs = (file) => {
     try {
-      accessSync(join(dir, program), constants.X_OK)
+      accessSync(file, constants.X_OK)
       return true
     } catch {
       return false
     }
-  })
+  }
+  if (runs(join(bin, program))) return join(bin, program)
+  return (process.env.PATH ?? '').split(delimiter).filter(Boolean).some((dir) => runs(join(dir, program))) ? program : undefined
 }
 
 /** Run a command and resolve with how it ended and what it printed. Never rejects. */
@@ -162,6 +168,9 @@ const textOf = (content) => (typeof content === 'string' ? content
 export function apply(ctx, config) {
   const home = join(ctx.plugins.home, 'defintire')
   const cfg = { ...DEFAULTS, ...(config ?? {}) }
+  /** Where tools installed for wizardry are linked: jacobian and hillclimb, when they were asked for. */
+  const bin = join(ctx.plugins.home, 'bin')
+  const withTools = () => ({ ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ''}` })
 
   // ---- the definitions kept --------------------------------------------------------------
 
@@ -223,7 +232,7 @@ export function apply(ctx, config) {
       }
       const ran = await run(`${c.command} "$DEFINTIRE_CANDIDATE"`, [], {
         cwd: existsSync(def.root) ? def.root : env.cwd, shell: true, signal: env.signal, timeoutMs: cfg.commandSeconds * 1000,
-        env: { ...process.env, DEFINTIRE_CANDIDATE: path, DEFINTIRE_DEFINITION: def.folder },
+        env: { ...withTools(), DEFINTIRE_CANDIDATE: path, DEFINTIRE_DEFINITION: def.folder },
       })
       const value = ran.code === 0 ? core.reading(ran.out) : undefined
       return value === undefined ? { note: core.noNumber(ran.code, ran.err || ran.out) } : { at: core.position(value, c.worst, c.best), note: `read ${value}` }
@@ -262,7 +271,7 @@ export function apply(ctx, config) {
     title: 'defintire method',
     description: bend.describe(),
     parameters: { type: 'object', properties: {} },
-    execute: () => core.method(onPath('hillclimb'), onPath('jacobian'), known()),
+    execute: () => core.method(found('hillclimb', bin), found('jacobian', bin), ctx.plugins.home, known()),
   })
 
   const strings = (description) => ({ type: 'array', items: { type: 'string' }, description })
@@ -456,7 +465,7 @@ export function apply(ctx, config) {
           const fence = JSON.stringify({ root: dir, depth: 99, name: 'climb', owns: [file], laws: [], check: '' })
           const ran = await run(agent[0], [...agent.slice(1), brief], {
             cwd: dir, signal: env.signal, timeoutMs: cfg.timeoutMinutes * 60_000,
-            env: { ...process.env, WIZARDRY_DIVISION: fence, WIZARDRY_NO_UPDATE: '1' },
+            env: { ...withTools(), WIZARDRY_DIVISION: fence, WIZARDRY_NO_UPDATE: '1' },
           })
           return { at, how: ran.code === 0 ? '' : ran.err || `ended with status ${ran.code}`, ...(await measure(def, at, `${label} (round ${round}, attempt ${n + 1})`, env)) }
         }))

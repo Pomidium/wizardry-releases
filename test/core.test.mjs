@@ -515,7 +515,7 @@ test('an export puts each conversation under where it came from, and writes it t
   assert.equal(core.readable('/out/a.jsonl'), '/out/a.md')
   assert.equal(core.readable('/out/a'), '/out/a.md')
   assert.ok(core.isConversation('x.jsonl') && !core.isConversation('x.json'))
-  assert.deepEqual(core.leftOver(['app', 'memory', 'pi', 'plugins', 'sessions', 'notes'], ['conversations', 'memory']), ['notes'])
+  assert.deepEqual(core.leftOver(['app', 'bin', 'memory', 'pi', 'plugins', 'sessions', 'tools', 'notes'], ['conversations', 'memory']), ['notes'], 'programs are not exported')
 
   const at = '2026-11-20 19:16:34'
   assert.equal(core.transcriptHead('a.jsonl', '/work', at), '# Conversation of 2026-11-20 19:16\n\n- Directory: /work\n- Kept whole in: a.jsonl\n\n')

@@ -9,6 +9,8 @@
 #   WIZARDRY_REPO      git URL or path to clone      (default: https://github.com/Pomidium/wizardry-releases.git)
 #   WIZARDRY_REF       branch or tag to install      (default: main)
 #   WIZARDRY_SKIP_RTK  set to 1 to leave rtk alone   (default: install rtk if it is missing)
+#   WIZARDRY_WITH_TOOLS set to 1 to also install jacobian and hillclimb for the defintire plugin,
+#                      inside WIZARDRY_HOME (about 650 MB with the Python they need; default: no)
 
 set -eu
 
@@ -66,6 +68,19 @@ main() {
       curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh \
         || say "could not install rtk; wizardry works without it"
     fi
+  fi
+
+  # jacobian (exact mathematics) and hillclimb (long searches), which the defintire plugin uses
+  # when they are there. They are large, so only when asked, and kept inside wizardry's directory.
+  if [ "${WIZARDRY_WITH_TOOLS:-}" = "1" ]; then
+    say "installing jacobian and hillclimb into $HOME_DIR/tools (about 650 MB)"
+    command -v uv >/dev/null 2>&1 || [ -x "$HOME/.local/bin/uv" ] || curl -LsSf https://astral.sh/uv/install.sh | sh \
+      || say "could not install uv; wizardry works without these tools"
+    UV=$(command -v uv 2>/dev/null || echo "$HOME/.local/bin/uv")
+    for tool in jacobian hillclimb; do
+      UV_TOOL_DIR="$HOME_DIR/tools" UV_TOOL_BIN_DIR="$HOME_DIR/bin" UV_PYTHON_INSTALL_DIR="$HOME_DIR/tools/python" \
+        "$UV" tool install --quiet --python 3.12 "$tool" || say "could not install $tool; wizardry works without it"
+    done
   fi
 
   say "installed $("$BIN_DIR/wizardry" --version 2>/dev/null || echo wizardry) at $BIN_DIR/wizardry"

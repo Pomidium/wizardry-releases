@@ -159,14 +159,21 @@ test('defintire: a definition is kept only when it is one, and is written out in
   const method = await actions.invoke('defintire', {}, { cwd })
   assert.match(method, /^DEFINTIRE: say what a thing is, in mathematical form/)
   assert.match(method, /Nothing is defined yet\.$/)
-  assert.match(method, /jacobian \(exact, typed mathematical operations[^\n]*is not installed|jacobian is installed/)
+  assert.match(method, new RegExp(`jacobian \\(exact, typed mathematical operations\\) is not installed\\.[^\\n]*ask before installing it: \`UV_TOOL_DIR=${home}/tools UV_TOOL_BIN_DIR=${home}/bin [^\\n]*uv tool install --python 3\\.12 jacobian\``))
+
+  // A tool installed for wizardry is found in its own bin, named by its full path, and on the PATH of a criterion's command.
+  mkdirSync(join(home, 'bin'))
+  writeFileSync(join(home, 'bin', 'jacobian'), '#!/bin/sh\necho 7\n', { mode: 0o755 })
+  assert.match(await actions.invoke('defintire', {}, { cwd }), new RegExp(`jacobian is installed \\(\`${join(home, 'bin', 'jacobian')}\`\\)`))
+  await actions.invoke('defintire_define', { ...COMMIT, name: 'Seven', criteria: [{ name: 'seven', statement: '7', kind: 'exact', command: 'jacobian', worst: 0, best: 10 }] }, { cwd })
+  assert.match(await actions.invoke('defintire_measure', { definition: 'seven', text: 'x' }, { cwd }), /70\.0\/100 \(verified/)
 
   const refused = await actions.invoke('defintire_define', { ...COMMIT, answers: '', non_examples: [], criteria: [
     { name: 'a', statement: 'x', kind: 'exact' }, { name: 'a', statement: 'y', kind: 'judged' }, { name: 'c', statement: 'z', kind: 'vibes', weight: 0 }] }, { cwd })
   assert.match(refused, /^Not a definition yet:/)
   for (const why of [/say what question the definition answers/, /a definition that excludes nothing defines nothing/, /two criteria have the same name/,
     /"a" is exact and needs a command/, /"a" is judged and needs a rubric/, /"c" is "vibes": say exact, proxy or judged/, /"c" weighs nothing/, /Nothing was saved\.$/]) assert.match(refused, why)
-  assert.ok(!existsSync(join(home, 'defintire')))
+  assert.ok(!existsSync(join(home, 'defintire', 'good-commit-message')))
 
   const defined = await actions.invoke('defintire_define', COMMIT, { cwd })
   const folder = join(home, 'defintire', 'good-commit-message')
@@ -176,8 +183,8 @@ test('defintire: a definition is kept only when it is one, and is written out in
     '- **(short)** $|s(m)| \\le 72$ *(stipulated: a choice, not a finding)*', '## Non-examples', '```bend\ndef short(s: String) -> Bool:', '- **brevity** (exact, weight 2): $|s(m)|$ — from 100 (worst) to 20 (best), lower readings being better.',
     '- **clarity** (judged, weight 1)', 'Hill-climbable: 50% of the weight is exact, 25% proxy, 25% judged.']) assert.ok(written.includes(part), part)
   assert.equal(JSON.parse(readFileSync(join(folder, 'definition.json'), 'utf8')).root, cwd)
-  assert.match(await actions.invoke('defintire', {}, { cwd }), /Defined so far: good-commit-message$/)
-  await assert.rejects(actions.invoke('defintire_measure', { definition: 'nothing', text: 'x' }, { cwd }), /No definition named "nothing"\. Defined so far: good-commit-message\./)
+  assert.match(await actions.invoke('defintire', {}, { cwd }), /Defined so far: good-commit-message, seven$/)
+  await assert.rejects(actions.invoke('defintire_measure', { definition: 'nothing', text: 'x' }, { cwd }), /No definition named "nothing"\. Defined so far: good-commit-message, seven\./)
   await root.fiber.dispose()
 })
 

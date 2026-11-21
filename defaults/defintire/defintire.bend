@@ -576,16 +576,23 @@ def climbed(name: String, +file: String, +from: Nat, +to: Nat, standing: String,
     lines,
     [climbed_end(Nat.is_lt(from, to), file, backup)]]), "\n")
 
-def tool_lines(hillclimb: Bool, jacobian: Bool) -> List<&2, String>:
-  List.concat(&2, String, [
-    ["On this machine"],
-    [Bool.pick(String, jacobian,
-      "- jacobian is installed: for a criterion that is a mathematical quantity, let its command call `jacobian run <operation> --json '{...}'` (`jacobian inspect <operation>` shows the contract). Its results are exact where they claim to be, which is what an exact criterion needs.",
-      "- jacobian (exact, typed mathematical operations: `uvx --from jacobian jacobian run ...`) is not installed. Exact criteria are then scripts of your own.")],
-    [Bool.pick(String, hillclimb,
-      "- hillclimb is installed: when every criterion is a command and the thing improved is a program, a long search is its work. `hillclimb problem new <id>`, put the definition's commands in its `score.py` (it writes {\"score\": ...} to $HILLCLIMB_RESULT), `hillclimb verify <id>`, then `hillclimb run <id> --budget 1h` in the background.",
-      "- hillclimb (long searches over programs, with a verifier: `uv tool install hillclimb`) is not installed. `defintire_climb` climbs any file with the agents this session deploys.")],
-    [""]])
+# How a tool that is not there is installed, inside wizardry's own directory, so that it is
+# apart from everything else on the machine and goes when wizardry does.
+def install_line(+home: String, tool: String) -> String:
+  String.concat(["`UV_TOOL_DIR=", home, "/tools UV_TOOL_BIN_DIR=", home, "/bin UV_PYTHON_INSTALL_DIR=", home, "/tools/python uv tool install --python 3.12 ", tool, "`"])
+
+def jacobian_line(+at: String, home: String) -> String:
+  Bool.pick(String, String.is_empty(at),
+    String.concat(["- jacobian (exact, typed mathematical operations) is not installed. Exact criteria are then scripts of your own. It takes about 350 MB, so ask before installing it: ", install_line(home, "jacobian")]),
+    String.concat(["- jacobian is installed (`", at, "`): for a criterion that is a mathematical quantity, let its command call `", at, " run <operation> --json '{...}'` (`", at, " catalog` lists the operations, `", at, " inspect <operation>` shows one contract). It answers in JSON, and its results are exact where they claim to be, which is what an exact criterion needs."]))
+
+def hillclimb_line(+at: String, home: String) -> String:
+  Bool.pick(String, String.is_empty(at),
+    String.concat(["- hillclimb (long searches over programs, scored by a verifier) is not installed. `defintire_climb` climbs any file with the agents this session deploys. It takes about 250 MB, so ask before installing it: ", install_line(home, "hillclimb")]),
+    String.concat(["- hillclimb is installed (`", at, "`): when every criterion is a command and the thing improved is a program, a long search is its work. In a folder of its own: `", at, " init`, `", at, " climber get greedy`, `", at, " problem new <id>`; put the definition's commands in the problem's `score.py` (it writes {\"score\": ...} to $HILLCLIMB_RESULT) and set `metric` and `higher_is_better` in `problem.yaml`; `", at, " verify <id>` after every edit; then `", at, " run <id> --budget 1h`, which carries on in the background (`", at, " status`, `", at, " summit`)."]))
+
+def tool_lines(hillclimb: String, jacobian: String, +home: String) -> List<&2, String>:
+  ["On this machine", jacobian_line(jacobian, home), hillclimb_line(hillclimb, home), ""]
 
 def saved_lines(saved: List<&2, String>) -> List<&2, String>:
   match saved:
@@ -595,7 +602,7 @@ def saved_lines(saved: List<&2, String>) -> List<&2, String>:
       [String.append("Defined so far: ", String.join(h <> t, ", "))]
 
 # The method: what `defintire` returns.
-def method(hillclimb: Bool, jacobian: Bool, saved: List<&2, String>) -> String:
+def method(hillclimb: String, jacobian: String, home: String, saved: List<&2, String>) -> String:
   String.join(List.concat(&2, String, [
     [ "DEFINTIRE: say what a thing is, in mathematical form, so that it can be measured and then improved.",
       "",
@@ -624,7 +631,8 @@ def method(hillclimb: Bool, jacobian: Bool, saved: List<&2, String>) -> String:
       "- judged: a model reads the candidate against a rubric and gives 0 to 100. Use it for what no script reaches,",
       "  and write the rubric so that two judges would agree: what 0 looks like, what 100 looks like.",
       "- A command runs in the directory the definition was made in, with the candidate's path in $DEFINTIRE_CANDIDATE",
-      "  and as its last argument, and prints the reading first on the last line of its output.",
+      "  and as its last argument, and prints the reading first on the last line of its output. Tools installed",
+      "  for wizardry (below) are on its PATH.",
       "",
       "3. Measure and compare",
       "- `defintire_measure` scores one candidate out of 100, criterion by criterion, and says what the score rests on:",
@@ -638,7 +646,7 @@ def method(hillclimb: Bool, jacobian: Bool, saved: List<&2, String>) -> String:
       "- A climb is as good as its criteria. If the score rises and the thing gets worse, the definition is wrong:",
       "  fix the definition, not the candidate.",
       ""],
-    tool_lines(hillclimb, jacobian),
+    tool_lines(hillclimb, jacobian, home),
     saved_lines(saved)]), "\n")
 
 def describe() -> String:

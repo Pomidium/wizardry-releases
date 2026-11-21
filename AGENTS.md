@@ -223,8 +223,13 @@ commit `core.mjs` with it. Its proofs import wizardry's own (`../../PROOF.bend`)
   one, judged criteria are left unmeasured and said to be.
 - `defintire_climb` starts agents as division does, on the model in `division.json`
   (`/default-agent`), each in a directory of its own under `climbs/`, fenced to the one file by
-  `WIZARDRY_DIVISION` when division is loaded. hillclimb and jacobian are never required: the
-  method only mentions how to use them when they are on PATH.
+  `WIZARDRY_DIVISION` when division is loaded.
+- hillclimb and jacobian are never required and not installed by default: the owner's rule is
+  "built in if small", and they are about 650 MB. `WIZARDRY_WITH_TOOLS=1 install.sh` puts them in
+  `$WIZARDRY_HOME/tools` with links in `$WIZARDRY_HOME/bin` (uv, with its Python kept there too).
+  The plugin looks there first, puts that `bin` on the PATH of criterion commands and climbing
+  agents, and names the full path in the method. `tools` and `bin` are in `own_folders`, so an
+  export does not copy them. hillclimb keeps a cache of its own in `~/.cache/hillclimb`.
 
 ### The memory default
 

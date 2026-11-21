@@ -1580,9 +1580,10 @@ def or_nothing(lines: List<&2, String>) -> List<&2, String>:
       h <> t
 
 # The folders of wizardry's directory that are not a plugin's data: the program, the plugins,
-# the conversations (copied one by one) and Pi's directory, whose logins stay where they are.
+# the conversations (copied one by one), Pi's directory, whose logins stay where they are, and
+# the tools installed for plugins (`tools`, `bin`), which are programs and can be installed again.
 def own_folders() -> List<&2, String>:
-  ["app", "plugins", "sessions", "pi", "update.lock"]
+  ["app", "plugins", "sessions", "pi", "update.lock", "tools", "bin"]
 
 # A plugin that keeps data keeps it in a folder of wizardry's directory and exports it into a
 # folder of the same name. The folders nobody exported are copied as they are, so that nothing

@@ -83,6 +83,7 @@ is read or written:
 | `sessions/` | every conversation |
 | `memory/` | everything remembered |
 | `plugins/`, `plugins.json` | your plugins, and which are switched on or off |
+| `tools/`, `bin/` | programs installed for plugins when you ask for them (jacobian, hillclimb); not exported, since they can be installed again |
 
 **Apart from Pi's own setup.** wizardry ships the Pi it runs and points it at `~/.wizardry/pi`,
 whatever `PI_CODING_AGENT_DIR` says. A Pi installed on the same machine (`~/.pi/agent`) is another
@@ -281,7 +282,9 @@ A few default plugins ship in [`defaults/`](defaults) and are on for everyone:
   (a concept is formed from the problem it answers, by counterexample and verification) and
   [jacobian](https://github.com/morluto/jacobian) (exact, typed mathematical operations), and
   includes no code of any; when hillclimb or jacobian is installed, the method says how to hand
-  a long search to the one and exact quantities to the other. Definitions are kept in
+  a long search to the one and exact quantities to the other. They are about 650 MB together with
+  the Python they need, so they are not installed by default: `WIZARDRY_WITH_TOOLS=1` on the
+  installer adds them, inside `~/.wizardry/tools` (the method gives the same command for later). Definitions are kept in
   `~/.wizardry/defintire/`, so export and delete take them along.
 
 Switch a default off with `plugin_unload` and `persist: true`; change one by putting a file or
