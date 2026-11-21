@@ -26,6 +26,9 @@
 // One deliberate exception to "a plugin reaches the agent only through actions": when Pi compacts
 // the context, this plugin supplies the summary. Nothing else is added to the prompt.
 //
+// `wizardry export` gets everything remembered: the store itself, and every memory as data and
+// as text to read.
+//
 // If what it relies on is missing (SQLite in this Node, a model with credentials), it stays out of
 // the way: nothing is observed, Pi compacts by itself, and the recall actions say why.
 //
@@ -34,7 +37,7 @@
 //     chunkTokens, flushTokens, poolTargetTokens, consolidateAtPoolTokens, journeyTokens,
 //     topicTokens, concurrency, timeoutMs, quitWaitMs }
 
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import bend from './core.mjs'
@@ -755,6 +758,28 @@ export function apply(ctx, config = {}) {
   ctx.on('action/after', () => { void tick(false) })
   ctx.on('task/end', () => { void tick(true) })
   try { hook(ctx.root.get('pi')?.api, false) } catch {}
+
+  // `wizardry export` (and every `wizardry delete`, first): everything remembered goes into the
+  // export, as the store itself, as data and as text. With no store there is nothing to write,
+  // and wizardry copies the folder as it is.
+  ctx.on('export', async (to, wrote) => {
+    await ready
+    if (!store) return
+    const folder = join(to, bend.export_folder())
+    mkdirSync(folder, { recursive: true })
+    store.snapshot(join(folder, bend.export_store()))
+    const rows = store.all()
+    writeFileSync(join(folder, bend.export_data()), `${JSON.stringify(rows, null, 2)}\n`)
+    const text = [bend.export_head(rows.length)]
+    let previous = ''
+    for (const row of rows) {
+      // How a memory reads is decided in Bend, where it is proven that its text is written whole.
+      text.push(bend.export_entry(previous, Number(row.id), row.kind, row.type, row.time, row.project, row.title, row.text))
+      previous = row.project
+    }
+    writeFileSync(join(folder, bend.export_text()), text.join(''))
+    wrote(bend.export_wrote(rows.length))
+  })
 
   ctx.effect(() => () => {
     live = false

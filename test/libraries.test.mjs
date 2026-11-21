@@ -172,3 +172,32 @@ test('jiti: loads TypeScript and ES module plugins, and reads the file again aft
   writeFileSync(join(dir, 'broken.ts'), `export const = \n`)
   await assert.rejects(jiti.import(join(dir, 'broken.ts')), 'a file that does not parse is an error, not an empty module')
 })
+
+test('pi: its directory follows PI_CODING_AGENT_DIR, read when asked and not when loaded (apart.ts)', () => {
+  const kept = process.env.PI_CODING_AGENT_DIR
+  try {
+    process.env.PI_CODING_AGENT_DIR = '/somewhere/wizardry/pi'
+    assert.equal(pi.getAgentDir(), '/somewhere/wizardry/pi')
+    process.env.PI_CODING_AGENT_DIR = '/somewhere/else'
+    assert.equal(pi.getAgentDir(), '/somewhere/else', 'setting it after Pi is imported is not too late')
+  } finally {
+    if (kept === undefined) delete process.env.PI_CODING_AGENT_DIR
+    else process.env.PI_CODING_AGENT_DIR = kept
+  }
+})
+
+test('pi: the options that keep it from reading what lies around it are still its options (pi_args in core.bend)', () => {
+  const parsed = pi.parseArgs(['--no-themes', '--no-mcp', '--no-approve', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-context-files', '--no-builtin-tools', 'hello'])
+  assert.deepEqual(parsed.messages, ['hello'], 'none of them is taken for a message')
+  assert.equal(parsed.noThemes, true)
+  assert.equal(parsed.noMcp, true)
+  assert.equal(parsed.projectTrustOverride, false, '--no-approve: project-local files are not trusted, and nobody is asked')
+  assert.deepEqual([parsed.noExtensions, parsed.noSkills, parsed.noPromptTemplates, parsed.noContextFiles], [true, true, true, true])
+  assert.deepEqual(parsed.diagnostics ?? [], [])
+})
+
+test('pi: a bash tool can be given the environment its commands see (shell.ts)', async () => {
+  const bash = pi.createBashToolDefinition(scratch(), { spawnHook: (context) => ({ ...context, env: { ...context.env, WIZARDRY_SEEN: 'as it was' } }) })
+  const result = await bash.execute('t1', { command: 'printf "%s" "$WIZARDRY_SEEN"' }, undefined, undefined, undefined)
+  assert.match(result.content.map((part) => part.text).join(''), /as it was/)
+})

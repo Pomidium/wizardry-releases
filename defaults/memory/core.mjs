@@ -1182,6 +1182,61 @@ function $merged(_shown_0, _old_0, _fresh_0) {
   }
 }
 
+function $export_folder() {
+  return "memory";
+}
+
+function $export_store() {
+  return "memory.db";
+}
+
+function $export_data() {
+  return "memories.json";
+}
+
+function $export_text() {
+  return "memories.md";
+}
+
+function $export_head(_count_0) {
+  return $String_concat({$: "Con", "head": "# What wizardry remembers\n\n", "tail": {$: "Con", "head": $$Nat_show(_count_0), "tail": {$: "Con", "head": $$Bool_pick($$Nat_is_eq(_count_0, 1), " memory", " memories"), "tail": {$: "Con", "head": ", by project and then by time. The same are in `memories.json` as data, and `memory.db` is the\n", "tail": {$: "Con", "head": "store itself: put it back at `~/.wizardry/memory/memory.db` and wizardry remembers all of it again.\n\n", "tail": {$: "Nil"}}}}}});
+}
+
+function $export_body(_title_0, _text_0) {
+  if (_title_0 === "") {
+    return (_text_0 + "\n\n");
+  } else {
+    const _h_0 = _title_0.slice(0, char_len(_title_0));
+    const _t_0 = _title_0.slice(char_len(_title_0));
+    const _x_0 = (_text_0 + "\n\n");
+    const _x_1 = (_h_0 + _t_0);
+    const _x_2 = ("\n\n" + _x_0);
+    return (_x_1 + _x_2);
+  }
+}
+
+function $export_kind(_kind_0, _sort_0) {
+  const _x_0 = $$String_is_empty(_sort_0);
+  const _x_1 = $$String_eq(_kind_0, "topic");
+  return $Bool_pick((_x_0 || _x_1), _kind_0, $$String_concat({$: "Con", "head": _kind_0, "tail": {$: "Con", "head": " (", "tail": {$: "Con", "head": _sort_0, "tail": {$: "Con", "head": ")", "tail": {$: "Nil"}}}}}));
+}
+
+function $export_place(_id_0, _kind_0, _sort_0, _time_0) {
+  return $String_concat({$: "Con", "head": "### #", "tail": {$: "Con", "head": $$Nat_show(_id_0), "tail": {$: "Con", "head": " · ", "tail": {$: "Con", "head": $$export_kind(_kind_0, _sort_0), "tail": {$: "Con", "head": " · ", "tail": {$: "Con", "head": _time_0, "tail": {$: "Con", "head": "\n\n", "tail": {$: "Nil"}}}}}}}});
+}
+
+function $export_project(_previous_0, _project_0) {
+  return $Bool_pick($$String_eq(_previous_0, _project_0), "", $$String_concat({$: "Con", "head": "## ", "tail": {$: "Con", "head": _project_0, "tail": {$: "Con", "head": "\n\n", "tail": {$: "Nil"}}}}));
+}
+
+function $export_entry(_previous_0, _id_0, _kind_0, _sort_0, _time_0, _project_0, _title_0, _text_0) {
+  return $String_concat({$: "Con", "head": $$export_project(_previous_0, _project_0), "tail": {$: "Con", "head": $$export_place(_id_0, _kind_0, _sort_0, _time_0), "tail": {$: "Con", "head": $$export_body(_title_0, _text_0), "tail": {$: "Nil"}}}});
+}
+
+function $export_wrote(_count_0) {
+  return $String_concat({$: "Con", "head": $$Nat_show(_count_0), "tail": {$: "Con", "head": $$Bool_pick($$Nat_is_eq(_count_0, 1), " memory", " memories"), "tail": {$: "Con", "head": ", in memory/", "tail": {$: "Nil"}}}});
+}
+
 function $Nat_div(_a_0, _b_0) {
   return $Pair_fst(nat_divmod(_a_0, _b_0));
 }
@@ -1872,6 +1927,10 @@ const $$Char_to_lower = $Char_to_lower;
 const $$slug_put = $slug_put;
 const $$field = $field;
 const $$slug = $slug;
+const $$export_kind = $export_kind;
+const $$export_project = $export_project;
+const $$export_place = $export_place;
+const $$export_body = $export_body;
 const $$String_order = $String_order;
 const $$String_trim_start = $String_trim_start;
 const $$Nat_show_put = $Nat_show_put;
@@ -1991,4 +2050,15 @@ const $$List_append = $List_append;export default {
   "elided": run_lib((a0,a1,a2) => run_loop($elided(nat_in(a0),nat_in(a1),nat_in(a2))), 3),
   "map_line": run_lib((a0,a1,a2) => str_out(run_loop($map_line(str_in(a0),str_in(a1),str_in(a2)))), 3),
   "merged": run_lib((a0,a1,a2) => str_out(run_loop($merged(a0,str_in(a1),str_in(a2)))), 3),
+  "export_folder": run_lib(() => str_out(run_loop($export_folder())), 0),
+  "export_store": run_lib(() => str_out(run_loop($export_store())), 0),
+  "export_data": run_lib(() => str_out(run_loop($export_data())), 0),
+  "export_text": run_lib(() => str_out(run_loop($export_text())), 0),
+  "export_head": run_lib((a0) => str_out(run_loop($export_head(nat_in(a0)))), 1),
+  "export_body": run_lib((a0,a1) => str_out(run_loop($export_body(str_in(a0),str_in(a1)))), 2),
+  "export_kind": run_lib((a0,a1) => str_out(run_loop($export_kind(str_in(a0),str_in(a1)))), 2),
+  "export_place": run_lib((a0,a1,a2,a3) => str_out(run_loop($export_place(nat_in(a0),str_in(a1),str_in(a2),str_in(a3)))), 4),
+  "export_project": run_lib((a0,a1) => str_out(run_loop($export_project(str_in(a0),str_in(a1)))), 2),
+  "export_entry": run_lib((a0,a1,a2,a3,a4,a5,a6,a7) => str_out(run_loop($export_entry(str_in(a0),nat_in(a1),str_in(a2),str_in(a3),str_in(a4),str_in(a5),str_in(a6),str_in(a7)))), 8),
+  "export_wrote": run_lib((a0) => str_out(run_loop($export_wrote(nat_in(a0)))), 1),
 };

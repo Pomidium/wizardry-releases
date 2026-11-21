@@ -196,27 +196,33 @@ type Command is Data:
   PiOnly{}
   Auth{}
   Update{}
+  Export{}
+  Delete{}
   Run{}
 
-def command_pick(help: Bool, version: Bool, pi: Bool, auth: Bool, update: Bool) -> Command:
-  match help version pi auth update:
-    case True{} _ _ _ _:
+def command_pick(help: Bool, version: Bool, pi: Bool, auth: Bool, update: Bool, export: Bool, delete: Bool) -> Command:
+  match help version pi auth update export delete:
+    case True{} _ _ _ _ _ _:
       Help{}
-    case False{} True{} _ _ _:
+    case False{} True{} _ _ _ _ _:
       Version{}
-    case False{} False{} True{} _ _:
+    case False{} False{} True{} _ _ _ _:
       PiOnly{}
-    case False{} False{} False{} True{} _:
+    case False{} False{} False{} True{} _ _ _:
       Auth{}
-    case False{} False{} False{} False{} True{}:
+    case False{} False{} False{} False{} True{} _ _:
       Update{}
-    case False{} False{} False{} False{} False{}:
+    case False{} False{} False{} False{} False{} True{} _:
+      Export{}
+    case False{} False{} False{} False{} False{} False{} True{}:
+      Delete{}
+    case False{} False{} False{} False{} False{} False{} False{}:
       Run{}
 
 def command_of(+first: String) -> Command:
   command_pick(has(["--help", "-h"], first), has(["--version", "-v"], first),
     has(["install", "remove", "uninstall", "list", "config", "mcp"], first),
-    String.eq(first, "auth"), String.eq(first, "update"))
+    String.eq(first, "auth"), String.eq(first, "update"), String.eq(first, "export"), String.eq(first, "delete"))
 
 # wizardry's own options, taken out of the arguments; the rest are Pi's.
 type Args is Data:
@@ -300,11 +306,22 @@ def unless(skip: Bool, xs: List<&2, String>) -> List<&2, String>:
 def theme_args(rest: List<&2, String>, themes: String, pair: String) -> List<&2, String>:
   List.append(&2, String, ["--theme", themes], unless(has(rest, "--use-theme"), ["--use-theme", pair]))
 
+# What switches off everything Pi would add to the agent by itself.
+def pi_bare() -> List<&2, String>:
+  ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files"]
+
+# What keeps Pi from reading what lies around it: themes it would discover, MCP servers, and the
+# settings and add-ons of whatever project it is started in.
+def pi_apart() -> List<&2, String>:
+  ["--no-themes", "--no-mcp", "--no-approve"]
+
 # The arguments Pi starts with. Pi contributes the loop, the models and the terminal; everything
-# it would add to the agent by itself stays out. A session directory and a theme the user chose win.
+# it would add to the agent by itself stays out, and so does whatever a project or another setup
+# holds for it. A session directory and a theme the user chose win.
 def pi_args(+rest: List<&2, String>, sessions: String, themes: String, pair: String) -> List<&2, String>:
   List.concat(&2, String, [
-    ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files"],
+    pi_bare(),
+    pi_apart(),
     unless(Bool.or(has(rest, "--session-dir"), has(rest, "--no-session")), ["--session-dir", sessions]),
     theme_args(rest, themes, pair),
     rest])
@@ -908,7 +925,9 @@ def help() -> String:
     "  wizardry [options] [messages...]     Start a session (interactive unless -p)",
     "  wizardry plugins                     List loaded plugins and the actions they provide",
     "  wizardry update [on|off]             Update now, or turn automatic updates on or off",
-    "  wizardry auth <command>              Pi's credential commands (wizardry shares Pi's logins)",
+    "  wizardry auth <command>              Log in or out (wizardry keeps its own logins, apart from Pi's)",
+    "  wizardry export [folder]             Copy every conversation and memory to a folder you keep",
+    "  wizardry delete <what> [--yes]       Delete conversations, memories, old (Pi's own setup) or all",
     "",
     "Options:",
     "  --plugin <name|path>   Load a plugin for this run (repeatable)",
@@ -922,6 +941,10 @@ def help() -> String:
     "Plugins load from ~/.wizardry/plugins/, ./.wizardry/plugins/, and ~/.wizardry/plugins.json.",
     "wizardry updates itself in the background whenever it can; /update off in a session stops that.",
     "Nothing asks for approval unless you pass --gate.",
+    "",
+    "wizardry is kept apart: its logins, settings, conversations and memories are all in ~/.wizardry,",
+    "and nothing of Pi's own setup (~/.pi) or of a project's .pi folder is read. `wizardry delete`",
+    "says what it would remove and removes nothing until you add --yes; it exports first.",
     ""], "\n")
 
 def pi_only_text(+first: String, argv: List<&2, String>) -> String:
@@ -1273,6 +1296,7 @@ def shape() -> String:
     "ctx.effect(setup) runs setup IMMEDIATELY and keeps its return value as the cleanup on unload; passing the cleanup itself undoes the setup at once.",
     "Events: action/registered, action/changed, action/unregistered, action/before (return a string to refuse the call), action/after, task/end,",
     "pi/ready (Pi's ExtensionAPI is live), pi/session-start (api, piCtx; per-session choices go here: api.setModel, api.setThinkingLevel).",
+    "export (dir, wrote): `wizardry export` asks for a copy of what you keep; write <home>/<name>/ into <dir>/<name>/ and call wrote(one line).",
     "Services (ctx.pi, ctx.actions, ctx.plugins) come through a tracing proxy: call their methods, but never patch, subclass or store them.",
     "Everything a plugin registers is removed when it is unloaded.",
     "The user sees a call named after the plugin, then the action (\"weather forecast\" for weather_forecast); an action can set `title` to name it differently.",
@@ -1286,3 +1310,592 @@ def inspect_text(lines: List<&2, String>, idle: List<&2, String>) -> String:
 
 def no_map(app: String) -> String:
   String.concat(["No AGENTS.md in ", app, ". This wizardry predates it; the repo has it: https://github.com/Pomidium/wizardry"])
+
+# Kept apart from Pi's own setup
+# ------------------------------
+
+# Where Pi keeps its logins, settings and model lists when wizardry runs it: a folder inside
+# wizardry's own directory. ~/.pi is never read, so nothing installed there reaches a session.
+def own_pi(home: String) -> String:
+  String.append(home, "/pi")
+
+# Where the Pi installed on this machine keeps the same things: where PI_CODING_AGENT_DIR pointed
+# when wizardry started, else ~/.pi/agent. To wizardry that is the old setup.
+def old_pi(+named: String, userhome: String) -> String:
+  Bool.pick(String, String.is_empty(named), String.append(userhome, "/.pi/agent"), named)
+
+# A variable of the environment and what it is set to.
+type Var is Data:
+  Var{name: String, value: String}
+
+# What Pi finds in the environment when wizardry runs it, whatever was there before: its
+# directory is wizardry's, it does not look for a newer Pi (wizardry ships the one it runs), and
+# it does not report this install as one of Pi's.
+def pi_env(home: String) -> List<&2, Var>:
+  [Var{"PI_CODING_AGENT_DIR", own_pi(home)}, Var{"PI_SKIP_VERSION_CHECK", "1"}, Var{"PI_TELEMETRY", "0"}]
+
+# What is taken out of it: where another setup keeps its sessions and its copy of Pi.
+def pi_env_cleared() -> List<&2, String>:
+  ["PI_CODING_AGENT_SESSION_DIR", "PI_PACKAGE_DIR"]
+
+def var_names(vars: List<&2, Var>) -> List<&2, String>:
+  match vars:
+    case Nil{}:
+      Nil{}
+    case Con{Var{name, value}, t}:
+      name <> var_names(t)
+
+# Every variable wizardry changes for Pi. A command the agent runs sees each as it was before.
+def pi_env_touched() -> List<&2, String>:
+  List.append(&2, String, var_names(pi_env("")), pi_env_cleared())
+
+# The files brought over from Pi's own directory, once: the logins and the models added by hand.
+def brought_files() -> List<&2, String>:
+  ["auth.json", "models.json"]
+
+# The settings brought over with them: which model is talked to and how it is reached.
+def brought_settings() -> List<&2, String>:
+  ["defaultProvider", "defaultModel", "defaultThinkingLevel", "modelThinkingLevels", "enabledModels",
+    "httpProxy", "shellPath", "shellCommandPrefix"]
+
+# What Pi's settings can hold that adds to a session or moves it elsewhere. None of it comes over.
+def pi_addons() -> List<&2, String>:
+  ["packages", "extensions", "skills", "prompts", "themes", "enableSkillCommands", "sessionDir",
+    "defaultProjectTrust", "selfUpdateCommand"]
+
+# Of the settings Pi's own setup holds, the ones that are brought over.
+def settings_brought(keys: List<&2, String>) -> List<&2, String>:
+  only(keys, brought_settings())
+
+# Whether logins are brought over: only into a directory that is not there yet, from one that
+# is, and never from a directory onto itself.
+def brings(has_own: Bool, has_old: Bool, old: String, own: String) -> Bool:
+  Bool.and(Bool.not(has_own), Bool.and(has_old, Bool.not(String.eq(old, own))))
+
+def brought_list(files: List<&2, String>) -> String:
+  match files:
+    case Nil{}:
+      "There was nothing to bring over from "
+    case Con{h, t}:
+      String.concat(["Brought over ", String.join(h <> t, ", "), " from "])
+
+# What the user is told the first time wizardry starts apart from Pi's own setup.
+def brought_said(files: List<&2, String>, own: String, +old: String) -> String:
+  String.concat(["logins and settings are now its own, in ", own, ". ", brought_list(files), old,
+    ", which is no longer read: `wizardry delete old` removes it, and `wizardry auth login` signs in here."])
+
+# Paths
+# -----
+
+def with_slash(+dir: String) -> String:
+  Bool.pick(String, String.ends_with(dir, "/"), dir, String.append(dir, "/"))
+
+# Whether `path` is `root` or lies somewhere under it.
+def inside(+path: String, +root: String) -> Bool:
+  Bool.or(String.eq(path, root), String.starts_with(path, with_slash(root)))
+
+# Whether deleting any of `paths` would take `keep` along.
+def takes(paths: List<&2, String>, +keep: String) -> Bool:
+  match paths:
+    case Nil{}:
+      False{}
+    case Con{h, t}:
+      Bool.or(inside(keep, h), takes(t, keep))
+
+# `paths`, or nothing at all when deleting them would take `keep` along.
+def sparing(+paths: List<&2, String>, +keep: String) -> List<&2, String>:
+  Bool.pick(List<&2, String>, takes(paths, keep), Nil{}, paths)
+
+def all_rooted(paths: List<&2, String>) -> Bool:
+  match paths:
+    case Nil{}:
+      True{}
+    case Con{h, t}:
+      Bool.and(String.starts_with(h, "/"), all_rooted(t))
+
+# `paths`, or nothing at all unless every one of them is a full path.
+def rooted(+paths: List<&2, String>) -> List<&2, String>:
+  Bool.pick(List<&2, String>, all_rooted(paths), paths, Nil{})
+
+# `rev` is a path backwards: what holds it starts after the first slash met.
+def parent_go(rev: String) -> String:
+  match rev:
+    case SNil{}:
+      SNil{}
+    case SCon{h, +t}:
+      Bool.pick(String, Char.is_eq(h, '/'), String.reverse(t), parent_go(t))
+
+# The directory a path is in.
+def parent(path: String) -> String:
+  parent_go(String.reverse(path))
+
+def parents(paths: List<&2, String>) -> List<&2, String>:
+  match paths:
+    case Nil{}:
+      Nil{}
+    case Con{h, t}:
+      parent(h) <> parents(t)
+
+# Export
+# ------
+
+# Where conversations are kept.
+def sessions_dir(+home: String) -> String:
+  in_dir(home, "sessions")
+
+# Where an export goes: where the user said, else a folder in their home directory named for the
+# day, and for which export of that day it is when the name is taken.
+def export_dir(+chosen: String, userhome: String, day: String, +again: Nat) -> String:
+  Bool.pick(String, String.is_empty(chosen),
+    String.concat([userhome, "/wizardry-export-", day, Bool.pick(String, Nat.is_eq(again, 0n), "", String.append("-", Nat.show(1n+again)))]),
+    chosen)
+
+# A setup that keeps conversations, and where it keeps them.
+type Origin is Data:
+  Origin{name: String, dir: String}
+
+# The conversations an export copies: wizardry's own, and those of Pi's own setup.
+def origins(+home: String, +old: String) -> List<&2, Origin>:
+  [Origin{"wizardry", sessions_dir(home)}, Origin{"pi", in_dir(old, "sessions")}]
+
+def origin_dirs(origins: List<&2, Origin>) -> List<&2, String>:
+  match origins:
+    case Nil{}:
+      Nil{}
+    case Con{Origin{name, dir}, t}:
+      dir <> origin_dirs(t)
+
+# Whether an export may be written to `dir`: not into the very folders it copies from.
+def export_fits(+dir: String, +home: String, +old: String) -> Bool:
+  Bool.not(takes(origin_dirs(origins(home, old)), dir))
+
+# Whether a file is a conversation.
+def is_conversation(name: String) -> Bool:
+  String.ends_with(name, ".jsonl")
+
+# Where a conversation goes in an export: under the name of the setup it came from, at the path
+# it had there.
+def conversation_to(dir: String, origin: String, rel: String) -> String:
+  String.append(dir, String.concat(["/conversations/", origin, "/", rel]))
+
+# The file beside a conversation that holds it as text to read.
+def readable(+path: String) -> String:
+  Bool.pick(String, String.ends_with(path, ".jsonl"),
+    String.append(String.take(path, Nat.sub(String.length(path), 6n)), ".md"), String.append(path, ".md"))
+
+# A time to the minute: "2026-11-20 19:16:34" is "2026-11-20 19:16".
+def minute(stamp: String) -> String:
+  String.take(stamp, 16n)
+
+def transcript_head(file: String, cwd: String, started: String) -> String:
+  String.concat(["# Conversation of ", minute(started), "\n\n- Directory: ", cwd, "\n- Kept whole in: ", file, "\n\n"])
+
+# How a piece of a conversation is written down.
+type Voice is Data:
+  Said{who: String}
+  Call{}
+  Result{}
+  Ran{}
+  Image{}
+  Silent{}
+
+# What each kind of piece is. Thinking, the system prompt and everything that is not conversation
+# (model changes, what plugins note for themselves) are left to the .jsonl.
+def voice_of(+kind: String) -> Voice:
+  Bool.pick(Voice, String.eq(kind, "user"), Said{"User"},
+    Bool.pick(Voice, String.eq(kind, "assistant"), Said{"Assistant"},
+      Bool.pick(Voice, String.eq(kind, "toolCall"), Call{},
+        Bool.pick(Voice, String.eq(kind, "toolResult"), Result{},
+          Bool.pick(Voice, String.eq(kind, "bashExecution"), Ran{},
+            Bool.pick(Voice, String.eq(kind, "image"), Image{},
+              Bool.pick(Voice, has(["compaction", "branch_summary"], kind), Said{"Summary of what came before"},
+                Bool.pick(Voice, String.eq(kind, "custom_message"), Said{"Note"},
+                  Bool.pick(Voice, String.eq(kind, "error"), Said{"Error"}, Silent{})))))))))
+
+def said_block(who: String, at: String, +body: String) -> String:
+  Bool.pick(String, String.is_empty(body), "", String.concat(["## ", who, " · ", minute(at), "\n\n", body, "\n\n"]))
+
+def more_lines(+more: Nat) -> String:
+  Bool.pick(String, Nat.is_eq(more, 0n), "", String.concat(["\n    ... ", Nat.show(more), " more lines, in the .jsonl"]))
+
+def shown_block(view: View) -> String:
+  match view:
+    case View{shown, more}:
+      String.concat(["    ", String.join(shown, "\n    "), more_lines(more), "\n\n"])
+
+# What a call came back with: its first lines, set apart as a block.
+def result_block(text: String) -> String:
+  shown_block(result_view(text, False{}))
+
+def call_line(name: String, args: String) -> String:
+  String.concat(["> **", name, "** ", clip(squash(args, False{}), 200n), "\n\n"])
+
+def piece_as(voice: Voice, name: String, at: String, text: String) -> String:
+  match voice:
+    case Said{who}:
+      said_block(who, at, String.trim_end(text))
+    case Call{}:
+      call_line(name, text)
+    case Result{}:
+      result_block(text)
+    case Ran{}:
+      String.append(call_line("$", name), result_block(text))
+    case Image{}:
+      "*(an image)*\n\n"
+    case Silent{}:
+      ""
+
+# One piece of a conversation as text to read: what was said in full, a call on one line, what
+# it came back with by its first lines. Empty for what is not written down.
+def piece(kind: String, name: String, at: String, text: String) -> String:
+  piece_as(voice_of(kind), name, at, text)
+
+def counted(+n: Nat, one: String, many: String) -> String:
+  String.concat([Nat.show(n), " ", Bool.pick(String, Nat.is_eq(n, 1n), one, many)])
+
+# How many conversations an export took from one setup.
+type Tally is Data:
+  Tally{name: String, from: String, count: Nat}
+
+def tally_lines(tallies: List<&2, Tally>) -> List<&2, String>:
+  match tallies:
+    case Nil{}:
+      Nil{}
+    case Con{Tally{name, from, +count}, t}:
+      keep_if(Bool.not(Nat.is_eq(count, 0n)),
+        String.concat([counted(count, "conversation", "conversations"), " from ", from, ", in conversations/", name, "/"]), tally_lines(t))
+
+def bulleted(lines: List<&2, String>) -> List<&2, String>:
+  match lines:
+    case Nil{}:
+      Nil{}
+    case Con{h, t}:
+      String.append("- ", h) <> bulleted(t)
+
+def or_nothing(lines: List<&2, String>) -> List<&2, String>:
+  match lines:
+    case Nil{}:
+      ["nothing: no conversation and no memory was found"]
+    case Con{h, t}:
+      h <> t
+
+# The folders of wizardry's directory that are not a plugin's data: the program, the plugins,
+# the conversations (copied one by one) and Pi's directory, whose logins stay where they are.
+def own_folders() -> List<&2, String>:
+  ["app", "plugins", "sessions", "pi", "update.lock"]
+
+# A plugin that keeps data keeps it in a folder of wizardry's directory and exports it into a
+# folder of the same name. The folders nobody exported are copied as they are, so that nothing
+# kept is missing from an export because its plugin was switched off or does not export.
+def left_over(folders: List<&2, String>, written: List<&2, String>) -> List<&2, String>:
+  without(without(folders, own_folders()), written)
+
+def left_over_line(name: String) -> String:
+  String.concat([name, "/ as it was kept: no loaded plugin exported it"])
+
+# What an export holds: the conversations taken from each setup, then what each plugin wrote.
+def export_lines(tallies: List<&2, Tally>, wrote: List<&2, String>) -> List<&2, String>:
+  or_nothing(List.append(&2, String, tally_lines(tallies), wrote))
+
+# The note left in an export, saying what is in it.
+def export_readme(day: String, +lines: List<&2, String>) -> String:
+  String.concat(["# wizardry export of ", day, "\n\n",
+    "Everything here is a copy: nothing was removed from where it was kept.\n\n",
+    String.join(bulleted(lines), "\n"), "\n\n",
+    "Each conversation is here twice. The `.jsonl` is the session exactly as it was kept, and\n",
+    "`wizardry --session <that file>` carries it on. The `.md` beside it is the same conversation\n",
+    "as text to read.\n"])
+
+# What `wizardry export` says when it is done.
+def export_said(dir: String, lines: List<&2, String>) -> String:
+  String.concat(["exported to ", dir, ":\n", String.join(indented(lines), "\n"), "\n"])
+
+def export_inside(dir: String) -> String:
+  String.concat(["not exported: ", dir, " is inside the conversations it would copy. Name another folder."])
+
+def export_taken(dir: String) -> String:
+  String.concat(["not exported: ", dir, " is not empty. Name a new folder, so that nothing in it is overwritten."])
+
+def export_broke(why: String) -> String:
+  String.append("the export did not finish: ", why)
+
+def export_usage() -> String:
+  "usage: wizardry export [folder]"
+
+# The command line of export and delete
+# -------------------------------------
+
+def is_option(arg: String) -> Bool:
+  String.starts_with(arg, "-")
+
+# The arguments that are neither options nor the value of --to. `value` is set while reading it.
+def bare(argv: List<&2, String>, +value: Bool) -> List<&2, String>:
+  match argv:
+    case Nil{}:
+      Nil{}
+    case Con{+h, t}:
+      keep_if(Bool.not(Bool.or(value, is_option(h))), h, bare(t, Bool.and(Bool.not(value), String.eq(h, "--to"))))
+
+def options(argv: List<&2, String>) -> List<&2, String>:
+  match argv:
+    case Nil{}:
+      Nil{}
+    case Con{+h, t}:
+      keep_if(is_option(h), h, options(t))
+
+def first_of(xs: List<&2, String>) -> String:
+  match xs:
+    case Nil{}:
+      ""
+    case Con{h, t}:
+      h
+
+# What follows `flag` among the arguments, or nothing.
+def value_after(argv: List<&2, String>, +flag: String) -> String:
+  match argv:
+    case Nil{}:
+      ""
+    case Con{h, +t}:
+      Bool.pick(String, String.eq(h, flag), first_of(t), value_after(t, flag))
+
+# `wizardry export [folder]`: the folder asked for (empty for none), or nothing when unclear.
+def export_asked(+argv: List<&2, String>) -> Maybe<&2, String>:
+  +words = bare(argv, False{})
+  Bool.pick(Maybe<&2, String>, Bool.and(List.is_empty(&2, String, options(argv)), Nat.is_lt(List.length(&2, String, words), 2n)),
+    Some{first_of(words)}, None{})
+
+# What `wizardry delete` was asked: what to delete, whether to go ahead, whether the export is
+# waived, where the export goes, and whether all of that was clear.
+type Removal is Data:
+  Removal{what: String, yes: Bool, waived: Bool, to: String, clear: Bool}
+
+def delete_asked(+argv: List<&2, String>) -> Removal:
+  +words = bare(argv, False{})
+  Removal{first_of(words), Bool.or(has(argv, "--yes"), has(argv, "-y")), has(argv, "--no-export"), value_after(argv, "--to"),
+    Bool.and(Nat.is_eq(List.length(&2, String, words), 1n), covers(["--yes", "-y", "--no-export", "--to"], options(argv)))}
+
+# Delete
+# ------
+
+# What can be deleted.
+type What is Data:
+  Conversations{}
+  Memories{}
+  Old{}
+  All{}
+  Unknown{}
+
+def what_pick(conversations: Bool, memories: Bool, old: Bool, all: Bool) -> What:
+  match conversations memories old all:
+    case True{} _ _ _:
+      Conversations{}
+    case False{} True{} _ _:
+      Memories{}
+    case False{} False{} True{} _:
+      Old{}
+    case False{} False{} False{} True{}:
+      All{}
+    case False{} False{} False{} False{}:
+      Unknown{}
+
+def what_of(+word: String) -> What:
+  what_pick(String.eq(word, "conversations"), String.eq(word, "memories"), String.eq(word, "old"), String.eq(word, "all"))
+
+# Pi's own setup counts as old only when it is neither wizardry's directory nor inside it.
+def old_wanted(+old: String, +home: String) -> List<&2, String>:
+  sparing(Bool.pick(List<&2, String>, inside(old, home), Nil{}, [old]), home)
+
+# `paths`, or nothing at all unless wizardry's directory is itself a full path.
+def based(+home: String, paths: List<&2, String>) -> List<&2, String>:
+  unless(Bool.not(String.starts_with(home, "/")), paths)
+
+# What each word names: wizardry's conversations, its memories, Pi's own setup, or all of wizardry.
+def wanted(what: What, +home: String, +old: String) -> List<&2, String>:
+  match what:
+    case Conversations{}:
+      based(home, [sessions_dir(home)])
+    case Memories{}:
+      based(home, [in_dir(home, "memory")])
+    case Old{}:
+      based(home, old_wanted(old, home))
+    case All{}:
+      based(home, [home])
+    case Unknown{}:
+      Nil{}
+
+# What `wizardry delete <what>` removes. It is nothing at all unless every path is a full one,
+# and nothing at all when removing them would take the user's home directory along, or the
+# export that was just made of them.
+def doomed(what: What, +home: String, +old: String, +userhome: String, +to: String) -> List<&2, String>:
+  sparing(sparing(rooted(wanted(what, home, old)), userhome), to)
+
+# How an export asked for before a deletion ended.
+type Exported is Data:
+  Kept{}
+  Failed{}
+  Waived{}
+
+# Of what would be removed, what is: all of it once the user said --yes and the export is kept
+# (or was waived with --no-export), and otherwise nothing.
+def goes(paths: List<&2, String>, yes: Bool, exported: Exported) -> List<&2, String>:
+  match yes exported:
+    case True{} Kept{}:
+      paths
+    case True{} Waived{}:
+      paths
+    case True{} Failed{}:
+      Nil{}
+    case False{} _:
+      Nil{}
+
+# The folders left empty by deleting Pi's own setup (~/.pi, once ~/.pi/agent is gone). They are
+# removed only if empty, and never the user's home directory.
+def emptied(what: What, doomed: List<&2, String>, +userhome: String) -> List<&2, String>:
+  match what:
+    case Old{}:
+      sparing(rooted(parents(doomed)), userhome)
+    case Conversations{}:
+      Nil{}
+    case Memories{}:
+      Nil{}
+    case All{}:
+      Nil{}
+    case Unknown{}:
+      Nil{}
+
+# A command on the PATH that is a link, and what it points to.
+type Link is Data:
+  Link{path: String, target: String}
+
+# The links that would point at nothing once `doomed` is deleted. They go with it.
+def dangling(links: List<&2, Link>, +doomed: List<&2, String>) -> List<&2, String>:
+  match links:
+    case Nil{}:
+      Nil{}
+    case Con{Link{path, target}, t}:
+      keep_if(takes(doomed, target), path, dangling(t, doomed))
+
+# Where commands that are links are looked for: beside the one wizardry was started by, where the
+# installer puts them, and the link an old install left at ~/.izardry.
+def link_dirs(invoked: String, named: String, userhome: String) -> List<&2, String>:
+  without(add(add([parent(invoked)], named), String.append(userhome, "/.local/bin")), [""])
+
+def old_home_link(userhome: String) -> String:
+  String.append(userhome, "/.izardry")
+
+def delete_usage() -> String:
+  String.join([
+    "usage: wizardry delete <what> [--yes] [--to <folder>] [--no-export]",
+    "",
+    "  conversations   every conversation wizardry has kept",
+    "  memories        everything wizardry remembers",
+    "  old             Pi's own setup, which wizardry no longer reads: its logins, settings,",
+    "                  conversations, extensions and the pi program",
+    "  all             all of wizardry: the program, its plugins, logins, conversations and memories",
+    "",
+    "Without --yes it says what would be deleted and deletes nothing. With --yes it first exports",
+    "every conversation and memory (to --to <folder>, else ~/wizardry-export-<day>), and deletes",
+    "only once that is done; --no-export skips the export.",
+    ""], "\n")
+
+def why_pick(unknown: Bool, based: Bool, none: Bool, loose: Bool, home: Bool, export: Bool, +old: String, +to: String) -> String:
+  match unknown based none loose home export:
+    case True{} _ _ _ _ _:
+      "say what to delete: conversations, memories, old or all"
+    case False{} False{} _ _ _ _:
+      "nothing was deleted: wizardry's directory is not a full path"
+    case False{} True{} True{} _ _ _:
+      String.concat(["nothing to delete: Pi's own directory (", old, ") is wizardry's, inside it, or holds it, so it is not an old setup"])
+    case False{} True{} False{} True{} _ _:
+      String.concat(["nothing was deleted: ", old, " is not a full path"])
+    case False{} True{} False{} False{} True{} _:
+      "nothing was deleted: that would take your home directory along"
+    case False{} True{} False{} False{} False{} True{}:
+      String.concat(["nothing was deleted: the export would go to ", to, ", inside what is deleted. Name another folder with --to."])
+    case False{} True{} False{} False{} False{} False{}:
+      ""
+
+def is_unknown(what: What) -> Bool:
+  match what:
+    case Unknown{}:
+      True{}
+    case Conversations{}:
+      False{}
+    case Memories{}:
+      False{}
+    case Old{}:
+      False{}
+    case All{}:
+      False{}
+
+# Why `wizardry delete <what>` removes nothing, or empty when it would remove something.
+def why_not(+what: What, +home: String, +old: String, +userhome: String, +to: String) -> String:
+  +paths = wanted(what, home, old)
+  why_pick(is_unknown(what), String.starts_with(home, "/"), List.is_empty(&2, String, paths), Bool.not(all_rooted(paths)),
+    takes(paths, userhome), takes(paths, to), old, to)
+
+# A path that would be deleted, and how much is in it.
+type Row is Data:
+  Row{path: String, bytes: Nat}
+
+def size_text(+bytes: Nat) -> String:
+  Bool.pick(String, Nat.is_lt(bytes, 1000n), counted(bytes, "byte", "bytes"),
+    Bool.pick(String, Nat.is_lt(bytes, 1000000n), String.append(Nat.show(Nat.div(bytes, 1000n)), " KB"),
+      Bool.pick(String, Nat.is_lt(bytes, 1000000000n), String.append(Nat.show(Nat.div(bytes, 1000000n)), " MB"),
+        String.append(Nat.show(Nat.div(bytes, 1000000000n)), " GB"))))
+
+def row_lines(rows: List<&2, Row>) -> List<&2, String>:
+  match rows:
+    case Nil{}:
+      Nil{}
+    case Con{Row{path, bytes}, t}:
+      String.concat(["  ", path, "  (", size_text(bytes), ")"]) <> row_lines(t)
+
+def link_lines(links: List<&2, String>) -> List<&2, String>:
+  match links:
+    case Nil{}:
+      Nil{}
+    case Con{h, t}:
+      String.concat(["  ", h, "  (a command that points into it)"]) <> link_lines(t)
+
+def export_line(waived: Bool, to: String, first: String, then: String) -> String:
+  match waived:
+    case True{}:
+      "Nothing is exported first: you said --no-export."
+    case False{}:
+      String.concat([first, to, then])
+
+# What `wizardry delete <what>` says without --yes: what would go, and that nothing has.
+def delete_preview(+word: String, rows: List<&2, Row>, links: List<&2, String>, to: String, +waived: Bool) -> String:
+  String.join(List.concat(&2, String, [
+    [String.concat(["wizardry delete ", word, " would delete:"])],
+    row_lines(rows),
+    link_lines(links),
+    [export_line(waived, to, "First, every conversation and memory is exported to ", "."),
+      String.concat(["Nothing has been deleted. To go ahead: wizardry delete ", word, " --yes", Bool.pick(String, waived, " --no-export", "")]),
+      ""]]), "\n")
+
+# What it says once it has deleted.
+def deleted_said(rows: List<&2, Row>, links: List<&2, String>, to: String, waived: Bool) -> String:
+  String.join(List.concat(&2, String, [
+    ["deleted:"],
+    row_lines(rows),
+    link_lines(links),
+    [export_line(waived, to, "Every conversation and memory was exported first, to ", "."), ""]]), "\n")
+
+# What is said when what was named is not on this machine.
+def nothing_there(what: What) -> String:
+  match what:
+    case Conversations{}:
+      "nothing to delete: wizardry has kept no conversation"
+    case Memories{}:
+      "nothing to delete: wizardry remembers nothing"
+    case Old{}:
+      "nothing to delete: there is no setup of Pi's own on this machine"
+    case All{}:
+      "nothing to delete: wizardry's directory is not there"
+    case Unknown{}:
+      "nothing to delete"
+
+def export_first_failed(why: String) -> String:
+  String.concat(["nothing was deleted: the export did not finish (", why, "). Fix that, or pass --no-export to delete without one."])

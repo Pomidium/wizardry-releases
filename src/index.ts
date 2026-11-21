@@ -3,3 +3,5 @@ export { Actions, type Action, type ActionEnv, type ActionResult, type Registere
 export { Pi, basePrompt } from './pi.js'
 export { Plugins, type PluginRecord } from './plugins.js'
 export { boot, wizardryHome, restartArgs, DEFAULTS, type BootOptions } from './boot.js'
+export { keepApart, oldPi } from './apart.js'
+export { exportTo, places, type Places } from './keep.js'

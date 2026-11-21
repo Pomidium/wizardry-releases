@@ -54,16 +54,66 @@ wizardry                      # interactive session
 wizardry -p "outcome"         # run once and print
 wizardry plugins              # what is loaded, and the actions each plugin provides
 wizardry update [on|off]      # update now, or switch automatic updates
+wizardry export [folder]      # copy every conversation and memory to a folder you keep
+wizardry delete <what>        # say what would be deleted; add --yes to export, then delete
 wizardry --gate               # opt out of YOLO: ask before bash, write, edit, plugin changes
 wizardry --plugin ./x.ts      # load a plugin for this run
 ```
 
 Every other option goes to Pi unchanged (`--model`, `--thinking`, `-c`, `-r`, `--mode json`, ...).
-wizardry uses Pi's logins and models; `wizardry auth login` is Pi's `auth` command.
+`wizardry auth login` signs in: it is Pi's `auth` command, run on wizardry's own logins.
 
 wizardry starts with its own header, an ASCII wizard's cap, and its own blue themes: `wizardry` on a
 dark terminal and `wizardry-light` on a light one (`themes/`, logo and header in `src/look.ts`).
 `--use-theme <name>` picks another theme for a run, for example `--use-theme system`.
+
+## Kept apart
+
+wizardry is one directory, `~/.wizardry` (`WIZARDRY_HOME` moves all of it), and nothing outside it
+is read or written:
+
+| In `~/.wizardry` | What |
+|---|---|
+| `app/` | the program, as the installer cloned it |
+| `pi/` | logins, settings and model lists of the Pi that wizardry runs |
+| `sessions/` | every conversation |
+| `memory/` | everything remembered |
+| `plugins/`, `plugins.json` | your plugins, and which are switched on or off |
+
+**Apart from Pi's own setup.** wizardry ships the Pi it runs and points it at `~/.wizardry/pi`,
+whatever `PI_CODING_AGENT_DIR` says. A Pi installed on the same machine (`~/.pi/agent`) is another
+program with another setup: its extensions, packages, skills, prompt templates, themes, MCP
+servers and settings never reach a wizardry session, and neither does a project's `.pi` folder.
+Pi's own update notice is off too, since updating that Pi does not change the one wizardry runs.
+The first time, the logins (`auth.json`, `models.json`) and the settings that say which model is
+talked to and how it is reached are copied over, once, and wizardry says so; nothing else comes
+along and Pi's directory is only read. From then on the two sign in separately: a login made
+in one is not made in the other, and where a provider replaces a login each time it is renewed, the
+copy the other holds stops working and that one signs in again. A command the agent runs sees the
+environment wizardry was started in, so `pi` run from a session is still your Pi.
+
+**Export.** `wizardry export` copies every conversation and memory into
+`~/wizardry-export-<day>` (or the folder you name, which must be new or empty: nothing is
+overwritten). Conversations come from wizardry and from Pi's own setup, each twice: the `.jsonl`
+exactly as it was kept, which `wizardry --session <file>` carries on, and a `.md` beside it to
+read. Memories come as the store itself (`memory.db`), as data and as text. A plugin that keeps
+data exports its own folder when the `export` event reaches it; a folder nobody exported is
+copied as it is. Logins are not exported.
+
+**Delete.** `wizardry delete <what>` says what would go and how big it is, and deletes nothing.
+With `--yes` it exports first (`--to <folder>` says where, `--no-export` skips it) and deletes
+only once the export is kept:
+
+| `<what>` | Removes |
+|---|---|
+| `conversations` | `~/.wizardry/sessions` |
+| `memories` | `~/.wizardry/memory` |
+| `old` | Pi's own setup: `~/.pi/agent` with its logins, settings, conversations, extensions and the `pi` program, the `pi` command that points into it, and `~/.pi` if that leaves it empty. wizardry keeps working: it has its own logins |
+| `all` | all of `~/.wizardry`, and the `wizardry` command when it points into it |
+
+It is proven that nothing is deleted without `--yes` or after an export that failed, that what is
+deleted never includes your home directory or the export, and that deleting the old setup never
+touches wizardry.
 
 ## The idea
 
@@ -76,7 +126,8 @@ dark terminal and `wizardry-light` on a light one (`themes/`, logo and header in
   (`become`, `focus`, `think`) exist, and are never applied for it.
 - **You state the outcome.** The system prompt is seven lines (`basePrompt` in `src/pi.ts`): who it
   is, that tools are options, the working directory and the date. Pi's own tools, extensions,
-  skills, prompt templates and `AGENTS.md` loading are switched off.
+  skills, prompt templates, themes, MCP servers and `AGENTS.md` loading are switched off, and it
+  reads nothing from `~/.pi` or a project's `.pi` (see Kept apart).
 - **YOLO by default.** Nothing asks for approval. `gate` is a plugin like any other.
 
 ## Builtin plugins
@@ -145,8 +196,10 @@ agent does not see them.
 
 Events: `action/registered`, `action/unregistered`, `action/before` (return a string to refuse the
 call), `action/changed`, `action/after`, `task/end` (the agent finished and is waiting for the
-user), `pi/ready` (Pi's extension API is live) and `pi/session-start` (a session began, a resumed
-one counts). `ctx.actions.wrap(name, { note, properties, around })` puts a layer around another
+user), `pi/ready` (Pi's extension API is live), `pi/session-start` (a session began, a resumed
+one counts) and `export` (`(dir, wrote)`: the user asked for a copy of everything; a plugin that
+keeps data in `~/.wizardry/<name>/` writes it to `<dir>/<name>/` and calls `wrote` with one line
+saying what is there). `ctx.actions.wrap(name, { note, properties, around })` puts a layer around another
 plugin's action, as `rtk` does. Services: `ctx.actions`, `ctx.plugins`, `ctx.pi`. They come through
 a tracing proxy: calling their methods is all you should do with them — don't patch, subclass or
 store them.
@@ -211,8 +264,9 @@ In this repo, anything that can be written in Bend is written in Bend. wizardry'
 computations and texts are in [Bend](https://bend-lang.com) in [`bend/core.bend`](bend/core.bend):
 which plugins load at start and what switching one off or on writes down, how the command line is
 split between wizardry and Pi, what a restart carries over, how calls and results are shown, what
-`focus` leaves in front of the agent, what `update` was asked for, and the wizard's cap, frame by
-frame. The host around them stays TypeScript, because Pi, Cordis and plugins are JavaScript.
+`focus` leaves in front of the agent, what `update` was asked for, where Pi is pointed and what
+comes over from its own setup, where an export goes and how a conversation reads in it, what
+`delete` may remove and when, and the wizard's cap, frame by frame. The host around them stays TypeScript, because Pi, Cordis and plugins are JavaScript.
 
 [`LAWS.bend`](LAWS.bend) states what must hold of those decisions for every input, and
 [`PROOF.bend`](PROOF.bend) proves each law. Among them:
@@ -227,6 +281,14 @@ frame. The host around them stays TypeScript, because Pi, Cordis and plugins are
 - **The command line.** Arguments that are not wizardry's reach Pi unchanged and in order; Pi always
   starts with its own tools, extensions, skills, templates and context files off; a theme you ask
   for is not overridden; a restart never resumes or opens a different session.
+- **Kept apart.** Pi's directory is inside wizardry's and Pi is pointed at it whatever the
+  environment says; Pi starts with theme discovery, MCP servers and project-local files off; of
+  Pi's own settings nothing but the ones named comes over, and never packages, extensions, skills,
+  prompt templates or themes; logins are never brought over onto a directory that is there.
+- **Export and delete.** A conversation is exported inside the export's folder. Nothing is deleted
+  without `--yes`, nor after an export that did not finish; what is deleted never includes your
+  home directory or the export; and deleting the old setup removes nothing that is wizardry's
+  directory, holds it, or is inside it.
 - **The agent's tools.** `focus` can never be put away, what is taken up is there afterwards, and
   what is put away is gone. The standing prompt is the base prompt, and what the agent writes for
   itself only ever comes after it.

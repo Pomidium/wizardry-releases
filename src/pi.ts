@@ -132,9 +132,10 @@ export class Pi extends Service {
     const piCtx = this.live
     // Whether it starts again now is decided in Bend, where it is proven that it never does
     // while the agent is working (LAWS.bend, restart_waits).
-    // Pi is only asked whether the agent is idle when the answer could matter.
-    const tui = piCtx?.mode === 'tui'
-    const idle = this.restartWanted && tui && !!piCtx?.isIdle()
+    // Pi is only asked about the session when the answer could matter: once a session has ended
+    // (a -p run that is done), its context throws when read.
+    const tui = this.restartWanted && piCtx?.mode === 'tui'
+    const idle = tui && !!piCtx?.isIdle()
     if (!this.api || !piCtx || !core.restartsNow(this.restartWanted, true, tui, idle)) return
     this.restartWanted = false
     this.handoff = {
@@ -182,6 +183,9 @@ export class Pi extends Service {
         if (resumed.note) piCtx.ui.notify(resumed.note, 'info')
       }
       this.ctx.root.emit('pi/session-start', pi, piCtx)
+    })
+    pi.on('session_shutdown', () => {
+      this.live = undefined
     })
     pi.on('agent_end', () => {
       this.ctx.root.emit('task/end')

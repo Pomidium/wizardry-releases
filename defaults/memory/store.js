@@ -191,6 +191,16 @@ export async function openStore(file) {
       return { anchor, rows: [...earlier, anchor, ...later] }
     },
 
+    /** Every memory, by project and then in the order it was made. */
+    all() {
+      return db.prepare(`SELECT ${COLUMNS} FROM memories ORDER BY project, epoch, id`).all()
+    },
+
+    /** Write the whole store to `to` as a database of its own, complete as of now. */
+    snapshot(to) {
+      db.prepare('VACUUM INTO ?').run(to)
+    },
+
     counts(project) {
       const rows = db.prepare(`SELECT kind, COUNT(*) AS n FROM memories ${project ? 'WHERE project = ?' : ''} GROUP BY kind`)
         .all(...(project ? [project] : []))

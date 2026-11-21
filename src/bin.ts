@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { keepApart } from './apart.js'
 import { adoptOldName, boot, wizardryHome, restartArgs } from './boot.js'
 import { core } from './core.js'
+import { deleteCommand, exportCommand } from './keep.js'
 import { THEME_DIR, THEME_PAIR, VERSION } from './look.js'
 import type { Handoff } from './pi.js'
 import { APP_DIR, updateNow } from './plugins/update.js'
@@ -29,13 +30,24 @@ async function run() {
     process.exitCode = 2
     return
   }
+  if (command === 'Update') return update(argv[1])
+
+  // From here on Pi is involved: it is pointed at wizardry's own directory, never at ~/.pi.
+  const apart = keepApart(wizardryHome())
+  if (apart) process.stderr.write(`${core.updateSaid(apart)}\n`)
   if (command === 'Auth') {
     const { main } = await import('@earendil-works/pi-coding-agent')
     await main(argv)
     return
   }
-
-  if (command === 'Update') return update(argv[1])
+  if (command === 'Export') {
+    process.exitCode = await exportCommand(argv.slice(1))
+    return
+  }
+  if (command === 'Delete') {
+    process.exitCode = await deleteCommand(argv.slice(1))
+    return
+  }
 
   const split = core.splitArgs(argv)
   if (!split) throw new Error('--plugin needs a name or path')
@@ -56,11 +68,12 @@ async function run() {
 
   const pi = root.get('pi')
   if (!pi) throw new Error('the "pi" plugin is not loaded, so there is no agent to run')
-  const sessions = join(home, 'sessions')
+  const sessions = core.sessionsDir(home)
   mkdirSync(sessions, { recursive: true })
   // Pi contributes the loop, the models and the terminal. Everything it would add to the
-  // agent on its own (tools, extensions, skills, templates, context files) stays out:
-  // what the agent can do comes from Cordis plugins, as tool calls.
+  // agent on its own (tools, extensions, skills, templates, context files) stays out, and so
+  // does what lies around it (a project's .pi folder, themes, MCP servers): what the agent can
+  // do comes from Cordis plugins, as tool calls.
   const piArgs = core.piArgs(rest, sessions, THEME_DIR, THEME_PAIR)
   pi.resumed = resumed
   // Pi leaves through process.exit. If it left to restart, this process becomes the next one.

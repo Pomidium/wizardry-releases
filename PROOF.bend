@@ -947,15 +947,15 @@ def regroup(+u: List<&2, String>, +t: List<&2, String>, +rest: List<&2, String>)
 
 def user_args_proof(+rest: List<&2, String>, +sessions: String, +themes: String, +pair: String) ->
   {C.pi_args(rest, sessions, themes, pair) == List.append(&2, String,
-    List.append(&2, String, ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files"],
+    List.append(&2, String, ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-themes", "--no-mcp", "--no-approve"],
       List.append(&2, String,
         C.unless(Bool.or(C.has(rest, "--session-dir"), C.has(rest, "--no-session")), ["--session-dir", sessions]),
         C.theme_args(rest, themes, pair))), rest) : List<&2, String>}:
-  %regroup(C.unless(Bool.or(C.has(rest, "--session-dir"), C.has(rest, "--no-session")), ["--session-dir", sessions]), C.theme_args(rest, themes, pair), rest) : {C.pi_args(rest, sessions, themes, pair) == List.append(&2, String, ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files"], _) : List<&2, String>}
+  %regroup(C.unless(Bool.or(C.has(rest, "--session-dir"), C.has(rest, "--no-session")), ["--session-dir", sessions]), C.theme_args(rest, themes, pair), rest) : {C.pi_args(rest, sessions, themes, pair) == List.append(&2, String, ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-themes", "--no-mcp", "--no-approve"], _) : List<&2, String>}
   {==}
 
 def Laws.user_args_reach_pi(rest, sessions, themes, pair):
-  (List.append(&2, String, ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files"],
+  (List.append(&2, String, ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-themes", "--no-mcp", "--no-approve"],
     List.append(&2, String,
       C.unless(Bool.or(C.has(rest, "--session-dir"), C.has(rest, "--no-session")), ["--session-dir", sessions]),
       C.theme_args(rest, themes, pair))),
@@ -1097,3 +1097,174 @@ def Laws.adopting_overwrites_nothing(named, has_home, has_old, link):
 
 def Laws.cap_rests_off_screen():
   {==}
+
+# Kept apart, export and delete
+# -----------------------------
+
+def Laws.pi_dir_is_wizardrys(home):
+  starts(home, "/pi")
+
+def Laws.pi_is_pointed_home(home):
+  {==}
+
+def Laws.pi_reads_nothing_around(rest, sessions, themes, pair):
+  {==}
+
+def Laws.addons_stay_behind():
+  {==}
+
+# A name that is kept is one of the good ones.
+def named_step2(
+  b: Bool, -h: String, -rest: List<&2, String>, -good: List<&2, String>,
+  eb: {C.has(good, h) == b : Bool},
+  ih: {C.covers(good, rest) == True{} : Bool}
+) -> {C.covers(good, C.keep_if(b, h, rest)) == True{} : Bool}:
+  match b:
+    case False{}:
+      ih
+    case True{}:
+      %Equal.sym(Bool, C.has(good, h), True{}, eb) : {Bool.and(_, C.covers(good, rest)) == True{} : Bool}
+      ih
+
+def only_good(xs: List<&2, String>, +good: List<&2, String>) -> {C.covers(good, C.only(xs, good)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+h, t}:
+      named_step2(C.has(good, h), h, C.only(t, good), good, {==}, only_good(t, good))
+
+def Laws.only_named_settings_come(keys):
+  only_good(keys, C.brought_settings())
+
+def never_onto_itself(has_own: Bool, has_old: Bool, +dir: String) -> {C.brings(has_own, has_old, dir, dir) == False{} : Bool}:
+  match has_own has_old:
+    case True{} _:
+      {==}
+    case False{} False{}:
+      {==}
+    case False{} True{}:
+      %Equal.sym(Bool, String.eq(dir, dir), True{}, same(dir)) : {Bool.not(_) == False{} : Bool}
+      {==}
+
+def Laws.logins_overwrite_nothing(has_own, has_old, old, own, dir):
+  ({==}, never_onto_itself(has_own, has_old, dir))
+
+def Laws.words_of_keeping():
+  ({==}, {==})
+
+def Laws.export_stays_in_its_folder(dir, origin, rel):
+  starts(dir, String.concat(["/conversations/", origin, "/", rel]))
+
+def Laws.delete_asks_first(paths, exported):
+  {==}
+
+def Laws.delete_waits_for_export(paths, yes):
+  match yes:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+# What is spared for `keep` does not take `keep` along.
+def spared_step(b: Bool, -paths: List<&2, String>, -keep: String, e: {C.takes(paths, keep) == b : Bool}) ->
+  {C.takes(Bool.pick(List<&2, String>, b, Nil{}, paths), keep) == False{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      e
+
+def spared(+paths: List<&2, String>, +keep: String) -> {C.takes(C.sparing(paths, keep), keep) == False{} : Bool}:
+  spared_step(C.takes(paths, keep), paths, keep, {==})
+
+# Paths that take nothing along still take nothing when they are all dropped.
+def still(b: Bool, -paths: List<&2, String>, -keep: String, e: {C.takes(paths, keep) == False{} : Bool}) ->
+  {C.takes(Bool.pick(List<&2, String>, b, Nil{}, paths), keep) == False{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      e
+
+def still_rooted(b: Bool, -paths: List<&2, String>, -keep: String, e: {C.takes(paths, keep) == False{} : Bool}) ->
+  {C.takes(Bool.pick(List<&2, String>, b, paths, Nil{}), keep) == False{} : Bool}:
+  match b:
+    case True{}:
+      e
+    case False{}:
+      {==}
+
+def Laws.delete_keeps_the_export(what, home, old, userhome, to):
+  spared(C.sparing(C.rooted(C.wanted(what, home, old)), userhome), to)
+
+def Laws.delete_spares_your_home(what, home, old, userhome, to):
+  still(C.takes(C.sparing(C.rooted(C.wanted(what, home, old)), userhome), to),
+    C.sparing(C.rooted(C.wanted(what, home, old)), userhome), userhome,
+    spared(C.rooted(C.wanted(what, home, old)), userhome))
+
+# The same two steps for paths none of which is inside `root`.
+def out_still(b: Bool, -paths: List<&2, String>, -root: String, e: {Laws.any_inside(paths, root) == False{} : Bool}) ->
+  {Laws.any_inside(Bool.pick(List<&2, String>, b, Nil{}, paths), root) == False{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      e
+
+def out_rooted(b: Bool, -paths: List<&2, String>, -root: String, e: {Laws.any_inside(paths, root) == False{} : Bool}) ->
+  {Laws.any_inside(Bool.pick(List<&2, String>, b, paths, Nil{}), root) == False{} : Bool}:
+  match b:
+    case True{}:
+      e
+    case False{}:
+      {==}
+
+# Pi's own setup is asked for only when it is not inside wizardry's directory.
+def old_out_step(b: Bool, -old: String, -home: String, e: {C.inside(old, home) == b : Bool}) ->
+  {Laws.any_inside(Bool.pick(List<&2, String>, b, Nil{}, [old]), home) == False{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      %Equal.sym(Bool, C.inside(old, home), False{}, e) : {Bool.or(_, False{}) == False{} : Bool}
+      {==}
+
+# Dropping all of them unless a condition holds changes neither.
+def unless_takes(b: Bool, -paths: List<&2, String>, -keep: String, e: {C.takes(paths, keep) == False{} : Bool}) ->
+  {C.takes(C.unless(b, paths), keep) == False{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      e
+
+def unless_out(b: Bool, -paths: List<&2, String>, -root: String, e: {Laws.any_inside(paths, root) == False{} : Bool}) ->
+  {Laws.any_inside(C.unless(b, paths), root) == False{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      e
+
+def old_takes(+home: String, +old: String, +userhome: String, +to: String) ->
+  {C.takes(C.doomed(C.Old{}, home, old, userhome, to), home) == False{} : Bool}:
+  still(C.takes(C.sparing(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), to),
+    C.sparing(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), home,
+    still(C.takes(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), C.rooted(C.based(home, C.old_wanted(old, home))), home,
+      still_rooted(C.all_rooted(C.based(home, C.old_wanted(old, home))), C.based(home, C.old_wanted(old, home)), home,
+        unless_takes(Bool.not(String.starts_with(home, "/")), C.old_wanted(old, home), home,
+          spared(Bool.pick(List<&2, String>, C.inside(old, home), Nil{}, [old]), home)))))
+
+def old_inside(+home: String, +old: String, +userhome: String, +to: String) ->
+  {Laws.any_inside(C.doomed(C.Old{}, home, old, userhome, to), home) == False{} : Bool}:
+  out_still(C.takes(C.sparing(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), to),
+    C.sparing(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), home,
+    out_still(C.takes(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), C.rooted(C.based(home, C.old_wanted(old, home))), home,
+      out_rooted(C.all_rooted(C.based(home, C.old_wanted(old, home))), C.based(home, C.old_wanted(old, home)), home,
+        unless_out(Bool.not(String.starts_with(home, "/")), C.old_wanted(old, home), home,
+          out_still(C.takes(Bool.pick(List<&2, String>, C.inside(old, home), Nil{}, [old]), home),
+            Bool.pick(List<&2, String>, C.inside(old, home), Nil{}, [old]), home,
+            old_out_step(C.inside(old, home), old, home, {==}))))))
+
+def Laws.old_spares_wizardry(home, old, userhome, to):
+  (old_takes(home, old, userhome, to), old_inside(home, old, userhome, to))

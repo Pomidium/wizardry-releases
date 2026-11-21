@@ -34,7 +34,7 @@ export interface Entry {
 
 const entries = (items: readonly Entry[]) => list(items.map(({ name, path }) => ({ $: 'Entry', name, path })))
 
-export type Command = 'Help' | 'Version' | 'PiOnly' | 'Auth' | 'Update' | 'Run'
+export type Command = 'Help' | 'Version' | 'PiOnly' | 'Auth' | 'Update' | 'Export' | 'Delete' | 'Run'
 /** What `wizardry update` and `/update` were asked for. */
 export type Asked = 'Now' | 'On' | 'Off' | 'Unclear'
 /** What the switch for automatic updates does to the `update` plugin. */
@@ -49,7 +49,52 @@ export interface Loaded {
   source: string
 }
 
+const rows_ = (items: readonly Row[]) => list(items.map(({ path, bytes }) => ({ $: 'Row', path, bytes })))
+
 const loaded = (items: readonly Loaded[]) => list(items.map(({ name, state, source }) => ({ $: 'Loaded', name, state, source })))
+
+/** A variable of the environment and what it is set to. */
+export interface Var {
+  name: string
+  value: string
+}
+
+/** A setup that keeps conversations, and where it keeps them. */
+export interface Origin {
+  name: string
+  dir: string
+}
+
+/** How many conversations an export took from one setup. */
+export interface Tally {
+  name: string
+  from: string
+  count: number
+}
+
+/** A command that is a link, and what it points to. */
+export interface Link {
+  path: string
+  target: string
+}
+
+/** A path that would be deleted, and how much is in it. */
+export interface Row {
+  path: string
+  bytes: number
+}
+
+/** What `wizardry delete` was asked. */
+export interface Removal {
+  what: string
+  yes: boolean
+  waived: boolean
+  to: string
+  clear: boolean
+}
+
+/** How the export that comes before a deletion ended. */
+export type Exported = 'Kept' | 'Failed' | 'Waived'
 
 /** Where the header's text goes, and how wide it may be. */
 export type Layout = { where: 'Beside' | 'Under'; room: number }
@@ -271,4 +316,83 @@ export const core = {
   basePrompt: (cwd: string, date: string): string => bend.base_prompt(cwd, date),
   /** The standing prompt with what the agent wrote for itself. */
   systemPrompt: (base: string, identity: string): string => bend.system_prompt(base, identity),
+
+  /** Where Pi keeps its logins and settings when wizardry runs it: inside wizardry's own directory. */
+  ownPi: (home: string): string => bend.own_pi(home),
+  /** Where the Pi installed on this machine keeps its own, given what PI_CODING_AGENT_DIR said. */
+  oldPi: (named: string, userhome: string): string => bend.old_pi(named, userhome),
+  /** What wizardry sets in the environment for Pi. */
+  piEnv: (home: string): Var[] => array<Var>(bend.pi_env(home)).map(({ name, value }) => ({ name, value })),
+  /** What it takes out of it. */
+  piEnvCleared: (): string[] => array(bend.pi_env_cleared()),
+  /** Every variable it changes; a command the agent runs sees each as it was. */
+  piEnvTouched: (): string[] => array(bend.pi_env_touched()),
+  /** The files brought over from Pi's own directory, once. */
+  broughtFiles: (): string[] => array(bend.brought_files()),
+  /** Of the settings Pi's own setup holds, the ones brought over. */
+  settingsBrought: (keys: readonly string[]): string[] => array(bend.settings_brought(list(keys))),
+  /** Whether logins are brought over now. */
+  brings: (hasOwn: boolean, hasOld: boolean, old: string, own: string): boolean => bend.brings(hasOwn, hasOld, old, own),
+  broughtSaid: (files: readonly string[], own: string, old: string): string => bend.brought_said(list(files), own, old),
+
+  /** Where conversations are kept. */
+  sessionsDir: (home: string): string => bend.sessions_dir(home),
+  /** Where an export goes: where the user said, else a folder named for the day. */
+  exportDir: (chosen: string, userhome: string, day: string, again: number): string => bend.export_dir(chosen, userhome, day, again),
+  /** The setups whose conversations an export copies. */
+  origins: (home: string, old: string): Origin[] => array<Origin>(bend.origins(home, old)).map(({ name, dir }) => ({ name, dir })),
+  /** Whether an export may be written to `dir`. */
+  exportFits: (dir: string, home: string, old: string): boolean => bend.export_fits(dir, home, old),
+  isConversation: (name: string): boolean => bend.is_conversation(name),
+  /** Where a conversation goes in an export. */
+  conversationTo: (dir: string, origin: string, rel: string): string => bend.conversation_to(dir, origin, rel),
+  /** The file beside a conversation that holds it as text to read. */
+  readable: (path: string): string => bend.readable(path),
+  transcriptHead: (file: string, cwd: string, started: string): string => bend.transcript_head(file, cwd, started),
+  /** One piece of a conversation as text to read; empty for what is not written down. */
+  piece: (kind: string, name: string, at: string, text: string): string => bend.piece(kind, name, at, text),
+  /** The folders of wizardry's directory that are copied as they are when no plugin exported them. */
+  leftOver: (folders: readonly string[], written: readonly string[]): string[] => array(bend.left_over(list(folders), list(written))),
+  leftOverLine: (name: string): string => bend.left_over_line(name),
+  /** What an export holds, line by line. */
+  exportLines: (tallies: readonly Tally[], wrote: readonly string[]): string[] =>
+    array(bend.export_lines(list(tallies.map(({ name, from, count }) => ({ $: 'Tally', name, from, count }))), list(wrote))),
+  exportReadme: (day: string, lines: readonly string[]): string => bend.export_readme(day, list(lines)),
+  exportSaid: (dir: string, lines: readonly string[]): string => bend.export_said(dir, list(lines)),
+  exportInside: (dir: string): string => bend.export_inside(dir),
+  exportTaken: (dir: string): string => bend.export_taken(dir),
+  exportBroke: (why: string): string => bend.export_broke(why),
+  exportUsage: (): string => bend.export_usage(),
+  /** `wizardry export [folder]`: the folder asked for (empty for none); undefined when unclear. */
+  exportAsked: (argv: readonly string[]): string | undefined => some<string>(bend.export_asked(list(argv))),
+
+  /** What `wizardry delete` was asked. */
+  deleteAsked(argv: readonly string[]): Removal {
+    const { what, yes, waived, to, clear }: Removal = bend.delete_asked(list(argv))
+    return { what, yes, waived, to, clear }
+  },
+  /** What `wizardry delete <what>` removes; nothing when it may not. */
+  doomed: (what: string, home: string, old: string, userhome: string, to: string): string[] =>
+    array(bend.doomed(bend.what_of(what), home, old, userhome, to)),
+  /** Why it removes nothing, or empty when it would remove something. */
+  whyNot: (what: string, home: string, old: string, userhome: string, to: string): string =>
+    bend.why_not(bend.what_of(what), home, old, userhome, to),
+  /** Of what would be removed, what is, given --yes and how the export ended. */
+  goes: (paths: readonly string[], yes: boolean, exported: Exported): string[] => array(bend.goes(list(paths), yes, { $: exported })),
+  /** The folders left empty by a deletion, removed only if they are. */
+  emptied: (what: string, doomed: readonly string[], userhome: string): string[] =>
+    array(bend.emptied(bend.what_of(what), list(doomed), userhome)),
+  /** The links that would point at nothing once `doomed` is deleted. */
+  dangling: (links: readonly Link[], doomed: readonly string[]): string[] =>
+    array(bend.dangling(list(links.map(({ path, target }) => ({ $: 'Link', path, target }))), list(doomed))),
+  /** Where commands that are links are looked for. */
+  linkDirs: (invoked: string, named: string, userhome: string): string[] => array(bend.link_dirs(invoked, named, userhome)),
+  oldHomeLink: (userhome: string): string => bend.old_home_link(userhome),
+  deleteUsage: (): string => bend.delete_usage(),
+  deletePreview: (word: string, rows: readonly Row[], links: readonly string[], to: string, waived: boolean): string =>
+    bend.delete_preview(word, rows_(rows), list(links), to, waived),
+  deletedSaid: (rows: readonly Row[], links: readonly string[], to: string, waived: boolean): string =>
+    bend.deleted_said(rows_(rows), list(links), to, waived),
+  nothingThere: (what: string): string => bend.nothing_there(bend.what_of(what)),
+  exportFirstFailed: (why: string): string => bend.export_first_failed(why),
 }

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { boot as bootWizardry, restartArgs } from '../dist/index.js'
+import { boot as bootWizardry, keepApart, restartArgs } from '../dist/index.js'
 
 const DEFAULTS_DIR = fileURLToPath(new URL('../defaults', import.meta.url))
 /** Boot without the shipped defaults unless a test asks for them, so each test sees only its own plugins. */
@@ -449,6 +449,14 @@ test('pi announces ready and session-start through cordis events', async () => {
   handlers.agent_end()
   assert.deepEqual(seen, [['ready', 'function'], ['session-start', cwd, true], ['task/end']])
 
+  // A -p run ends before the check that follows the agent's last word: Pi's context for a
+  // session that is over throws when read, and nothing reads it.
+  let over = false
+  handlers.session_start({}, { cwd, get mode() { if (over) throw new Error('this ctx is stale'); return 'print' }, sessionManager: { getBranch: () => [] } })
+  over = true
+  handlers.agent_end()
+  await new Promise((resolve) => setTimeout(resolve, 260))
+
   // In the terminal UI, wizardry's cap replaces both Pi's logo and its spinner.
   const ui = { theme: { fg: (_color, text) => text, bold: (text) => text }, setHeader(factory) { this.header = factory }, setWorkingIndicator(options) { this.working = options } }
   handlers.session_start({}, { cwd, mode: 'tui', ui, sessionManager: { getBranch: () => [] } })
@@ -648,4 +656,199 @@ test('the memory default ships the Bend it was compiled from', () => {
   // PROOF.bend) and copied here by its `npm run ship`. Nothing in it is edited in this repository.
   const core = readFileSync(join(DEFAULTS_DIR, 'memory', 'core.mjs'), 'utf8')
   for (const def of ['chunks', 'strip_private', 'promoted', 'nearest', 'block', 'observer_system']) assert.ok(core.includes(`"${def}":`), def)
+})
+
+// Kept apart, export and delete, on a machine of their own: a home directory with Pi's own setup
+// in it (logins, settings that name packages and extensions, a conversation, the pi program) and
+// a wizardry beside it.
+
+const BIN = fileURLToPath(new URL('../dist/bin.js', import.meta.url))
+
+function machine() {
+  const user = realpathSync(mkdtempSync(join(tmpdir(), 'wizardry-machine-')))
+  const pi = join(user, '.pi', 'agent')
+  const home = join(user, '.wizardry')
+  mkdirSync(join(pi, 'sessions', '--work--'), { recursive: true })
+  mkdirSync(join(pi, 'bin'))
+  mkdirSync(join(user, '.local', 'bin'), { recursive: true })
+  mkdirSync(join(user, 'work'))
+  writeFileSync(join(pi, 'auth.json'), '{"acme":{"type":"api_key","key":"sk-secret"}}', { mode: 0o600 })
+  writeFileSync(join(pi, 'settings.json'), JSON.stringify({
+    defaultProvider: 'acme', defaultModel: 'big', packages: ['npm:bloat'], extensions: ['~/ext.ts'], skills: ['~/skills'],
+    themes: ['~/themes'], prompts: ['~/prompts'], sessionDir: '~/elsewhere', theme: 'dark', lastChangelogVersion: '1.6.0',
+  }))
+  writeFileSync(join(pi, 'bin', 'pi'), '#!/bin/sh\n')
+  symlinkSync('../../.pi/agent/bin/pi', join(user, '.local', 'bin', 'pi'))
+  symlinkSync('/bin/sh', join(user, '.local', 'bin', 'sh-too'))
+  const entry = (n, extra) => JSON.stringify({ id: `e${n}`, timestamp: `2026-11-19T10:0${n}:00.000Z`, ...extra })
+  const conversation = (cwd, said) => [
+    JSON.stringify({ type: 'session', version: 3, id: 's', timestamp: '2026-11-19T10:00:00.000Z', cwd }),
+    entry(1, { type: 'model_change', provider: 'acme', modelId: 'big' }),
+    entry(2, { type: 'message', message: { role: 'user', content: [{ type: 'text', text: said }] } }),
+    entry(3, { type: 'message', message: { role: 'assistant', content: [
+      { type: 'thinking', thinking: 'a private thought' }, { type: 'text', text: 'Looking.' },
+      { type: 'toolCall', id: 'c1', name: 'bash', arguments: { command: 'seq 14' } }] } }),
+    entry(4, { type: 'message', message: { role: 'toolResult', toolName: 'bash', content: [{ type: 'text', text: Array.from({ length: 14 }, (_, i) => i + 1).join('\n') }] } }),
+    entry(5, { type: 'custom', customType: 'memory:observed', data: { v: 1 } }),
+    entry(6, { type: 'message', message: { role: 'assistant', content: [{ type: 'text', text: 'Fourteen lines.' }] } }),
+  ].join('\n') + '\n'
+  writeFileSync(join(pi, 'sessions', '--work--', 'old.jsonl'), conversation('/work', 'count for pi'))
+  mkdirSync(join(home, 'sessions'), { recursive: true })
+  writeFileSync(join(home, 'sessions', 'new.jsonl'), conversation('/work', 'count for wizardry'))
+  const env = { ...process.env, HOME: user, WIZARDRY_NO_UPDATE: '1', CLAUDE_MEM_DATA_DIR: join(user, 'no-claude-mem') }
+  for (const name of ['WIZARDRY_HOME', 'IZARDRY_HOME', 'WIZARDRY_BIN_DIR', 'PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR', 'PI_PACKAGE_DIR']) delete env[name]
+  const run = (args, more = {}) => spawnSync(process.execPath, [BIN, ...args], { env: { ...env, ...more }, cwd: join(user, 'work'), encoding: 'utf8' })
+  return { user, pi, home, run }
+}
+
+/** Every file under a directory, as paths relative to it. */
+const tree = (dir, under = '') => readdirSync(join(dir, under), { withFileTypes: true })
+  .flatMap((entry) => (entry.isDirectory() ? tree(dir, join(under, entry.name)) : [join(under, entry.name)])).sort()
+
+test('wizardry keeps its own logins and settings: Pi\'s come over once, without what Pi\'s setup adds to a session', () => {
+  const { user, pi, home, run } = machine()
+  const before = tree(pi).map((file) => [file, readFileSync(join(pi, file), 'utf8')])
+
+  const first = run(['plugins'])
+  assert.equal(first.status, 0, first.stderr)
+  assert.match(first.stderr, new RegExp(`^wizardry: logins and settings are now its own, in ${home}/pi\\. Brought over auth\\.json, settings\\.json from ${pi}, which is no longer read`, 'm'))
+  assert.equal(readFileSync(join(home, 'pi', 'auth.json'), 'utf8'), '{"acme":{"type":"api_key","key":"sk-secret"}}')
+  assert.equal(statSync(join(home, 'pi', 'auth.json')).mode & 0o077, 0, 'logins are readable by their owner only')
+  assert.equal(statSync(join(home, 'pi')).mode & 0o077, 0)
+  assert.deepEqual(JSON.parse(readFileSync(join(home, 'pi', 'settings.json'), 'utf8')), { defaultProvider: 'acme', defaultModel: 'big' },
+    'which model is talked to comes over; packages, extensions, skills, themes, prompts and a session directory do not')
+  assert.deepEqual(tree(pi).map((file) => [file, readFileSync(join(pi, file), 'utf8')]), before, 'Pi\'s own setup is only read')
+
+  // Once: what wizardry then has is its own, whatever happens to Pi's.
+  writeFileSync(join(home, 'pi', 'auth.json'), '{"acme":{"type":"api_key","key":"sk-own"}}')
+  const second = run(['plugins'])
+  assert.doesNotMatch(second.stderr, /Brought over/)
+  assert.equal(readFileSync(join(home, 'pi', 'auth.json'), 'utf8'), '{"acme":{"type":"api_key","key":"sk-own"}}')
+
+  // Where the environment names another directory for Pi, that one is the setup of Pi's own: it
+  // is what would be read, once, and it is never written to.
+  const where = run(['plugins'], { PI_CODING_AGENT_DIR: join(user, 'somewhere-else'), WIZARDRY_HOME: join(user, 'other-home') })
+  assert.equal(where.status, 0, where.stderr)
+  assert.doesNotMatch(where.stderr, /Brought over/)
+  assert.ok(!existsSync(join(user, 'somewhere-else')) && !existsSync(join(user, 'other-home', 'pi', 'auth.json')))
+})
+
+test('a command the agent runs sees the environment wizardry was started in, not the one it makes for Pi', async () => {
+  const { home, cwd } = scratch()
+  const kept = { ...process.env }
+  process.env.PI_CODING_AGENT_DIR = join(cwd, 'the-users-pi')
+  delete process.env.PI_SKIP_VERSION_CHECK
+  process.env.PI_PACKAGE_DIR = '/nix/store/pi'
+  try {
+    keepApart(home)
+    assert.equal(process.env.PI_CODING_AGENT_DIR, join(home, 'pi'), 'Pi is pointed at wizardry\'s own directory')
+    assert.equal(process.env.PI_SKIP_VERSION_CHECK, '1', 'and does not offer its own update inside wizardry')
+    assert.equal(process.env.PI_PACKAGE_DIR, undefined)
+    assert.ok(!existsSync(join(home, 'pi')), 'with no setup of Pi\'s to bring over, nothing is made up')
+    const { root } = await boot({ home, cwd, defaults: ['shell'] })
+    const out = await root.get('actions').invoke('bash', { command: 'printf "%s|%s|%s" "$PI_CODING_AGENT_DIR" "${PI_SKIP_VERSION_CHECK-unset}" "$PI_PACKAGE_DIR"' }, { cwd })
+    assert.match(out.text ?? out, new RegExp(`${join(cwd, 'the-users-pi')}\\|unset\\|/nix/store/pi`))
+    await root.fiber.dispose()
+  } finally {
+    for (const name of Object.keys(process.env)) if (!(name in kept)) delete process.env[name]
+    Object.assign(process.env, kept)
+  }
+})
+
+test('export copies every conversation and memory to a folder of its own, and never over one that is there', async () => {
+  const { user, pi, home, run } = machine()
+  const { openStore } = await import('../defaults/memory/store.js')
+  const store = await openStore(join(home, 'memory', 'memory.db'))
+  store.add({ kind: 'observation', project: 'work', time: '2026-11-19 10:02', type: 'decision', title: 'Chose blue', text: 'Chose the blue theme over the green one' })
+  store.close()
+  mkdirSync(join(home, 'notes'))
+  writeFileSync(join(home, 'notes', 'kept.txt'), 'by a plugin that is not loaded')
+  run(['plugins'])
+
+  const done = run(['export', join(user, 'keep')])
+  assert.equal(done.status, 0, done.stderr)
+  assert.equal(done.stdout, [
+    `wizardry: exported to ${join(user, 'keep')}:`,
+    `  1 conversation from ${join(home, 'sessions')}, in conversations/wizardry/`,
+    `  1 conversation from ${join(pi, 'sessions')}, in conversations/pi/`,
+    '  1 memory, in memory/',
+    '  notes/ as it was kept: no loaded plugin exported it',
+    ''].join('\n'))
+  assert.deepEqual(tree(join(user, 'keep')), [
+    'README.md', 'conversations/pi/--work--/old.jsonl', 'conversations/pi/--work--/old.md', 'conversations/wizardry/new.jsonl',
+    'conversations/wizardry/new.md', 'memory/memories.json', 'memory/memories.md', 'memory/memory.db', 'notes/kept.txt'])
+  assert.ok(!tree(join(user, 'keep')).some((file) => /auth\.json|settings\.json/.test(file)), 'logins are not conversations: they stay where they are')
+  assert.equal(readFileSync(join(user, 'keep', 'conversations', 'wizardry', 'new.jsonl'), 'utf8'), readFileSync(join(home, 'sessions', 'new.jsonl'), 'utf8'), 'a conversation is kept exactly as it was')
+
+  const text = readFileSync(join(user, 'keep', 'conversations', 'pi', '--work--', 'old.md'), 'utf8')
+  assert.match(text, /^# Conversation of 2026-11-19 \d\d:\d\d\n\n- Directory: \/work\n- Kept whole in: old\.jsonl\n\n## User · 2026-11-19 \d\d:\d\d\n\ncount for pi\n\n## Assistant · [^\n]*\n\nLooking\.\n\n> \*\*bash\*\* \{"command":"seq 14"\}\n\n    1\n    2\n/)
+  assert.match(text, /    10\n    \.\.\. 4 more lines, in the \.jsonl\n\n## Assistant · [^\n]*\n\nFourteen lines\.\n\n$/)
+  assert.doesNotMatch(text, /a private thought|memory:observed|model_change/)
+  assert.match(readFileSync(join(user, 'keep', 'memory', 'memories.md'), 'utf8'), /## work\n\n### #1 · observation \(decision\) · 2026-11-19 10:02\n\nChose blue\n\nChose the blue theme over the green one\n/)
+  assert.match(readFileSync(join(user, 'keep', 'README.md'), 'utf8'), /- 1 memory, in memory\/\n/)
+
+  // The same folder is not written over, and with no folder named each export of a day gets its own.
+  const again = run(['export', join(user, 'keep')])
+  assert.equal(again.status, 1)
+  assert.match(again.stderr, /is not empty\. Name a new folder, so that nothing in it is overwritten\./)
+  const [one, two] = [run(['export']), run(['export'])]
+  const named = (out) => out.stdout.match(/exported to (.*):/)[1]
+  assert.match(named(one), new RegExp(`^${user}/wizardry-export-\\d{4}-\\d\\d-\\d\\d$`))
+  assert.equal(named(two), `${named(one)}-2`)
+  assert.equal(run(['export', join(home, 'sessions', 'inside')]).status, 1, 'nor into the conversations it copies')
+  assert.equal(run(['export', 'a', 'b']).status, 2)
+})
+
+test('delete says what would go and removes nothing until --yes; then it exports first, and removes only what was named', () => {
+  const { user, pi, home, run } = machine()
+  run(['plugins'])
+  const all = () => [...tree(user)]
+  const whole = all()
+
+  // Asking is safe.
+  const preview = run(['delete', 'old'])
+  assert.equal(preview.status, 0)
+  assert.match(preview.stdout, new RegExp(`^wizardry delete old would delete:\\n  ${pi}  \\(\\d+ (bytes|KB)\\)\\n  ${user}/.local/bin/pi  \\(a command that points into it\\)\\nFirst, every conversation and memory is exported to ${user}/wizardry-export-[-\\d]+\\.\\nNothing has been deleted\\. To go ahead: wizardry delete old --yes\\n$`))
+  assert.equal(run(['delete']).status, 2)
+  assert.equal(run(['delete', 'old', '--force']).status, 2, 'an option it does not know is not guessed at')
+  assert.match(run(['delete', 'everything', '--yes']).stderr, /say what to delete: conversations, memories, old or all/)
+  // Nor is anything removed when the export could not be kept, or wizardry's directory is the home directory itself.
+  assert.match(run(['delete', 'old', '--yes', '--to', join(pi, 'out')]).stderr, /the export would go to .*inside what is deleted/)
+  writeFileSync(join(user, 'taken'), 'a file where the export should go')
+  const failed = run(['delete', 'conversations', '--yes', '--to', join(user, 'taken')])
+  assert.equal(failed.status, 1)
+  assert.match(failed.stderr, /nothing was deleted: the export did not finish/)
+  assert.match(run(['delete', 'all', '--yes', '--no-export'], { WIZARDRY_HOME: user }).stderr, /nothing was deleted: that would take your home directory along/)
+  assert.match(run(['delete', 'old', '--yes', '--no-export'], { PI_CODING_AGENT_DIR: join(home, 'pi') }).stderr, /so it is not an old setup/)
+  assert.deepEqual(all().filter((file) => !file.startsWith('pi/')), [...whole, 'taken'].sort(), 'none of that removed or exported anything')
+
+  // The old setup goes: Pi's directory, the command that pointed into it, and the folder that held it.
+  const old = run(['delete', 'old', '--yes', '--to', join(user, 'kept-old')])
+  assert.equal(old.status, 0, old.stderr)
+  assert.match(old.stdout, new RegExp(`^wizardry: deleted:\\n  ${pi}  .*\\n  ${user}/.local/bin/pi  .*\\nEvery conversation and memory was exported first, to ${user}/kept-old\\.\\n$`))
+  assert.ok(!existsSync(join(user, '.pi')), '~/.pi is gone, as nothing else was in it')
+  assert.throws(() => lstatSync(join(user, '.local', 'bin', 'pi')), 'no command is left pointing at nothing')
+  assert.ok(lstatSync(join(user, '.local', 'bin', 'sh-too')).isSymbolicLink(), 'a command that points elsewhere stays')
+  assert.equal(readFileSync(join(user, 'kept-old', 'conversations', 'pi', '--work--', 'old.jsonl'), 'utf8').includes('count for pi'), true, 'its conversations are in the export')
+  assert.equal(readFileSync(join(home, 'pi', 'auth.json'), 'utf8'), '{"acme":{"type":"api_key","key":"sk-secret"}}', 'wizardry is whole, and still signed in')
+  assert.ok(existsSync(join(home, 'sessions', 'new.jsonl')))
+  assert.match(run(['delete', 'old', '--yes']).stdout, /nothing to delete: there is no setup of Pi's own on this machine/)
+
+  // Conversations go, and nothing else of wizardry's.
+  const gone = run(['delete', 'conversations', '--yes'])
+  assert.equal(gone.status, 0, gone.stderr)
+  const kept = gone.stdout.match(/exported first, to (.*)\.\n$/)[1]
+  assert.ok(existsSync(join(kept, 'conversations', 'wizardry', 'new.md')))
+  assert.ok(!existsSync(join(home, 'sessions')) && existsSync(join(home, 'pi', 'auth.json')) && existsSync(join(home, 'memory')))
+
+  // All of it goes, with the command that ran it when that was part of it.
+  mkdirSync(join(home, 'app'))
+  writeFileSync(join(home, 'app', 'bin.js'), '')
+  symlinkSync(join(home, 'app', 'bin.js'), join(user, '.local', 'bin', 'wizardry'))
+  const none = run(['delete', 'all', '--yes', '--no-export'])
+  assert.equal(none.status, 0, none.stderr)
+  assert.match(none.stdout, /Nothing is exported first: you said --no-export\./)
+  assert.ok(!existsSync(home))
+  assert.throws(() => lstatSync(join(user, '.local', 'bin', 'wizardry')))
+  assert.ok(existsSync(kept) && existsSync(join(user, 'kept-old')) && existsSync(join(user, 'work')), 'the exports and everything else in the home directory are untouched')
 })

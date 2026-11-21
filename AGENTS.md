@@ -26,13 +26,47 @@ The same repo exists in up to three places, and confusing them wastes real time:
   `readlink` on it tell you which copy a session actually runs; that copy is a git clone and is
   rebuilt in place by the updater.
 - **`~/.wizardry` (`$WIZARDRY_HOME`)** is data, not code: `plugins/`, `plugins.json`, `sessions/`,
-  `update.log` — plus the installer's `app/` clone.
+  `memory/`, `pi/` (the logins and settings of the Pi wizardry runs), `update.log` — plus the
+  installer's `app/` clone.
 
 **Pushing to `origin/main` is deploying.** The `update` plugin checks on every start, on every
 `task/end`, and periodically while open; it rebuilds the installed copy and an open session
 restarts itself onto the new code as soon as the agent is idle (`restartWhenIdle` in `src/pi.ts`,
 the re-exec in `src/bin.ts`). Working clones are updated too, with unpushed commits rebased on top
 and uncommitted changes carried along. `wizardry update off` stops all of it.
+
+## Kept apart, export and delete
+
+wizardry reads and writes nothing outside `$WIZARDRY_HOME`. The owner asked for exactly that: a
+setup that is distinctly its own, that nothing installed for another tool can add to.
+
+- **Pi's directory is `$WIZARDRY_HOME/pi`.** `keepApart` (`src/apart.ts`) sets `PI_CODING_AGENT_DIR`
+  there before anything of Pi runs, for `wizardry auth` too, and Pi reads the variable each time
+  it asks (`test/libraries.test.mjs` pins that). `~/.pi/agent`, or wherever the variable pointed
+  before, is "the old setup": read once to bring over `auth.json`, `models.json` and the settings
+  in `brought_settings`, and never written. Do not add a setting to that list that loads anything.
+- **What Pi must not read is switched off in `pi_args`**, not left to an empty directory:
+  `--no-themes`, `--no-mcp`, `--no-approve` beside the five that were there. A new kind of thing
+  Pi learns to discover gets its flag there, and a law beside `pi_reads_nothing_around`.
+- **`bash` gets the environment as it was** (`outside` in `src/apart.ts`, through the bash tool's
+  `spawnHook`), so what wizardry sets for its Pi does not leak into commands. Anything else that
+  starts a process from a plugin inherits wizardry's environment; a nested wizardry is fine with
+  that, since the directory it is pointed at is already its own. A command the user types with
+  `!` is run by Pi itself and still sees wizardry's: giving it other operations through
+  `user_bash` would lose the shell the user chose in settings.
+- **Export is an event.** `wizardry export` copies the conversations itself and then emits `export`
+  with the folder; a plugin that keeps data in `<home>/<name>/` writes `<folder>/<name>/` and
+  reports one line. Folders of the home nobody exported are copied as they are (`left_over`), so
+  a plugin that is switched off loses nothing. `src/` still knows no default: memory's export is
+  in memory's repository.
+- **Delete is decided in Bend, whole.** `doomed` answers the paths, `goes` whether they go now.
+  The host only asks the disk what is there, runs the export, and removes what `goes` returned.
+  Never add a path to a deletion in TypeScript, and never widen `wanted` without a law that says
+  what it may not reach: `delete_spares_your_home`, `delete_keeps_the_export`,
+  `old_spares_wizardry`. Paths are compared as text, so the host hands over real paths
+  (`real` in `src/keep.ts` follows links first).
+- The tests for all of this run wizardry as a command against a made-up home directory
+  (`machine()` in `test/wizardry.test.mjs`). Never try `delete` against the real one.
 
 ## The old name
 
@@ -48,7 +82,7 @@ Read in this order:
 
 | File | Owns |
 |---|---|
-| `bend/core.bend` | Everything wizardry decides, computes or says, in Bend: which plugins load and what switching one off or on writes down, how the command line splits, what a restart carries over and when it happens, how calls and results read, the header's layout and the cap's frames and colors, what `focus` leaves active, what `update` and rtk lead to, where wizardry's directory is, and every message and help text |
+| `bend/core.bend` | Everything wizardry decides, computes or says, in Bend: which plugins load and what switching one off or on writes down, how the command line splits, what a restart carries over and when it happens, how calls and results read, the header's layout and the cap's frames and colors, what `focus` leaves active, what `update` and rtk lead to, where wizardry's directory is, where Pi is pointed and what comes over from its own setup, what an export holds and how a conversation reads in it, what `delete` may remove and when, and every message and help text |
 | `LAWS.bend`, `PROOF.bend` | What must hold of those decisions for every input, and the proofs |
 | `core/core.mjs` | The compiled Bend, committed. Never edit it; `npm run core` writes it |
 | `src/core.ts` | The only importer of the compiled Bend: arrays in, arrays out, no decisions |
@@ -58,6 +92,8 @@ Read in this order:
 | `src/pi.ts` | The `Pi` service: hosts Pi as an extension, declares actions as tools, slash commands, restart handoff, the `pi/*` and `task/end` events |
 | `src/plugins.ts` | Loading/unloading plugin files (jiti), plugin shapes (`normalise`), persistence in `plugins.json` |
 | `src/bin.ts` | CLI: arg split between wizardry and Pi, session dir, restart-on-exit |
+| `src/apart.ts` | Pointing Pi at wizardry's own directory, bringing logins over once, and the environment a command the agent runs sees |
+| `src/keep.ts` | `wizardry export` and `wizardry delete`, and the `export` event plugins answer |
 | `src/look.ts` | Header, themes, how calls and results render |
 | `defaults/*.js` | The shipped default plugins; `bend.js` is the example of a skill as an action |
 | `defaults/division/` | The division default: `division.bend` (who may write what, whether a cut is made, what each agent is told, whether the halves fit), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which starts the agents |
@@ -162,6 +198,8 @@ so a lemma renamed there is renamed here too.
 `npm run ship -- <this checkout>`, which replaces `defaults/memory/` with `plugin/` (`index.js`,
 `store.js`, and the compiled Bend, `core.mjs`). Commit both repositories.
 
+- It answers the `export` event with `memory/` in the export: the store itself, and every memory
+  as data and as text.
 - Its store is `$WIZARDRY_HOME/memory/memory.db` (SQLite through `node:sqlite`, no worker), and its
   settings `$WIZARDRY_HOME/memory/config.json`: a shipped default cannot be given a config through
   `plugins.json`, because the persisted entry is skipped once the default has loaded the same file.
@@ -201,8 +239,9 @@ These are the failure modes that cost an agent an hour; all are now covered by t
   `sessionManager`, `isIdle()`.
 - Both are typed in `node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/types.d.ts`.
   Read the types before assuming a method or event exists; Pi's own docs are not load-bearing here.
-- wizardry switches off Pi's builtin tools, extensions, skills, prompt templates and context files
-  (`src/bin.ts`); what the agent can do comes only from Cordis plugins.
+- wizardry switches off Pi's builtin tools, extensions, skills, prompt templates, context files,
+  theme discovery, MCP servers and project-local files (`pi_args` in `bend/core.bend`); what the
+  agent can do comes only from Cordis plugins.
 
 ## Developing and debugging
 

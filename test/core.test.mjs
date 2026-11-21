@@ -79,8 +79,9 @@ test('the command line is read as before', () => {
   const PI_ONLY = new Set(['install', 'remove', 'uninstall', 'list', 'config', 'mcp'])
   const commandOf = (first) => first === '--help' || first === '-h' ? 'Help'
     : first === '--version' || first === '-v' ? 'Version'
-    : first && PI_ONLY.has(first) ? 'PiOnly' : first === 'auth' ? 'Auth' : first === 'update' ? 'Update' : 'Run'
-  for (const first of [undefined, '', '--help', '-h', '--version', '-v', ...PI_ONLY, 'auth', 'update', 'plugins', 'hello', '-p'])
+    : first && PI_ONLY.has(first) ? 'PiOnly' : first === 'auth' ? 'Auth' : first === 'update' ? 'Update'
+    : first === 'export' ? 'Export' : first === 'delete' ? 'Delete' : 'Run'
+  for (const first of [undefined, '', '--help', '-h', '--version', '-v', ...PI_ONLY, 'auth', 'update', 'export', 'delete', 'plugins', 'hello', '-p', '--export', 'exports'])
     assert.equal(core.commandOf(first), commandOf(first), `command ${first}`)
 
   const splitArgs = (argv) => {
@@ -107,6 +108,7 @@ test('the command line is read as before', () => {
     assert.deepEqual(core.splitArgs(argv), splitArgs(argv), JSON.stringify(argv))
     const piArgs = [
       '--no-builtin-tools', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-context-files',
+      '--no-themes', '--no-mcp', '--no-approve',
       ...(argv.includes('--session-dir') || argv.includes('--no-session') ? [] : ['--session-dir', '/s']),
       '--theme', '/t', ...(argv.includes('--use-theme') ? [] : ['--use-theme', 'a/b']),
       ...argv,
@@ -365,7 +367,7 @@ test('the header, the session, rtk and the home directory answer as the TypeScri
   assert.deepEqual(core.pluginRows([{ name: 'fs', state: 'active', source: 'builtin:fs' }, { name: 'self', state: 'pending', source: 'builtin:self' }]),
     ['  fs              builtin:fs', '  self (pending)  builtin:self'])
   assert.equal(core.gateSummary('x'.repeat(2000)).length, 1500)
-  assert.match(core.help(), /^wizardry - Pi on Cordis\.[\s\S]*--plugin <name\|path>[\s\S]*Nothing asks for approval unless you pass --gate\.\n$/)
+  assert.match(core.help(), /^wizardry - Pi on Cordis\.[\s\S]*wizardry export \[folder\][\s\S]*--plugin <name\|path>[\s\S]*Nothing asks for approval unless you pass --gate\.\n[\s\S]*removes nothing until you add --yes; it exports first\.\n$/)
   assert.match(core.inspectText(['a [active] builtin:a\n  actions: (none)'], []), /^Loaded plugins:\na \[active\] builtin:a\n  actions: \(none\)\n\nBuiltin plugins not loaded: \(none\)\n\nA plugin is a \.ts or \.js file\.[\s\S]*call cordis_map: the map of the framework you run on\.$/)
 })
 
@@ -377,4 +379,167 @@ test('a very long text or result costs no stack', () => {
   const view = core.resultView(`${'line\n'.repeat(500_000)}${' \n'.repeat(200_000)}`, false)
   assert.deepEqual(view, { shown: Array(10).fill('line'), more: 499_990 })
   assert.equal(core.resultView('line\n'.repeat(500_000), true).shown.length, 500_000)
+})
+
+// Kept apart, export and delete. There was no TypeScript before these: the references below are
+// the rules as they are said, written a second time, and the laws in LAWS.bend say what must
+// hold of them for every input.
+
+const inside = (path, root) => path === root || path.startsWith(root.endsWith('/') ? root : `${root}/`)
+const inDir = (dir, file) => (dir.endsWith('/') ? `${dir}${file}` : `${dir}/${file}`)
+
+test('Pi is pointed at wizardry\'s own directory, and only logins and the named settings come over', () => {
+  assert.equal(core.ownPi('/h/.wizardry'), '/h/.wizardry/pi')
+  assert.equal(core.oldPi('', '/h'), '/h/.pi/agent')
+  assert.equal(core.oldPi('/elsewhere/pi', '/h'), '/elsewhere/pi')
+  assert.deepEqual(core.piEnv('/w'), [
+    { name: 'PI_CODING_AGENT_DIR', value: '/w/pi' }, { name: 'PI_SKIP_VERSION_CHECK', value: '1' }, { name: 'PI_TELEMETRY', value: '0' }])
+  assert.deepEqual(core.piEnvCleared(), ['PI_CODING_AGENT_SESSION_DIR', 'PI_PACKAGE_DIR'])
+  assert.deepEqual(core.piEnvTouched(), ['PI_CODING_AGENT_DIR', 'PI_SKIP_VERSION_CHECK', 'PI_TELEMETRY', 'PI_CODING_AGENT_SESSION_DIR', 'PI_PACKAGE_DIR'])
+  assert.deepEqual(core.broughtFiles(), ['auth.json', 'models.json'])
+
+  const KEPT = ['defaultProvider', 'defaultModel', 'defaultThinkingLevel', 'modelThinkingLevels', 'enabledModels', 'httpProxy', 'shellPath', 'shellCommandPrefix']
+  const ADDONS = ['packages', 'extensions', 'skills', 'prompts', 'themes', 'enableSkillCommands', 'sessionDir', 'defaultProjectTrust', 'selfUpdateCommand']
+  const KEYS = [...KEPT, ...ADDONS, 'theme', 'lastChangelogVersion', 'quietStartup', '', 'Packages']
+  for (let i = 0; i < 2000; i++) {
+    const keys = some(KEYS, 12)
+    const brought = core.settingsBrought(keys)
+    assert.deepEqual(brought, keys.filter((key) => KEPT.includes(key)), JSON.stringify(keys))
+    assert.ok(!brought.some((key) => ADDONS.includes(key)))
+  }
+  for (const hasOwn of [true, false]) for (const hasOld of [true, false]) for (const [old, own] of [['/a', '/b'], ['/a', '/a']]) {
+    assert.equal(core.brings(hasOwn, hasOld, old, own), !hasOwn && hasOld && old !== own)
+  }
+  assert.equal(core.broughtSaid(['auth.json', 'settings.json'], '/w/pi', '/h/.pi/agent'),
+    'logins and settings are now its own, in /w/pi. Brought over auth.json, settings.json from /h/.pi/agent, which is no longer read: `wizardry delete old` removes it, and `wizardry auth login` signs in here.')
+  assert.match(core.broughtSaid([], '/w/pi', '/h/.pi/agent'), /There was nothing to bring over from \/h\/\.pi\/agent, which is no longer read/)
+})
+
+test('export and delete read their arguments as they say they do', () => {
+  const KNOWN = ['--yes', '-y', '--no-export', '--to']
+  const bare = (argv) => {
+    const out = []
+    let value = false
+    for (const arg of argv) {
+      if (!value && !arg.startsWith('-')) out.push(arg)
+      value = !value && arg === '--to'
+    }
+    return out
+  }
+  const WORDS = ['old', 'all', 'conversations', 'memories', '--yes', '-y', '--no-export', '--to', '/out', 'out', '--force', '', '-x']
+  for (let i = 0; i < 4000; i++) {
+    const argv = some(WORDS, 6)
+    const words = bare(argv)
+    const options = argv.filter((arg) => arg.startsWith('-'))
+    const at = argv.indexOf('--to')
+    assert.deepEqual(core.deleteAsked(argv), {
+      what: words[0] ?? '',
+      yes: argv.includes('--yes') || argv.includes('-y'),
+      waived: argv.includes('--no-export'),
+      to: at >= 0 ? argv[at + 1] ?? '' : '',
+      clear: words.length === 1 && options.every((option) => KNOWN.includes(option)),
+    }, JSON.stringify(argv))
+    assert.equal(core.exportAsked(argv), options.length === 0 && words.length < 2 ? words[0] ?? '' : undefined, JSON.stringify(argv))
+  }
+  assert.equal(core.exportAsked([]), '')
+  assert.equal(core.exportAsked(['~/keep']), '~/keep')
+})
+
+test('delete names only what was asked for, and nothing when that would take the home directory, the export or wizardry along', () => {
+  const HOMES = ['/h/.wizardry', '/h/.wizardry/', '/h', '/', '', 'rel/.wizardry', '/h/.pi/agent/w', '/data/w']
+  const OLDS = ['/h/.pi/agent', '/h/.wizardry/pi', '/h/.wizardry', '/h', '/', '/opt/pi', 'rel/pi', '', '/data']
+  const USERS = ['/h', '/h/user', '/']
+  const TOS = ['', '/h/out', '/h/.wizardry/out', '/h/.wizardry/sessions/x', '/h/.wizardry/memory', '/h/.pi/agent/out', '/opt/pi', '/data/w', '/h/.wizardry']
+  const WHATS = ['conversations', 'memories', 'old', 'all', 'everything', '']
+  const wanted = (what, home, old) => {
+    if (!home.startsWith('/')) return []
+    if (what === 'old') return inside(old, home) || inside(home, old) ? [] : [old]
+    return what === 'conversations' ? [inDir(home, 'sessions')] : what === 'memories' ? [inDir(home, 'memory')] : what === 'all' ? [home] : []
+  }
+  let some_go = 0
+  for (const what of WHATS) for (const home of HOMES) for (const old of OLDS) for (const userhome of USERS) for (const to of TOS) {
+    const said = JSON.stringify({ what, home, old, userhome, to })
+    const paths = wanted(what, home, old)
+    const safe = paths.every((path) => path.startsWith('/')) && !paths.some((path) => inside(userhome, path)) && !paths.some((path) => inside(to, path))
+    const doomed = core.doomed(what, home, old, userhome, to)
+    assert.deepEqual(doomed, safe ? paths : [], said)
+    assert.equal(core.whyNot(what, home, old, userhome, to) === '', doomed.length > 0, `a reason is given exactly when nothing goes: ${said}`)
+    for (const path of doomed) {
+      assert.ok(path.startsWith('/') && path !== '/', said)
+      assert.ok(!inside(userhome, path) && !inside(to, path), said)
+      if (what === 'old') assert.ok(!inside(home, path) && !inside(path, home), said)
+      else assert.ok(inside(path, home), `only wizardry's own: ${said}`)
+    }
+    some_go += doomed.length
+    for (const yes of [true, false]) for (const exported of ['Kept', 'Failed', 'Waived']) {
+      assert.deepEqual(core.goes(doomed, yes, exported), yes && exported !== 'Failed' ? doomed : [], said)
+    }
+    if (what !== 'old') assert.deepEqual(core.emptied(what, doomed, userhome), [])
+  }
+  assert.ok(some_go > 500)
+
+  assert.deepEqual(core.doomed('old', '/h/.wizardry', '/h/.pi/agent', '/h', '/h/out'), ['/h/.pi/agent'])
+  assert.deepEqual(core.emptied('old', ['/h/.pi/agent'], '/h'), ['/h/.pi'], '~/.pi goes too if that leaves it empty')
+  assert.deepEqual(core.emptied('old', ['/h/agent'], '/h'), [], 'but never the home directory')
+  assert.deepEqual(core.dangling([
+    { path: '/h/.local/bin/pi', target: '/h/.pi/agent/bin/pi' }, { path: '/h/.local/bin/wizardry', target: '/h/.wizardry/app/dist/bin.js' },
+    { path: '/h/.local/bin/agent', target: '/h/.pi/agent' }, { path: '/h/.local/bin/near', target: '/h/.pi/agents/x' }], ['/h/.pi/agent']),
+  ['/h/.local/bin/pi', '/h/.local/bin/agent'])
+  assert.deepEqual(core.linkDirs('/h/.local/bin/wizardry', '', '/h'), ['/h/.local/bin'])
+  assert.deepEqual(core.linkDirs('/opt/bin/wizardry', '/custom/bin', '/h'), ['/opt/bin', '/custom/bin', '/h/.local/bin'])
+
+  assert.equal(core.deletePreview('old', [{ path: '/h/.pi/agent', bytes: 163_000_000 }], ['/h/.local/bin/pi'], '/h/out', false), [
+    'wizardry delete old would delete:',
+    '  /h/.pi/agent  (163 MB)',
+    '  /h/.local/bin/pi  (a command that points into it)',
+    'First, every conversation and memory is exported to /h/out.',
+    'Nothing has been deleted. To go ahead: wizardry delete old --yes',
+    ''].join('\n'))
+  assert.match(core.deletePreview('all', [{ path: '/w', bytes: 999 }, { path: '/x', bytes: 1 }, { path: '/y', bytes: 45_300 }, { path: '/z', bytes: 7_000_000_000 }], [], '', true),
+    /\/w  \(999 bytes\)\n  \/x  \(1 byte\)\n  \/y  \(45 KB\)\n  \/z  \(7 GB\)\nNothing is exported first: you said --no-export\.\nNothing has been deleted\. To go ahead: wizardry delete all --yes --no-export\n$/)
+  assert.match(core.deletedSaid([{ path: '/w/sessions', bytes: 2000 }], [], '/h/out', false), /^deleted:\n  \/w\/sessions  \(2 KB\)\nEvery conversation and memory was exported first, to \/h\/out\.\n$/)
+  assert.match(core.deleteUsage(), /^usage: wizardry delete <what> \[--yes\]/)
+})
+
+test('an export puts each conversation under where it came from, and writes it to read', () => {
+  assert.equal(core.exportDir('', '/h', '2026-11-21', 0), '/h/wizardry-export-2026-11-21')
+  assert.equal(core.exportDir('', '/h', '2026-11-21', 1), '/h/wizardry-export-2026-11-21-2')
+  assert.equal(core.exportDir('/keep/here', '/h', '2026-11-21', 3), '/keep/here')
+  assert.deepEqual(core.origins('/h/.wizardry', '/h/.pi/agent'), [
+    { name: 'wizardry', dir: '/h/.wizardry/sessions' }, { name: 'pi', dir: '/h/.pi/agent/sessions' }])
+  assert.equal(core.sessionsDir('/h/.wizardry'), '/h/.wizardry/sessions')
+  for (const [dir, fits] of [['/h/out', true], ['/h/.wizardry/sessions', false], ['/h/.wizardry/sessions/x', false], ['/h/.pi/agent/sessions/y', false], ['/h/.wizardry/sessions2', true]]) {
+    assert.equal(core.exportFits(dir, '/h/.wizardry', '/h/.pi/agent'), fits, dir)
+  }
+  assert.equal(core.conversationTo('/out', 'pi', '--proj--/a.jsonl'), '/out/conversations/pi/--proj--/a.jsonl')
+  assert.equal(core.readable('/out/a.jsonl'), '/out/a.md')
+  assert.equal(core.readable('/out/a'), '/out/a.md')
+  assert.ok(core.isConversation('x.jsonl') && !core.isConversation('x.json'))
+  assert.deepEqual(core.leftOver(['app', 'memory', 'pi', 'plugins', 'sessions', 'notes'], ['conversations', 'memory']), ['notes'])
+
+  const at = '2026-11-20 19:16:34'
+  assert.equal(core.transcriptHead('a.jsonl', '/work', at), '# Conversation of 2026-11-20 19:16\n\n- Directory: /work\n- Kept whole in: a.jsonl\n\n')
+  assert.equal(core.piece('user', '', at, 'hello\nthere\n\n'), '## User · 2026-11-20 19:16\n\nhello\nthere\n\n')
+  assert.equal(core.piece('assistant', '', at, 'hi'), '## Assistant · 2026-11-20 19:16\n\nhi\n\n')
+  assert.equal(core.piece('assistant', '', at, '  \n'), '', 'nothing said, nothing written')
+  assert.equal(core.piece('toolCall', 'bash', at, '{"command":"ls\\n -la"}'), '> **bash** {"command":"ls\\n -la"}\n\n')
+  assert.equal(core.piece('toolResult', 'bash', at, 'a\nb\n'), '    a\n    b\n\n')
+  assert.equal(core.piece('toolResult', 'bash', at, Array.from({ length: 14 }, (_, i) => `line ${i + 1}`).join('\n')),
+    `${Array.from({ length: 10 }, (_, i) => `    line ${i + 1}`).join('\n')}\n    ... 4 more lines, in the .jsonl\n\n`)
+  assert.equal(core.piece('bashExecution', 'ls', at, 'a'), '> **$** ls\n\n    a\n\n')
+  assert.equal(core.piece('image', '', at, ''), '*(an image)*\n\n')
+  assert.equal(core.piece('compaction', '', at, 'so far'), '## Summary of what came before · 2026-11-20 19:16\n\nso far\n\n')
+  for (const kind of ['thinking', 'system', 'custom', 'model_change', 'session', '']) assert.equal(core.piece(kind, 'n', at, 'text'), '', kind)
+
+  // However long a conversation runs, writing it down costs no stack.
+  const long = 'some words\n'.repeat(300_000)
+  assert.equal(core.piece('assistant', '', at, long).length, '## Assistant · 2026-11-20 19:16\n\n'.length + long.length + 1)
+  assert.match(core.piece('toolResult', 'bash', at, long), /\.\.\. 299990 more lines, in the \.jsonl\n\n$/)
+  assert.equal(core.piece('toolCall', 'write', at, JSON.stringify({ content: long })).length, '> **write** \n\n'.length + 200)
+
+  const lines = core.exportLines([{ name: 'wizardry', from: '/w/sessions', count: 3 }, { name: 'pi', from: '/p/sessions', count: 1 }, { name: 'x', from: '/x', count: 0 }], ['58 memories, in memory/'])
+  assert.deepEqual(lines, ['3 conversations from /w/sessions, in conversations/wizardry/', '1 conversation from /p/sessions, in conversations/pi/', '58 memories, in memory/'])
+  assert.deepEqual(core.exportLines([], []), ['nothing: no conversation and no memory was found'])
+  assert.match(core.exportReadme('2026-11-21', lines), /^# wizardry export of 2026-11-21\n\nEverything here is a copy[\s\S]*\n- 3 conversations from \/w\/sessions, in conversations\/wizardry\/\n[\s\S]*wizardry --session <that file>/)
+  assert.equal(core.exportSaid('/out', lines), `exported to /out:\n${lines.map((line) => `  ${line}`).join('\n')}\n`)
 })

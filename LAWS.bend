@@ -376,3 +376,115 @@ law adopting_overwrites_nothing:
 # The cap stays still once it has scrolled away on the main screen.
 law cap_rests_off_screen:
   {C.cap_moves(False{}, False{}) == False{} : Bool}
+
+# Kept apart: wizardry's logins, settings, conversations and memories are its own
+# -------------------------------------------------------------------------------
+
+# Pi's directory, when wizardry runs it, is inside wizardry's own, wherever that is.
+law pi_dir_is_wizardrys:
+  for +home: String
+  {String.starts_with(C.own_pi(home), home) == True{} : Bool}
+
+# What a variable is set to among `vars`.
+def set_to(vars: List<&2, C.Var>, +name: String) -> Maybe<&2, String>:
+  match vars:
+    case Nil{}:
+      None{}
+    case Con{C.Var{n, v}, t}:
+      Bool.pick(Maybe<&2, String>, String.eq(n, name), Some{v}, set_to(t, name))
+
+# Pi is pointed at that directory, whatever the environment wizardry was started in said.
+law pi_is_pointed_home:
+  for home: String
+  {set_to(C.pi_env(home), "PI_CODING_AGENT_DIR") == Some{C.own_pi(home)} : Maybe<&2, String>}
+
+# Pi always starts with theme discovery, MCP servers and project-local files off: nothing lying
+# around a project, and nothing another setup installed, is read.
+law pi_reads_nothing_around:
+  for +rest: List<&2, String>
+  for sessions: String
+  for themes: String
+  for pair: String
+  {C.covers(C.pi_args(rest, sessions, themes, pair), ["--no-themes", "--no-mcp", "--no-approve"]) == True{} : Bool}
+
+# Nothing that adds to a session comes over from Pi's own settings: no packages, extensions,
+# skills, prompt templates or themes, and no place to keep sessions other than wizardry's.
+law addons_stay_behind:
+  {C.settings_brought(C.pi_addons()) == Nil{} : List<&2, String>}
+
+# Whatever Pi's own settings hold, nothing but the settings wizardry names is brought over.
+law only_named_settings_come:
+  for keys: List<&2, String>
+  {C.covers(C.brought_settings(), C.settings_brought(keys)) == True{} : Bool}
+
+# Logins are never brought over onto a directory that is already there, nor from a directory
+# onto itself.
+law logins_overwrite_nothing:
+  for has_own: Bool
+  for has_old: Bool
+  for old: String
+  for own: String
+  for +dir: String
+  {C.brings(True{}, has_old, old, own) == False{} : Bool} & {C.brings(has_own, has_old, dir, dir) == False{} : Bool}
+
+# Export and delete: easy to ask for, and nothing is lost by asking
+# -----------------------------------------------------------------
+
+# `export` and `delete` are wizardry's own commands.
+law words_of_keeping:
+  {C.command_of("export") == C.Export{} : C.Command} & {C.command_of("delete") == C.Delete{} : C.Command}
+
+# Every conversation an export copies is written inside the export's folder.
+law export_stays_in_its_folder:
+  for +dir: String
+  for origin: String
+  for rel: String
+  {String.starts_with(C.conversation_to(dir, origin, rel), dir) == True{} : Bool}
+
+# Without --yes, nothing is deleted.
+law delete_asks_first:
+  for paths: List<&2, String>
+  for exported: C.Exported
+  {C.goes(paths, False{}, exported) == Nil{} : List<&2, String>}
+
+# When the export that comes first did not finish, nothing is deleted.
+law delete_waits_for_export:
+  for paths: List<&2, String>
+  for yes: Bool
+  {C.goes(paths, yes, C.Failed{}) == Nil{} : List<&2, String>}
+
+# The export is never among what is deleted: no deleted path is its folder or holds it.
+law delete_keeps_the_export:
+  for what: C.What
+  for +home: String
+  for +old: String
+  for +userhome: String
+  for +to: String
+  {C.takes(C.doomed(what, home, old, userhome, to), to) == False{} : Bool}
+
+# Whatever wizardry's directory was set to, deleting never takes the user's home directory, nor
+# anything that holds it.
+law delete_spares_your_home:
+  for +what: C.What
+  for +home: String
+  for +old: String
+  for +userhome: String
+  for +to: String
+  {C.takes(C.doomed(what, home, old, userhome, to), userhome) == False{} : Bool}
+
+# Whether any of `paths` is `root` or inside it.
+def any_inside(paths: List<&2, String>, +root: String) -> Bool:
+  match paths:
+    case Nil{}:
+      False{}
+    case Con{h, t}:
+      Bool.or(C.inside(h, root), any_inside(t, root))
+
+# Deleting the old setup leaves wizardry whole: nothing deleted is wizardry's directory, holds
+# it, or is inside it.
+law old_spares_wizardry:
+  for +home: String
+  for +old: String
+  for +userhome: String
+  for +to: String
+  {C.takes(C.doomed(C.Old{}, home, old, userhome, to), home) == False{} : Bool} & {any_inside(C.doomed(C.Old{}, home, old, userhome, to), home) == False{} : Bool}

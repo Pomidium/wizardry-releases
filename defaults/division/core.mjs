@@ -395,7 +395,7 @@ function $______bend_core_pick_name(_candidates_0) {
   }
 }
 
-function $______bend_core_command_pick(_help_0, _version_0, _pi_0, _auth_0, _update_0) {
+function $______bend_core_command_pick(_help_0, _version_0, _pi_0, _auth_0, _update_0, _export_0, _delete_0) {
   if (_help_0) {
     return {$: "Help"};
   } else {
@@ -411,7 +411,15 @@ function $______bend_core_command_pick(_help_0, _version_0, _pi_0, _auth_0, _upd
           if (_update_0) {
             return {$: "Update"};
           } else {
-            return {$: "Run"};
+            if (_export_0) {
+              return {$: "Export"};
+            } else {
+              if (_delete_0) {
+                return {$: "Delete"};
+              } else {
+                return {$: "Run"};
+              }
+            }
           }
         }
       }
@@ -420,7 +428,7 @@ function $______bend_core_command_pick(_help_0, _version_0, _pi_0, _auth_0, _upd
 }
 
 function $______bend_core_command_of(_first_0) {
-  return $______bend_core_command_pick($$______bend_core_has({$: "Con", "head": "--help", "tail": {$: "Con", "head": "-h", "tail": {$: "Nil"}}}, _first_0), $$______bend_core_has({$: "Con", "head": "--version", "tail": {$: "Con", "head": "-v", "tail": {$: "Nil"}}}, _first_0), $$______bend_core_has({$: "Con", "head": "install", "tail": {$: "Con", "head": "remove", "tail": {$: "Con", "head": "uninstall", "tail": {$: "Con", "head": "list", "tail": {$: "Con", "head": "config", "tail": {$: "Con", "head": "mcp", "tail": {$: "Nil"}}}}}}}, _first_0), $$String_eq(_first_0, "auth"), $$String_eq(_first_0, "update"));
+  return $______bend_core_command_pick($$______bend_core_has({$: "Con", "head": "--help", "tail": {$: "Con", "head": "-h", "tail": {$: "Nil"}}}, _first_0), $$______bend_core_has({$: "Con", "head": "--version", "tail": {$: "Con", "head": "-v", "tail": {$: "Nil"}}}, _first_0), $$______bend_core_has({$: "Con", "head": "install", "tail": {$: "Con", "head": "remove", "tail": {$: "Con", "head": "uninstall", "tail": {$: "Con", "head": "list", "tail": {$: "Con", "head": "config", "tail": {$: "Con", "head": "mcp", "tail": {$: "Nil"}}}}}}}, _first_0), $$String_eq(_first_0, "auth"), $$String_eq(_first_0, "update"), $$String_eq(_first_0, "export"), $$String_eq(_first_0, "delete"));
 }
 
 function $______bend_core_extras_pick(_value_0, _dashes_0, _gate_0, _h_0, _next_0) {
@@ -519,10 +527,18 @@ function $______bend_core_theme_args(_rest_0, _themes_0, _pair_0) {
   return $List_append({$: "Con", "head": "--theme", "tail": {$: "Con", "head": _themes_0, "tail": {$: "Nil"}}}, $$______bend_core_unless($$______bend_core_has(_rest_0, "--use-theme"), {$: "Con", "head": "--use-theme", "tail": {$: "Con", "head": _pair_0, "tail": {$: "Nil"}}}));
 }
 
+function $______bend_core_pi_bare() {
+  return {$: "Con", "head": "--no-builtin-tools", "tail": {$: "Con", "head": "--no-extensions", "tail": {$: "Con", "head": "--no-skills", "tail": {$: "Con", "head": "--no-prompt-templates", "tail": {$: "Con", "head": "--no-context-files", "tail": {$: "Nil"}}}}}};
+}
+
+function $______bend_core_pi_apart() {
+  return {$: "Con", "head": "--no-themes", "tail": {$: "Con", "head": "--no-mcp", "tail": {$: "Con", "head": "--no-approve", "tail": {$: "Nil"}}}};
+}
+
 function $______bend_core_pi_args(_rest_0, _sessions_0, _themes_0, _pair_0) {
   const _x_0 = $$______bend_core_has(_rest_0, "--session-dir");
   const _x_1 = $$______bend_core_has(_rest_0, "--no-session");
-  return $List_concat({$: "Con", "head": {$: "Con", "head": "--no-builtin-tools", "tail": {$: "Con", "head": "--no-extensions", "tail": {$: "Con", "head": "--no-skills", "tail": {$: "Con", "head": "--no-prompt-templates", "tail": {$: "Con", "head": "--no-context-files", "tail": {$: "Nil"}}}}}}, "tail": {$: "Con", "head": $$______bend_core_unless((_x_0 || _x_1), {$: "Con", "head": "--session-dir", "tail": {$: "Con", "head": _sessions_0, "tail": {$: "Nil"}}}), "tail": {$: "Con", "head": $$______bend_core_theme_args(_rest_0, _themes_0, _pair_0), "tail": {$: "Con", "head": _rest_0, "tail": {$: "Nil"}}}}});
+  return $List_concat({$: "Con", "head": $$______bend_core_pi_bare(), "tail": {$: "Con", "head": $$______bend_core_pi_apart(), "tail": {$: "Con", "head": $$______bend_core_unless((_x_0 || _x_1), {$: "Con", "head": "--session-dir", "tail": {$: "Con", "head": _sessions_0, "tail": {$: "Nil"}}}), "tail": {$: "Con", "head": $$______bend_core_theme_args(_rest_0, _themes_0, _pair_0), "tail": {$: "Con", "head": _rest_0, "tail": {$: "Nil"}}}}}});
 }
 
 function $______bend_core_remove_one(_xs_0, _x_0) {
@@ -1282,7 +1298,7 @@ function $______bend_core_unloaded_text(_name_0) {
 }
 
 function $______bend_core_help() {
-  return $String_join({$: "Con", "head": "wizardry - Pi on Cordis. Every plugin is a tool call; the agent chooses which to make.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "Usage:", "tail": {$: "Con", "head": "  wizardry [options] [messages...]     Start a session (interactive unless -p)", "tail": {$: "Con", "head": "  wizardry plugins                     List loaded plugins and the actions they provide", "tail": {$: "Con", "head": "  wizardry update [on|off]             Update now, or turn automatic updates on or off", "tail": {$: "Con", "head": "  wizardry auth <command>              Pi's credential commands (wizardry shares Pi's logins)", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "Options:", "tail": {$: "Con", "head": "  --plugin <name|path>   Load a plugin for this run (repeatable)", "tail": {$: "Con", "head": "  --gate                 Load the \"gate\" plugin: ask before bash, write, edit and plugin changes", "tail": {$: "Con", "head": "  --version, -v          Show the version", "tail": {$: "Con", "head": "  --help, -h             Show this help", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "Every other option goes to Pi unchanged: --model, --thinking, -p/--print, -c/--continue,", "tail": {$: "Con", "head": "-r/--resume, --mode json|rpc, --no-session, and so on (see `pi --help`).", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "Plugins load from ~/.wizardry/plugins/, ./.wizardry/plugins/, and ~/.wizardry/plugins.json.", "tail": {$: "Con", "head": "wizardry updates itself in the background whenever it can; /update off in a session stops that.", "tail": {$: "Con", "head": "Nothing asks for approval unless you pass --gate.", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}}}}}, "\n");
+  return $String_join({$: "Con", "head": "wizardry - Pi on Cordis. Every plugin is a tool call; the agent chooses which to make.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "Usage:", "tail": {$: "Con", "head": "  wizardry [options] [messages...]     Start a session (interactive unless -p)", "tail": {$: "Con", "head": "  wizardry plugins                     List loaded plugins and the actions they provide", "tail": {$: "Con", "head": "  wizardry update [on|off]             Update now, or turn automatic updates on or off", "tail": {$: "Con", "head": "  wizardry auth <command>              Log in or out (wizardry keeps its own logins, apart from Pi's)", "tail": {$: "Con", "head": "  wizardry export [folder]             Copy every conversation and memory to a folder you keep", "tail": {$: "Con", "head": "  wizardry delete <what> [--yes]       Delete conversations, memories, old (Pi's own setup) or all", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "Options:", "tail": {$: "Con", "head": "  --plugin <name|path>   Load a plugin for this run (repeatable)", "tail": {$: "Con", "head": "  --gate                 Load the \"gate\" plugin: ask before bash, write, edit and plugin changes", "tail": {$: "Con", "head": "  --version, -v          Show the version", "tail": {$: "Con", "head": "  --help, -h             Show this help", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "Every other option goes to Pi unchanged: --model, --thinking, -p/--print, -c/--continue,", "tail": {$: "Con", "head": "-r/--resume, --mode json|rpc, --no-session, and so on (see `pi --help`).", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "Plugins load from ~/.wizardry/plugins/, ./.wizardry/plugins/, and ~/.wizardry/plugins.json.", "tail": {$: "Con", "head": "wizardry updates itself in the background whenever it can; /update off in a session stops that.", "tail": {$: "Con", "head": "Nothing asks for approval unless you pass --gate.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "wizardry is kept apart: its logins, settings, conversations and memories are all in ~/.wizardry,", "tail": {$: "Con", "head": "and nothing of Pi's own setup (~/.pi) or of a project's .pi folder is read. `wizardry delete`", "tail": {$: "Con", "head": "says what it would remove and removes nothing until you add --yes; it exports first.", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}}}}}}}}}}}, "\n");
 }
 
 function $______bend_core_pi_only_text(_first_0, _argv_0) {
@@ -1683,7 +1699,7 @@ function $______bend_core_indented(_rows_0) {
 }
 
 function $______bend_core_shape() {
-  return $String_join({$: "Con", "head": "A plugin is a .ts or .js file. The smallest one needs no imports:", "tail": {$: "Con", "head": "  export const name = \"weather\"", "tail": {$: "Con", "head": "  export const actions = [{", "tail": {$: "Con", "head": "    name: \"weather\", description: \"Current weather for a city.\",", "tail": {$: "Con", "head": "    parameters: { type: \"object\", properties: { city: { type: \"string\" } }, required: [\"city\"] },", "tail": {$: "Con", "head": "    async execute({ city }, env) { return \"text for the agent\" },   // env: { cwd, signal, update(text), pi (ExtensionContext) }", "tail": {$: "Con", "head": "  }]", "tail": {$: "Con", "head": "For lifecycle or services, export `apply(ctx, config)` (or a default function/class) and use the Cordis context:", "tail": {$: "Con", "head": "ctx.actions.register(action), ctx.on(event, listener), ctx.provide(name, value), `export const inject = [...]`.", "tail": {$: "Con", "head": "ctx.effect(setup) runs setup IMMEDIATELY and keeps its return value as the cleanup on unload; passing the cleanup itself undoes the setup at once.", "tail": {$: "Con", "head": "Events: action/registered, action/changed, action/unregistered, action/before (return a string to refuse the call), action/after, task/end,", "tail": {$: "Con", "head": "pi/ready (Pi's ExtensionAPI is live), pi/session-start (api, piCtx; per-session choices go here: api.setModel, api.setThinkingLevel).", "tail": {$: "Con", "head": "Services (ctx.pi, ctx.actions, ctx.plugins) come through a tracing proxy: call their methods, but never patch, subclass or store them.", "tail": {$: "Con", "head": "Everything a plugin registers is removed when it is unloaded.", "tail": {$: "Con", "head": "The user sees a call named after the plugin, then the action (\"weather forecast\" for weather_forecast); an action can set `title` to name it differently.", "tail": {$: "Con", "head": "Before editing wizardry itself, call cordis_map: the map of the framework you run on.", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}, "\n");
+  return $String_join({$: "Con", "head": "A plugin is a .ts or .js file. The smallest one needs no imports:", "tail": {$: "Con", "head": "  export const name = \"weather\"", "tail": {$: "Con", "head": "  export const actions = [{", "tail": {$: "Con", "head": "    name: \"weather\", description: \"Current weather for a city.\",", "tail": {$: "Con", "head": "    parameters: { type: \"object\", properties: { city: { type: \"string\" } }, required: [\"city\"] },", "tail": {$: "Con", "head": "    async execute({ city }, env) { return \"text for the agent\" },   // env: { cwd, signal, update(text), pi (ExtensionContext) }", "tail": {$: "Con", "head": "  }]", "tail": {$: "Con", "head": "For lifecycle or services, export `apply(ctx, config)` (or a default function/class) and use the Cordis context:", "tail": {$: "Con", "head": "ctx.actions.register(action), ctx.on(event, listener), ctx.provide(name, value), `export const inject = [...]`.", "tail": {$: "Con", "head": "ctx.effect(setup) runs setup IMMEDIATELY and keeps its return value as the cleanup on unload; passing the cleanup itself undoes the setup at once.", "tail": {$: "Con", "head": "Events: action/registered, action/changed, action/unregistered, action/before (return a string to refuse the call), action/after, task/end,", "tail": {$: "Con", "head": "pi/ready (Pi's ExtensionAPI is live), pi/session-start (api, piCtx; per-session choices go here: api.setModel, api.setThinkingLevel).", "tail": {$: "Con", "head": "export (dir, wrote): `wizardry export` asks for a copy of what you keep; write <home>/<name>/ into <dir>/<name>/ and call wrote(one line).", "tail": {$: "Con", "head": "Services (ctx.pi, ctx.actions, ctx.plugins) come through a tracing proxy: call their methods, but never patch, subclass or store them.", "tail": {$: "Con", "head": "Everything a plugin registers is removed when it is unloaded.", "tail": {$: "Con", "head": "The user sees a call named after the plugin, then the action (\"weather forecast\" for weather_forecast); an action can set `title` to name it differently.", "tail": {$: "Con", "head": "Before editing wizardry itself, call cordis_map: the map of the framework you run on.", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}, "\n");
 }
 
 function $______bend_core_inspect_text(_lines_0, _idle_0) {
@@ -1693,6 +1709,584 @@ function $______bend_core_inspect_text(_lines_0, _idle_0) {
 
 function $______bend_core_no_map(_app_0) {
   return $String_concat({$: "Con", "head": "No AGENTS.md in ", "tail": {$: "Con", "head": _app_0, "tail": {$: "Con", "head": ". This wizardry predates it; the repo has it: https://github.com/Pomidium/wizardry", "tail": {$: "Nil"}}}});
+}
+
+function $______bend_core_own_pi(_home_0) {
+  return (_home_0 + "/pi");
+}
+
+function $______bend_core_old_pi(_named_0, _userhome_0) {
+  return $Bool_pick($$String_is_empty(_named_0), (_userhome_0 + "/.pi/agent"), _named_0);
+}
+
+function $______bend_core_pi_env(_home_0) {
+  return {$: "Con", "head": {$: "Var", "name": "PI_CODING_AGENT_DIR", "value": $$______bend_core_own_pi(_home_0)}, "tail": {$: "Con", "head": {$: "Var", "name": "PI_SKIP_VERSION_CHECK", "value": "1"}, "tail": {$: "Con", "head": {$: "Var", "name": "PI_TELEMETRY", "value": "0"}, "tail": {$: "Nil"}}}};
+}
+
+function $______bend_core_pi_env_cleared() {
+  return {$: "Con", "head": "PI_CODING_AGENT_SESSION_DIR", "tail": {$: "Con", "head": "PI_PACKAGE_DIR", "tail": {$: "Nil"}}};
+}
+
+function $______bend_core_var_names(_vars_0) {
+  if (_vars_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _vars_0["head"];
+    const _name_0 = _t_0["name"];
+    const _t_1 = _vars_0["tail"];
+    return {$: "Con", "head": _name_0, "tail": $$______bend_core_var_names(_t_1)};
+  }
+}
+
+function $______bend_core_pi_env_touched() {
+  return $List_append($$______bend_core_var_names($$______bend_core_pi_env("")), $$______bend_core_pi_env_cleared());
+}
+
+function $______bend_core_brought_files() {
+  return {$: "Con", "head": "auth.json", "tail": {$: "Con", "head": "models.json", "tail": {$: "Nil"}}};
+}
+
+function $______bend_core_brought_settings() {
+  return {$: "Con", "head": "defaultProvider", "tail": {$: "Con", "head": "defaultModel", "tail": {$: "Con", "head": "defaultThinkingLevel", "tail": {$: "Con", "head": "modelThinkingLevels", "tail": {$: "Con", "head": "enabledModels", "tail": {$: "Con", "head": "httpProxy", "tail": {$: "Con", "head": "shellPath", "tail": {$: "Con", "head": "shellCommandPrefix", "tail": {$: "Nil"}}}}}}}}};
+}
+
+function $______bend_core_pi_addons() {
+  return {$: "Con", "head": "packages", "tail": {$: "Con", "head": "extensions", "tail": {$: "Con", "head": "skills", "tail": {$: "Con", "head": "prompts", "tail": {$: "Con", "head": "themes", "tail": {$: "Con", "head": "enableSkillCommands", "tail": {$: "Con", "head": "sessionDir", "tail": {$: "Con", "head": "defaultProjectTrust", "tail": {$: "Con", "head": "selfUpdateCommand", "tail": {$: "Nil"}}}}}}}}}};
+}
+
+function $______bend_core_settings_brought(_keys_0) {
+  return $______bend_core_only(_keys_0, $$______bend_core_brought_settings());
+}
+
+function $______bend_core_brings(_has_own_0, _has_old_0, _old_0, _own_0) {
+  return $Bool_and($$Bool_not(_has_own_0), $$Bool_and(_has_old_0, $$Bool_not($$String_eq(_old_0, _own_0))));
+}
+
+function $______bend_core_brought_list(_files_0) {
+  if (_files_0.$ === "Nil") {
+    return "There was nothing to bring over from ";
+  } else {
+    const _h_0 = _files_0["head"];
+    const _t_0 = _files_0["tail"];
+    return $String_concat({$: "Con", "head": "Brought over ", "tail": {$: "Con", "head": $$String_join({$: "Con", "head": _h_0, "tail": _t_0}, ", "), "tail": {$: "Con", "head": " from ", "tail": {$: "Nil"}}}});
+  }
+}
+
+function $______bend_core_brought_said(_files_0, _own_0, _old_0) {
+  return $String_concat({$: "Con", "head": "logins and settings are now its own, in ", "tail": {$: "Con", "head": _own_0, "tail": {$: "Con", "head": ". ", "tail": {$: "Con", "head": $$______bend_core_brought_list(_files_0), "tail": {$: "Con", "head": _old_0, "tail": {$: "Con", "head": ", which is no longer read: `wizardry delete old` removes it, and `wizardry auth login` signs in here.", "tail": {$: "Nil"}}}}}}});
+}
+
+function $______bend_core_with_slash(_dir_0) {
+  return $Bool_pick($$String_ends_with(_dir_0, "/"), _dir_0, (_dir_0 + "/"));
+}
+
+function $______bend_core_inside(_path_0, _root_0) {
+  const _x_0 = $$String_eq(_path_0, _root_0);
+  const _x_1 = $$String_starts_with(_path_0, $$______bend_core_with_slash(_root_0));
+  return (_x_0 || _x_1);
+}
+
+function $______bend_core_takes(_paths_0, _keep_0) {
+  if (_paths_0.$ === "Nil") {
+    return false;
+  } else {
+    const _h_0 = _paths_0["head"];
+    const _t_0 = _paths_0["tail"];
+    const _x_0 = $$______bend_core_inside(_keep_0, _h_0);
+    const _x_1 = $$______bend_core_takes(_t_0, _keep_0);
+    return (_x_0 || _x_1);
+  }
+}
+
+function $______bend_core_sparing(_paths_0, _keep_0) {
+  return $Bool_pick($$______bend_core_takes(_paths_0, _keep_0), {$: "Nil"}, _paths_0);
+}
+
+function $______bend_core_all_rooted(_paths_0) {
+  if (_paths_0.$ === "Nil") {
+    return true;
+  } else {
+    const _h_0 = _paths_0["head"];
+    const _t_0 = _paths_0["tail"];
+    return $Bool_and($$String_starts_with(_h_0, "/"), $$______bend_core_all_rooted(_t_0));
+  }
+}
+
+function $______bend_core_rooted(_paths_0) {
+  return $Bool_pick($$______bend_core_all_rooted(_paths_0), _paths_0, {$: "Nil"});
+}
+
+function $______bend_core_parent_go(_rev_0) {
+  if (_rev_0 === "") {
+    return "";
+  } else {
+    const _h_0 = _rev_0.slice(0, char_len(_rev_0));
+    const _t_0 = _rev_0.slice(char_len(_rev_0));
+    return $Bool_pick($$Char_is_eq(_h_0, "/"), $$String_reverse(_t_0), $$______bend_core_parent_go(_t_0));
+  }
+}
+
+function $______bend_core_parent(_path_0) {
+  return $______bend_core_parent_go($$String_reverse(_path_0));
+}
+
+function $______bend_core_parents(_paths_0) {
+  if (_paths_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _h_0 = _paths_0["head"];
+    const _t_0 = _paths_0["tail"];
+    return {$: "Con", "head": $$______bend_core_parent(_h_0), "tail": $$______bend_core_parents(_t_0)};
+  }
+}
+
+function $______bend_core_sessions_dir(_home_0) {
+  return $______bend_core_in_dir(_home_0, "sessions");
+}
+
+function $______bend_core_export_dir(_chosen_0, _userhome_0, _day_0, _again_0) {
+  const _x_0 = $$Nat_show(nat_chk(_again_0 + 1));
+  return $Bool_pick($$String_is_empty(_chosen_0), $$String_concat({$: "Con", "head": _userhome_0, "tail": {$: "Con", "head": "/wizardry-export-", "tail": {$: "Con", "head": _day_0, "tail": {$: "Con", "head": $$Bool_pick($$Nat_is_eq(_again_0, 0), "", ("-" + _x_0)), "tail": {$: "Nil"}}}}}), _chosen_0);
+}
+
+function $______bend_core_origins(_home_0, _old_0) {
+  return {$: "Con", "head": {$: "Origin", "name": "wizardry", "dir": $$______bend_core_sessions_dir(_home_0)}, "tail": {$: "Con", "head": {$: "Origin", "name": "pi", "dir": $$______bend_core_in_dir(_old_0, "sessions")}, "tail": {$: "Nil"}}};
+}
+
+function $______bend_core_origin_dirs(_origins_0) {
+  if (_origins_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _origins_0["head"];
+    const _dir_0 = _t_0["dir"];
+    const _t_1 = _origins_0["tail"];
+    return {$: "Con", "head": _dir_0, "tail": $$______bend_core_origin_dirs(_t_1)};
+  }
+}
+
+function $______bend_core_export_fits(_dir_0, _home_0, _old_0) {
+  return $Bool_not($$______bend_core_takes($$______bend_core_origin_dirs($$______bend_core_origins(_home_0, _old_0)), _dir_0));
+}
+
+function $______bend_core_is_conversation(_name_0) {
+  return $String_ends_with(_name_0, ".jsonl");
+}
+
+function $______bend_core_conversation_to(_dir_0, _origin_0, _rel_0) {
+  const _x_0 = $$String_concat({$: "Con", "head": "/conversations/", "tail": {$: "Con", "head": _origin_0, "tail": {$: "Con", "head": "/", "tail": {$: "Con", "head": _rel_0, "tail": {$: "Nil"}}}}});
+  return (_dir_0 + _x_0);
+}
+
+function $______bend_core_readable(_path_0) {
+  const _x_0 = [...str_out(_path_0)].length;
+  const _x_1 = $$String_take(_path_0, (_x_0 < 6 ? 0 : _x_0 - 6));
+  return $Bool_pick($$String_ends_with(_path_0, ".jsonl"), (_x_1 + ".md"), (_path_0 + ".md"));
+}
+
+function $______bend_core_minute(_stamp_0) {
+  return $String_take(_stamp_0, 16);
+}
+
+function $______bend_core_transcript_head(_file_0, _cwd_0, _started_0) {
+  return $String_concat({$: "Con", "head": "# Conversation of ", "tail": {$: "Con", "head": $$______bend_core_minute(_started_0), "tail": {$: "Con", "head": "\n\n- Directory: ", "tail": {$: "Con", "head": _cwd_0, "tail": {$: "Con", "head": "\n- Kept whole in: ", "tail": {$: "Con", "head": _file_0, "tail": {$: "Con", "head": "\n\n", "tail": {$: "Nil"}}}}}}}});
+}
+
+function $______bend_core_voice_of(_kind_0) {
+  return $Bool_pick($$String_eq(_kind_0, "user"), {$: "Said", "who": "User"}, $$Bool_pick($$String_eq(_kind_0, "assistant"), {$: "Said", "who": "Assistant"}, $$Bool_pick($$String_eq(_kind_0, "toolCall"), {$: "Call"}, $$Bool_pick($$String_eq(_kind_0, "toolResult"), {$: "Result"}, $$Bool_pick($$String_eq(_kind_0, "bashExecution"), {$: "Ran"}, $$Bool_pick($$String_eq(_kind_0, "image"), {$: "Image"}, $$Bool_pick($$______bend_core_has({$: "Con", "head": "compaction", "tail": {$: "Con", "head": "branch_summary", "tail": {$: "Nil"}}}, _kind_0), {$: "Said", "who": "Summary of what came before"}, $$Bool_pick($$String_eq(_kind_0, "custom_message"), {$: "Said", "who": "Note"}, $$Bool_pick($$String_eq(_kind_0, "error"), {$: "Said", "who": "Error"}, {$: "Silent"})))))))));
+}
+
+function $______bend_core_said_block(_who_0, _at_0, _body_0) {
+  return $Bool_pick($$String_is_empty(_body_0), "", $$String_concat({$: "Con", "head": "## ", "tail": {$: "Con", "head": _who_0, "tail": {$: "Con", "head": " · ", "tail": {$: "Con", "head": $$______bend_core_minute(_at_0), "tail": {$: "Con", "head": "\n\n", "tail": {$: "Con", "head": _body_0, "tail": {$: "Con", "head": "\n\n", "tail": {$: "Nil"}}}}}}}}));
+}
+
+function $______bend_core_more_lines(_more_0) {
+  return $Bool_pick($$Nat_is_eq(_more_0, 0), "", $$String_concat({$: "Con", "head": "\n    ... ", "tail": {$: "Con", "head": $$Nat_show(_more_0), "tail": {$: "Con", "head": " more lines, in the .jsonl", "tail": {$: "Nil"}}}}));
+}
+
+function $______bend_core_shown_block(_view_0) {
+  const _shown_0 = _view_0["shown"];
+  const _more_0 = _view_0["more"];
+  return $String_concat({$: "Con", "head": "    ", "tail": {$: "Con", "head": $$String_join(_shown_0, "\n    "), "tail": {$: "Con", "head": $$______bend_core_more_lines(_more_0), "tail": {$: "Con", "head": "\n\n", "tail": {$: "Nil"}}}}});
+}
+
+function $______bend_core_result_block(_text_0) {
+  return $______bend_core_shown_block($$______bend_core_result_view(_text_0, false));
+}
+
+function $______bend_core_call_line(_name_0, _args_0) {
+  return $String_concat({$: "Con", "head": "> **", "tail": {$: "Con", "head": _name_0, "tail": {$: "Con", "head": "** ", "tail": {$: "Con", "head": $$______bend_core_clip($$______bend_core_squash(_args_0, false), 200), "tail": {$: "Con", "head": "\n\n", "tail": {$: "Nil"}}}}}});
+}
+
+function $______bend_core_piece_as(_voice_0, _name_0, _at_0, _text_0) {
+  if (_voice_0.$ === "Said") {
+    const _who_0 = _voice_0["who"];
+    return $______bend_core_said_block(_who_0, _at_0, $$String_trim_end(_text_0));
+  } else if (_voice_0.$ === "Call") {
+    return $______bend_core_call_line(_name_0, _text_0);
+  } else if (_voice_0.$ === "Result") {
+    return $______bend_core_result_block(_text_0);
+  } else if (_voice_0.$ === "Ran") {
+    const _x_0 = $$______bend_core_call_line("$", _name_0);
+    const _x_1 = $$______bend_core_result_block(_text_0);
+    return (_x_0 + _x_1);
+  } else if (_voice_0.$ === "Image") {
+    return "*(an image)*\n\n";
+  } else {
+    return "";
+  }
+}
+
+function $______bend_core_piece(_kind_0, _name_0, _at_0, _text_0) {
+  return $______bend_core_piece_as($$______bend_core_voice_of(_kind_0), _name_0, _at_0, _text_0);
+}
+
+function $______bend_core_counted(_n_0, _one_0, _many_0) {
+  return $String_concat({$: "Con", "head": $$Nat_show(_n_0), "tail": {$: "Con", "head": " ", "tail": {$: "Con", "head": $$Bool_pick($$Nat_is_eq(_n_0, 1), _one_0, _many_0), "tail": {$: "Nil"}}}});
+}
+
+function $______bend_core_tally_lines(_tallies_0) {
+  if (_tallies_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _tallies_0["head"];
+    const _name_0 = _t_0["name"];
+    const _from_0 = _t_0["from"];
+    const _count_0 = _t_0["count"];
+    const _t_1 = _tallies_0["tail"];
+    return $______bend_core_keep_if($$Bool_not($$Nat_is_eq(_count_0, 0)), $$String_concat({$: "Con", "head": $$______bend_core_counted(_count_0, "conversation", "conversations"), "tail": {$: "Con", "head": " from ", "tail": {$: "Con", "head": _from_0, "tail": {$: "Con", "head": ", in conversations/", "tail": {$: "Con", "head": _name_0, "tail": {$: "Con", "head": "/", "tail": {$: "Nil"}}}}}}}), $$______bend_core_tally_lines(_t_1));
+  }
+}
+
+function $______bend_core_bulleted(_lines_0) {
+  if (_lines_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _h_0 = _lines_0["head"];
+    const _t_0 = _lines_0["tail"];
+    return {$: "Con", "head": ("- " + _h_0), "tail": $$______bend_core_bulleted(_t_0)};
+  }
+}
+
+function $______bend_core_or_nothing(_lines_0) {
+  if (_lines_0.$ === "Nil") {
+    return {$: "Con", "head": "nothing: no conversation and no memory was found", "tail": {$: "Nil"}};
+  } else {
+    const _h_0 = _lines_0["head"];
+    const _t_0 = _lines_0["tail"];
+    return {$: "Con", "head": _h_0, "tail": _t_0};
+  }
+}
+
+function $______bend_core_own_folders() {
+  return {$: "Con", "head": "app", "tail": {$: "Con", "head": "plugins", "tail": {$: "Con", "head": "sessions", "tail": {$: "Con", "head": "pi", "tail": {$: "Con", "head": "update.lock", "tail": {$: "Nil"}}}}}};
+}
+
+function $______bend_core_left_over(_folders_0, _written_0) {
+  return $______bend_core_without($$______bend_core_without(_folders_0, $$______bend_core_own_folders()), _written_0);
+}
+
+function $______bend_core_left_over_line(_name_0) {
+  return $String_concat({$: "Con", "head": _name_0, "tail": {$: "Con", "head": "/ as it was kept: no loaded plugin exported it", "tail": {$: "Nil"}}});
+}
+
+function $______bend_core_export_lines(_tallies_0, _wrote_0) {
+  return $______bend_core_or_nothing($$List_append($$______bend_core_tally_lines(_tallies_0), _wrote_0));
+}
+
+function $______bend_core_export_readme(_day_0, _lines_0) {
+  return $String_concat({$: "Con", "head": "# wizardry export of ", "tail": {$: "Con", "head": _day_0, "tail": {$: "Con", "head": "\n\n", "tail": {$: "Con", "head": "Everything here is a copy: nothing was removed from where it was kept.\n\n", "tail": {$: "Con", "head": $$String_join($$______bend_core_bulleted(_lines_0), "\n"), "tail": {$: "Con", "head": "\n\n", "tail": {$: "Con", "head": "Each conversation is here twice. The `.jsonl` is the session exactly as it was kept, and\n", "tail": {$: "Con", "head": "`wizardry --session <that file>` carries it on. The `.md` beside it is the same conversation\n", "tail": {$: "Con", "head": "as text to read.\n", "tail": {$: "Nil"}}}}}}}}}});
+}
+
+function $______bend_core_export_said(_dir_0, _lines_0) {
+  return $String_concat({$: "Con", "head": "exported to ", "tail": {$: "Con", "head": _dir_0, "tail": {$: "Con", "head": ":\n", "tail": {$: "Con", "head": $$String_join($$______bend_core_indented(_lines_0), "\n"), "tail": {$: "Con", "head": "\n", "tail": {$: "Nil"}}}}}});
+}
+
+function $______bend_core_export_inside(_dir_0) {
+  return $String_concat({$: "Con", "head": "not exported: ", "tail": {$: "Con", "head": _dir_0, "tail": {$: "Con", "head": " is inside the conversations it would copy. Name another folder.", "tail": {$: "Nil"}}}});
+}
+
+function $______bend_core_export_taken(_dir_0) {
+  return $String_concat({$: "Con", "head": "not exported: ", "tail": {$: "Con", "head": _dir_0, "tail": {$: "Con", "head": " is not empty. Name a new folder, so that nothing in it is overwritten.", "tail": {$: "Nil"}}}});
+}
+
+function $______bend_core_export_broke(_why_0) {
+  return ("the export did not finish: " + _why_0);
+}
+
+function $______bend_core_export_usage() {
+  return "usage: wizardry export [folder]";
+}
+
+function $______bend_core_is_option(_arg_0) {
+  return $String_starts_with(_arg_0, "-");
+}
+
+function $______bend_core_bare(_argv_0, _value_0) {
+  if (_argv_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _h_0 = _argv_0["head"];
+    const _t_0 = _argv_0["tail"];
+    const _x_0 = $$______bend_core_is_option(_h_0);
+    return $______bend_core_keep_if($$Bool_not((_value_0 || _x_0)), _h_0, $$______bend_core_bare(_t_0, $$Bool_and($$Bool_not(_value_0), $$String_eq(_h_0, "--to"))));
+  }
+}
+
+function $______bend_core_options(_argv_0) {
+  if (_argv_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _h_0 = _argv_0["head"];
+    const _t_0 = _argv_0["tail"];
+    return $______bend_core_keep_if($$______bend_core_is_option(_h_0), _h_0, $$______bend_core_options(_t_0));
+  }
+}
+
+function $______bend_core_first_of(_xs_0) {
+  if (_xs_0.$ === "Nil") {
+    return "";
+  } else {
+    const _h_0 = _xs_0["head"];
+    return _h_0;
+  }
+}
+
+function $______bend_core_value_after(_argv_0, _flag_0) {
+  if (_argv_0.$ === "Nil") {
+    return "";
+  } else {
+    const _h_0 = _argv_0["head"];
+    const _t_0 = _argv_0["tail"];
+    return $Bool_pick($$String_eq(_h_0, _flag_0), $$______bend_core_first_of(_t_0), $$______bend_core_value_after(_t_0, _flag_0));
+  }
+}
+
+function $______bend_core_export_asked(_argv_0) {
+  const _words_0 = $$______bend_core_bare(_argv_0, false);
+  const _x_0 = $$List_length(_words_0);
+  return $Bool_pick($$Bool_and($$List_is_empty($$______bend_core_options(_argv_0)), (_x_0 < 2)), {$: "Some", "value": $$______bend_core_first_of(_words_0)}, {$: "None"});
+}
+
+function $______bend_core_delete_asked(_argv_0) {
+  const _words_0 = $$______bend_core_bare(_argv_0, false);
+  const _x_0 = $$______bend_core_has(_argv_0, "--yes");
+  const _x_1 = $$______bend_core_has(_argv_0, "-y");
+  return {$: "Removal", "what": $$______bend_core_first_of(_words_0), "yes": (_x_0 || _x_1), "waived": $$______bend_core_has(_argv_0, "--no-export"), "to": $$______bend_core_value_after(_argv_0, "--to"), "clear": $$Bool_and($$Nat_is_eq($$List_length(_words_0), 1), $$______bend_core_covers({$: "Con", "head": "--yes", "tail": {$: "Con", "head": "-y", "tail": {$: "Con", "head": "--no-export", "tail": {$: "Con", "head": "--to", "tail": {$: "Nil"}}}}}, $$______bend_core_options(_argv_0)))};
+}
+
+function $______bend_core_what_pick(_conversations_0, _memories_0, _old_0, _all_0) {
+  if (_conversations_0) {
+    return {$: "Conversations"};
+  } else {
+    if (_memories_0) {
+      return {$: "Memories"};
+    } else {
+      if (_old_0) {
+        return {$: "Old"};
+      } else {
+        if (_all_0) {
+          return {$: "All"};
+        } else {
+          return {$: "Unknown"};
+        }
+      }
+    }
+  }
+}
+
+function $______bend_core_what_of(_word_0) {
+  return $______bend_core_what_pick($$String_eq(_word_0, "conversations"), $$String_eq(_word_0, "memories"), $$String_eq(_word_0, "old"), $$String_eq(_word_0, "all"));
+}
+
+function $______bend_core_old_wanted(_old_0, _home_0) {
+  return $______bend_core_sparing($$Bool_pick($$______bend_core_inside(_old_0, _home_0), {$: "Nil"}, {$: "Con", "head": _old_0, "tail": {$: "Nil"}}), _home_0);
+}
+
+function $______bend_core_based(_home_0, _paths_0) {
+  return $______bend_core_unless($$Bool_not($$String_starts_with(_home_0, "/")), _paths_0);
+}
+
+function $______bend_core_wanted(_what_0, _home_0, _old_0) {
+  if (_what_0.$ === "Conversations") {
+    return $______bend_core_based(_home_0, {$: "Con", "head": $$______bend_core_sessions_dir(_home_0), "tail": {$: "Nil"}});
+  } else if (_what_0.$ === "Memories") {
+    return $______bend_core_based(_home_0, {$: "Con", "head": $$______bend_core_in_dir(_home_0, "memory"), "tail": {$: "Nil"}});
+  } else if (_what_0.$ === "Old") {
+    return $______bend_core_based(_home_0, $$______bend_core_old_wanted(_old_0, _home_0));
+  } else if (_what_0.$ === "All") {
+    return $______bend_core_based(_home_0, {$: "Con", "head": _home_0, "tail": {$: "Nil"}});
+  } else {
+    return {$: "Nil"};
+  }
+}
+
+function $______bend_core_doomed(_what_0, _home_0, _old_0, _userhome_0, _to_0) {
+  return $______bend_core_sparing($$______bend_core_sparing($$______bend_core_rooted($$______bend_core_wanted(_what_0, _home_0, _old_0)), _userhome_0), _to_0);
+}
+
+function $______bend_core_goes(_paths_0, _yes_0, _exported_0) {
+  if (_yes_0) {
+    if (_exported_0.$ === "Kept") {
+      return _paths_0;
+    } else if (_exported_0.$ === "Waived") {
+      return _paths_0;
+    } else {
+      return {$: "Nil"};
+    }
+  } else {
+    return {$: "Nil"};
+  }
+}
+
+function $______bend_core_emptied(_what_0, _doomed_0, _userhome_0) {
+  if (_what_0.$ === "Old") {
+    return $______bend_core_sparing($$______bend_core_rooted($$______bend_core_parents(_doomed_0)), _userhome_0);
+  } else if (_what_0.$ === "Conversations") {
+    return {$: "Nil"};
+  } else if (_what_0.$ === "Memories") {
+    return {$: "Nil"};
+  } else if (_what_0.$ === "All") {
+    return {$: "Nil"};
+  } else {
+    return {$: "Nil"};
+  }
+}
+
+function $______bend_core_dangling(_links_0, _doomed_0) {
+  if (_links_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _links_0["head"];
+    const _path_0 = _t_0["path"];
+    const _target_0 = _t_0["target"];
+    const _t_1 = _links_0["tail"];
+    return $______bend_core_keep_if($$______bend_core_takes(_doomed_0, _target_0), _path_0, $$______bend_core_dangling(_t_1, _doomed_0));
+  }
+}
+
+function $______bend_core_link_dirs(_invoked_0, _named_0, _userhome_0) {
+  return $______bend_core_without($$______bend_core_add($$______bend_core_add({$: "Con", "head": $$______bend_core_parent(_invoked_0), "tail": {$: "Nil"}}, _named_0), (_userhome_0 + "/.local/bin")), {$: "Con", "head": "", "tail": {$: "Nil"}});
+}
+
+function $______bend_core_old_home_link(_userhome_0) {
+  return (_userhome_0 + "/.izardry");
+}
+
+function $______bend_core_delete_usage() {
+  return $String_join({$: "Con", "head": "usage: wizardry delete <what> [--yes] [--to <folder>] [--no-export]", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "  conversations   every conversation wizardry has kept", "tail": {$: "Con", "head": "  memories        everything wizardry remembers", "tail": {$: "Con", "head": "  old             Pi's own setup, which wizardry no longer reads: its logins, settings,", "tail": {$: "Con", "head": "                  conversations, extensions and the pi program", "tail": {$: "Con", "head": "  all             all of wizardry: the program, its plugins, logins, conversations and memories", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "Without --yes it says what would be deleted and deletes nothing. With --yes it first exports", "tail": {$: "Con", "head": "every conversation and memory (to --to <folder>, else ~/wizardry-export-<day>), and deletes", "tail": {$: "Con", "head": "only once that is done; --no-export skips the export.", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}}}}}}}}}}, "\n");
+}
+
+function $______bend_core_why_pick(_unknown_0, _based_0, _none_0, _loose_0, _home_0, _export_0, _old_0, _to_0) {
+  if (_unknown_0) {
+    return "say what to delete: conversations, memories, old or all";
+  } else {
+    if (!_based_0) {
+      return "nothing was deleted: wizardry's directory is not a full path";
+    } else {
+      if (_none_0) {
+        return $String_concat({$: "Con", "head": "nothing to delete: Pi's own directory (", "tail": {$: "Con", "head": _old_0, "tail": {$: "Con", "head": ") is wizardry's, inside it, or holds it, so it is not an old setup", "tail": {$: "Nil"}}}});
+      } else {
+        if (_loose_0) {
+          return $String_concat({$: "Con", "head": "nothing was deleted: ", "tail": {$: "Con", "head": _old_0, "tail": {$: "Con", "head": " is not a full path", "tail": {$: "Nil"}}}});
+        } else {
+          if (_home_0) {
+            return "nothing was deleted: that would take your home directory along";
+          } else {
+            if (_export_0) {
+              return $String_concat({$: "Con", "head": "nothing was deleted: the export would go to ", "tail": {$: "Con", "head": _to_0, "tail": {$: "Con", "head": ", inside what is deleted. Name another folder with --to.", "tail": {$: "Nil"}}}});
+            } else {
+              return "";
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+function $______bend_core_is_unknown(_what_0) {
+  if (_what_0.$ === "Unknown") {
+    return true;
+  } else if (_what_0.$ === "Conversations") {
+    return false;
+  } else if (_what_0.$ === "Memories") {
+    return false;
+  } else if (_what_0.$ === "Old") {
+    return false;
+  } else {
+    return false;
+  }
+}
+
+function $______bend_core_why_not(_what_0, _home_0, _old_0, _userhome_0, _to_0) {
+  const _paths_0 = $$______bend_core_wanted(_what_0, _home_0, _old_0);
+  return $______bend_core_why_pick($$______bend_core_is_unknown(_what_0), $$String_starts_with(_home_0, "/"), $$List_is_empty(_paths_0), $$Bool_not($$______bend_core_all_rooted(_paths_0)), $$______bend_core_takes(_paths_0, _userhome_0), $$______bend_core_takes(_paths_0, _to_0), _old_0, _to_0);
+}
+
+function $______bend_core_size_text(_bytes_0) {
+  const _x_0 = (1000 );
+  const _x_1 = (1000000 );
+  const _x_2 = $$Nat_show($$Nat_div(_bytes_0, (1000 )));
+  const _x_3 = (1000000000 );
+  const _x_4 = $$Nat_show($$Nat_div(_bytes_0, (1000000 )));
+  const _x_5 = $$Nat_show($$Nat_div(_bytes_0, (1000000000 )));
+  return $Bool_pick((_bytes_0 < _x_0), $$______bend_core_counted(_bytes_0, "byte", "bytes"), $$Bool_pick((_bytes_0 < _x_1), (_x_2 + " KB"), $$Bool_pick((_bytes_0 < _x_3), (_x_4 + " MB"), (_x_5 + " GB"))));
+}
+
+function $______bend_core_row_lines(_rows_0) {
+  if (_rows_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _rows_0["head"];
+    const _path_0 = _t_0["path"];
+    const _bytes_0 = _t_0["bytes"];
+    const _t_1 = _rows_0["tail"];
+    return {$: "Con", "head": $$String_concat({$: "Con", "head": "  ", "tail": {$: "Con", "head": _path_0, "tail": {$: "Con", "head": "  (", "tail": {$: "Con", "head": $$______bend_core_size_text(_bytes_0), "tail": {$: "Con", "head": ")", "tail": {$: "Nil"}}}}}}), "tail": $$______bend_core_row_lines(_t_1)};
+  }
+}
+
+function $______bend_core_link_lines(_links_0) {
+  if (_links_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _h_0 = _links_0["head"];
+    const _t_0 = _links_0["tail"];
+    return {$: "Con", "head": $$String_concat({$: "Con", "head": "  ", "tail": {$: "Con", "head": _h_0, "tail": {$: "Con", "head": "  (a command that points into it)", "tail": {$: "Nil"}}}}), "tail": $$______bend_core_link_lines(_t_0)};
+  }
+}
+
+function $______bend_core_export_line(_waived_0, _to_0, _first_0, _then_0) {
+  if (_waived_0) {
+    return "Nothing is exported first: you said --no-export.";
+  } else {
+    return $String_concat({$: "Con", "head": _first_0, "tail": {$: "Con", "head": _to_0, "tail": {$: "Con", "head": _then_0, "tail": {$: "Nil"}}}});
+  }
+}
+
+function $______bend_core_delete_preview(_word_0, _rows_0, _links_0, _to_0, _waived_0) {
+  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": $$String_concat({$: "Con", "head": "wizardry delete ", "tail": {$: "Con", "head": _word_0, "tail": {$: "Con", "head": " would delete:", "tail": {$: "Nil"}}}}), "tail": {$: "Nil"}}, "tail": {$: "Con", "head": $$______bend_core_row_lines(_rows_0), "tail": {$: "Con", "head": $$______bend_core_link_lines(_links_0), "tail": {$: "Con", "head": {$: "Con", "head": $$______bend_core_export_line(_waived_0, _to_0, "First, every conversation and memory is exported to ", "."), "tail": {$: "Con", "head": $$String_concat({$: "Con", "head": "Nothing has been deleted. To go ahead: wizardry delete ", "tail": {$: "Con", "head": _word_0, "tail": {$: "Con", "head": " --yes", "tail": {$: "Con", "head": $$Bool_pick(_waived_0, " --no-export", ""), "tail": {$: "Nil"}}}}}), "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}, "tail": {$: "Nil"}}}}}), "\n");
+}
+
+function $______bend_core_deleted_said(_rows_0, _links_0, _to_0, _waived_0) {
+  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": "deleted:", "tail": {$: "Nil"}}, "tail": {$: "Con", "head": $$______bend_core_row_lines(_rows_0), "tail": {$: "Con", "head": $$______bend_core_link_lines(_links_0), "tail": {$: "Con", "head": {$: "Con", "head": $$______bend_core_export_line(_waived_0, _to_0, "Every conversation and memory was exported first, to ", "."), "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}, "tail": {$: "Nil"}}}}}), "\n");
+}
+
+function $______bend_core_nothing_there(_what_0) {
+  if (_what_0.$ === "Conversations") {
+    return "nothing to delete: wizardry has kept no conversation";
+  } else if (_what_0.$ === "Memories") {
+    return "nothing to delete: wizardry remembers nothing";
+  } else if (_what_0.$ === "Old") {
+    return "nothing to delete: there is no setup of Pi's own on this machine";
+  } else if (_what_0.$ === "All") {
+    return "nothing to delete: wizardry's directory is not there";
+  } else {
+    return "nothing to delete";
+  }
+}
+
+function $______bend_core_export_first_failed(_why_0) {
+  return $String_concat({$: "Con", "head": "nothing was deleted: the export did not finish (", "tail": {$: "Con", "head": _why_0, "tail": {$: "Con", "head": "). Fix that, or pass --no-export to delete without one.", "tail": {$: "Nil"}}}});
 }
 
 function $is_folder(_entry_0) {
@@ -2416,6 +3010,10 @@ function $Nat_show(_n_0) {
   return $Nat_show_fin(_m_0, "", $$Nat_show_put(nat_divmod(_m_0, 10)));
 }
 
+function $Nat_div(_a_0, _b_0) {
+  return $Pair_fst(nat_divmod(_a_0, _b_0));
+}
+
 function $Char_is_alpha(_c_0) {
   const _x_0 = $$Char_is_upper(_c_0);
   const _x_1 = $$Char_is_lower(_c_0);
@@ -2425,10 +3023,6 @@ function $Char_is_alpha(_c_0) {
 function $Char_is_digit(_c_0) {
   const _x_0 = char_code(_c_0);
   return $Bool_and((_x_0 >= 48), (_x_0 <= 57));
-}
-
-function $Nat_div(_a_0, _b_0) {
-  return $Pair_fst(nat_divmod(_a_0, _b_0));
 }
 
 function $Cmp_is_eq(_c_0) {
@@ -2640,6 +3234,11 @@ function $Nat_show_put(_qr_0) {
   return {$: "Tuple", "fst": char_new((_x_0 >>>0)), "snd": _q_0};
 }
 
+function $Pair_fst(_p_0) {
+  const _a_0 = _p_0["fst"];
+  return _a_0;
+}
+
 function $Char_is_upper(_c_0) {
   const _x_0 = char_code(_c_0);
   return $Bool_and((_x_0 >= 65), (_x_0 <= 90));
@@ -2648,11 +3247,6 @@ function $Char_is_upper(_c_0) {
 function $Char_is_lower(_c_0) {
   const _x_0 = char_code(_c_0);
   return $Bool_and((_x_0 >= 97), (_x_0 <= 122));
-}
-
-function $Pair_fst(_p_0) {
-  const _a_0 = _p_0["fst"];
-  return _a_0;
 }
 
 function $String_contains_if($0, $1, $2) {
@@ -2849,6 +3443,8 @@ const $$______bend_core_extras = $______bend_core_extras;
 const $$______bend_core_passes = $______bend_core_passes;
 const $$______bend_core_complete = $______bend_core_complete;
 const $$______bend_core_unless = $______bend_core_unless;
+const $$______bend_core_pi_bare = $______bend_core_pi_bare;
+const $$______bend_core_pi_apart = $______bend_core_pi_apart;
 const $$______bend_core_theme_args = $______bend_core_theme_args;
 const $$______bend_core_remove_one = $______bend_core_remove_one;
 const $$______bend_core_resumes = $______bend_core_resumes;
@@ -2929,6 +3525,48 @@ const $$______bend_core_wide_rows = $______bend_core_wide_rows;
 const $$______bend_core_indented = $______bend_core_indented;
 const $$______bend_core_shape = $______bend_core_shape;
 const $$List_concat = $List_concat;
+const $$______bend_core_own_pi = $______bend_core_own_pi;
+const $$______bend_core_var_names = $______bend_core_var_names;
+const $$______bend_core_pi_env = $______bend_core_pi_env;
+const $$______bend_core_pi_env_cleared = $______bend_core_pi_env_cleared;
+const $$______bend_core_brought_settings = $______bend_core_brought_settings;
+const $$______bend_core_brought_list = $______bend_core_brought_list;
+const $$______bend_core_with_slash = $______bend_core_with_slash;
+const $$______bend_core_inside = $______bend_core_inside;
+const $$______bend_core_takes = $______bend_core_takes;
+const $$______bend_core_all_rooted = $______bend_core_all_rooted;
+const $$______bend_core_parent_go = $______bend_core_parent_go;
+const $$______bend_core_parent = $______bend_core_parent;
+const $$______bend_core_parents = $______bend_core_parents;
+const $$______bend_core_sessions_dir = $______bend_core_sessions_dir;
+const $$______bend_core_origin_dirs = $______bend_core_origin_dirs;
+const $$______bend_core_origins = $______bend_core_origins;
+const $$______bend_core_minute = $______bend_core_minute;
+const $$______bend_core_more_lines = $______bend_core_more_lines;
+const $$______bend_core_result_view = $______bend_core_result_view;
+const $$______bend_core_call_line = $______bend_core_call_line;
+const $$______bend_core_result_block = $______bend_core_result_block;
+const $$______bend_core_voice_of = $______bend_core_voice_of;
+const $$______bend_core_counted = $______bend_core_counted;
+const $$______bend_core_tally_lines = $______bend_core_tally_lines;
+const $$______bend_core_bulleted = $______bend_core_bulleted;
+const $$______bend_core_own_folders = $______bend_core_own_folders;
+const $$______bend_core_is_option = $______bend_core_is_option;
+const $$______bend_core_bare = $______bend_core_bare;
+const $$______bend_core_options = $______bend_core_options;
+const $$______bend_core_first_of = $______bend_core_first_of;
+const $$______bend_core_value_after = $______bend_core_value_after;
+const $$______bend_core_old_wanted = $______bend_core_old_wanted;
+const $$______bend_core_wanted = $______bend_core_wanted;
+const $$______bend_core_rooted = $______bend_core_rooted;
+const $$______bend_core_sparing = $______bend_core_sparing;
+const $$______bend_core_dangling = $______bend_core_dangling;
+const $$______bend_core_is_unknown = $______bend_core_is_unknown;
+const $$Nat_div = $Nat_div;
+const $$______bend_core_size_text = $______bend_core_size_text;
+const $$______bend_core_row_lines = $______bend_core_row_lines;
+const $$______bend_core_link_lines = $______bend_core_link_lines;
+const $$______bend_core_export_line = $______bend_core_export_line;
 const $$is_folder = $is_folder;
 const $$covers = $covers;
 const $$may_write = $may_write;
@@ -2950,7 +3588,6 @@ const $$found_put = $found_put;
 const $$slashed_put = $slashed_put;
 const $$slashed = $slashed;
 const $$ticked = $ticked;
-const $$Nat_div = $Nat_div;
 const $$minutes = $minutes;
 const $$how = $how;
 const $$first_said = $first_said;
@@ -2996,7 +3633,7 @@ const $$String_join_go = $String_join_go;export default {
   "../../bend/core:stem_go": run_lib((a0,a1) => str_out(run_loop($______bend_core_stem_go(str_in(a0),str_in(a1)))), 2),
   "../../bend/core:stem": run_lib((a0) => str_out(run_loop($______bend_core_stem(str_in(a0)))), 1),
   "../../bend/core:pick_name": run_lib((a0) => str_out(run_loop($______bend_core_pick_name(a0))), 1),
-  "../../bend/core:command_pick": run_lib((a0,a1,a2,a3,a4) => run_loop($______bend_core_command_pick(a0,a1,a2,a3,a4)), 5),
+  "../../bend/core:command_pick": run_lib((a0,a1,a2,a3,a4,a5,a6) => run_loop($______bend_core_command_pick(a0,a1,a2,a3,a4,a5,a6)), 7),
   "../../bend/core:command_of": run_lib((a0) => run_loop($______bend_core_command_of(str_in(a0))), 1),
   "../../bend/core:extras_pick": run_lib((a0,a1,a2,a3,a4) => run_loop($______bend_core_extras_pick(a0,a1,a2,str_in(a3),a4)), 5),
   "../../bend/core:extras": run_lib((a0,a1) => run_loop($______bend_core_extras(a0,a1)), 2),
@@ -3007,6 +3644,8 @@ const $$String_join_go = $String_join_go;export default {
   "../../bend/core:split_args": run_lib((a0) => run_loop($______bend_core_split_args(a0)), 1),
   "../../bend/core:unless": run_lib((a0,a1) => run_loop($______bend_core_unless(a0,a1)), 2),
   "../../bend/core:theme_args": run_lib((a0,a1,a2) => run_loop($______bend_core_theme_args(a0,str_in(a1),str_in(a2))), 3),
+  "../../bend/core:pi_bare": run_lib(() => run_loop($______bend_core_pi_bare()), 0),
+  "../../bend/core:pi_apart": run_lib(() => run_loop($______bend_core_pi_apart()), 0),
   "../../bend/core:pi_args": run_lib((a0,a1,a2,a3) => run_loop($______bend_core_pi_args(a0,str_in(a1),str_in(a2),str_in(a3))), 4),
   "../../bend/core:remove_one": run_lib((a0,a1) => run_loop($______bend_core_remove_one(a0,str_in(a1))), 2),
   "../../bend/core:unsaid": run_lib((a0,a1,a2) => run_loop($______bend_core_unsaid(a0,a1,a2)), 3),
@@ -3165,6 +3804,90 @@ const $$String_join_go = $String_join_go;export default {
   "../../bend/core:shape": run_lib(() => str_out(run_loop($______bend_core_shape())), 0),
   "../../bend/core:inspect_text": run_lib((a0,a1) => str_out(run_loop($______bend_core_inspect_text(a0,a1))), 2),
   "../../bend/core:no_map": run_lib((a0) => str_out(run_loop($______bend_core_no_map(str_in(a0)))), 1),
+  "../../bend/core:own_pi": run_lib((a0) => str_out(run_loop($______bend_core_own_pi(str_in(a0)))), 1),
+  "../../bend/core:old_pi": run_lib((a0,a1) => str_out(run_loop($______bend_core_old_pi(str_in(a0),str_in(a1)))), 2),
+  "../../bend/core:pi_env": run_lib((a0) => run_loop($______bend_core_pi_env(str_in(a0))), 1),
+  "../../bend/core:pi_env_cleared": run_lib(() => run_loop($______bend_core_pi_env_cleared()), 0),
+  "../../bend/core:var_names": run_lib((a0) => run_loop($______bend_core_var_names(a0)), 1),
+  "../../bend/core:pi_env_touched": run_lib(() => run_loop($______bend_core_pi_env_touched()), 0),
+  "../../bend/core:brought_files": run_lib(() => run_loop($______bend_core_brought_files()), 0),
+  "../../bend/core:brought_settings": run_lib(() => run_loop($______bend_core_brought_settings()), 0),
+  "../../bend/core:pi_addons": run_lib(() => run_loop($______bend_core_pi_addons()), 0),
+  "../../bend/core:settings_brought": run_lib((a0) => run_loop($______bend_core_settings_brought(a0)), 1),
+  "../../bend/core:brings": run_lib((a0,a1,a2,a3) => run_loop($______bend_core_brings(a0,a1,str_in(a2),str_in(a3))), 4),
+  "../../bend/core:brought_list": run_lib((a0) => str_out(run_loop($______bend_core_brought_list(a0))), 1),
+  "../../bend/core:brought_said": run_lib((a0,a1,a2) => str_out(run_loop($______bend_core_brought_said(a0,str_in(a1),str_in(a2)))), 3),
+  "../../bend/core:with_slash": run_lib((a0) => str_out(run_loop($______bend_core_with_slash(str_in(a0)))), 1),
+  "../../bend/core:inside": run_lib((a0,a1) => run_loop($______bend_core_inside(str_in(a0),str_in(a1))), 2),
+  "../../bend/core:takes": run_lib((a0,a1) => run_loop($______bend_core_takes(a0,str_in(a1))), 2),
+  "../../bend/core:sparing": run_lib((a0,a1) => run_loop($______bend_core_sparing(a0,str_in(a1))), 2),
+  "../../bend/core:all_rooted": run_lib((a0) => run_loop($______bend_core_all_rooted(a0)), 1),
+  "../../bend/core:rooted": run_lib((a0) => run_loop($______bend_core_rooted(a0)), 1),
+  "../../bend/core:parent_go": run_lib((a0) => str_out(run_loop($______bend_core_parent_go(str_in(a0)))), 1),
+  "../../bend/core:parent": run_lib((a0) => str_out(run_loop($______bend_core_parent(str_in(a0)))), 1),
+  "../../bend/core:parents": run_lib((a0) => run_loop($______bend_core_parents(a0)), 1),
+  "../../bend/core:sessions_dir": run_lib((a0) => str_out(run_loop($______bend_core_sessions_dir(str_in(a0)))), 1),
+  "../../bend/core:export_dir": run_lib((a0,a1,a2,a3) => str_out(run_loop($______bend_core_export_dir(str_in(a0),str_in(a1),str_in(a2),nat_in(a3)))), 4),
+  "../../bend/core:origins": run_lib((a0,a1) => run_loop($______bend_core_origins(str_in(a0),str_in(a1))), 2),
+  "../../bend/core:origin_dirs": run_lib((a0) => run_loop($______bend_core_origin_dirs(a0)), 1),
+  "../../bend/core:export_fits": run_lib((a0,a1,a2) => run_loop($______bend_core_export_fits(str_in(a0),str_in(a1),str_in(a2))), 3),
+  "../../bend/core:is_conversation": run_lib((a0) => run_loop($______bend_core_is_conversation(str_in(a0))), 1),
+  "../../bend/core:conversation_to": run_lib((a0,a1,a2) => str_out(run_loop($______bend_core_conversation_to(str_in(a0),str_in(a1),str_in(a2)))), 3),
+  "../../bend/core:readable": run_lib((a0) => str_out(run_loop($______bend_core_readable(str_in(a0)))), 1),
+  "../../bend/core:minute": run_lib((a0) => str_out(run_loop($______bend_core_minute(str_in(a0)))), 1),
+  "../../bend/core:transcript_head": run_lib((a0,a1,a2) => str_out(run_loop($______bend_core_transcript_head(str_in(a0),str_in(a1),str_in(a2)))), 3),
+  "../../bend/core:voice_of": run_lib((a0) => run_loop($______bend_core_voice_of(str_in(a0))), 1),
+  "../../bend/core:said_block": run_lib((a0,a1,a2) => str_out(run_loop($______bend_core_said_block(str_in(a0),str_in(a1),str_in(a2)))), 3),
+  "../../bend/core:more_lines": run_lib((a0) => str_out(run_loop($______bend_core_more_lines(nat_in(a0)))), 1),
+  "../../bend/core:shown_block": run_lib((a0) => str_out(run_loop($______bend_core_shown_block(a0))), 1),
+  "../../bend/core:result_block": run_lib((a0) => str_out(run_loop($______bend_core_result_block(str_in(a0)))), 1),
+  "../../bend/core:call_line": run_lib((a0,a1) => str_out(run_loop($______bend_core_call_line(str_in(a0),str_in(a1)))), 2),
+  "../../bend/core:piece_as": run_lib((a0,a1,a2,a3) => str_out(run_loop($______bend_core_piece_as(a0,str_in(a1),str_in(a2),str_in(a3)))), 4),
+  "../../bend/core:piece": run_lib((a0,a1,a2,a3) => str_out(run_loop($______bend_core_piece(str_in(a0),str_in(a1),str_in(a2),str_in(a3)))), 4),
+  "../../bend/core:counted": run_lib((a0,a1,a2) => str_out(run_loop($______bend_core_counted(nat_in(a0),str_in(a1),str_in(a2)))), 3),
+  "../../bend/core:tally_lines": run_lib((a0) => run_loop($______bend_core_tally_lines(a0)), 1),
+  "../../bend/core:bulleted": run_lib((a0) => run_loop($______bend_core_bulleted(a0)), 1),
+  "../../bend/core:or_nothing": run_lib((a0) => run_loop($______bend_core_or_nothing(a0)), 1),
+  "../../bend/core:own_folders": run_lib(() => run_loop($______bend_core_own_folders()), 0),
+  "../../bend/core:left_over": run_lib((a0,a1) => run_loop($______bend_core_left_over(a0,a1)), 2),
+  "../../bend/core:left_over_line": run_lib((a0) => str_out(run_loop($______bend_core_left_over_line(str_in(a0)))), 1),
+  "../../bend/core:export_lines": run_lib((a0,a1) => run_loop($______bend_core_export_lines(a0,a1)), 2),
+  "../../bend/core:export_readme": run_lib((a0,a1) => str_out(run_loop($______bend_core_export_readme(str_in(a0),a1))), 2),
+  "../../bend/core:export_said": run_lib((a0,a1) => str_out(run_loop($______bend_core_export_said(str_in(a0),a1))), 2),
+  "../../bend/core:export_inside": run_lib((a0) => str_out(run_loop($______bend_core_export_inside(str_in(a0)))), 1),
+  "../../bend/core:export_taken": run_lib((a0) => str_out(run_loop($______bend_core_export_taken(str_in(a0)))), 1),
+  "../../bend/core:export_broke": run_lib((a0) => str_out(run_loop($______bend_core_export_broke(str_in(a0)))), 1),
+  "../../bend/core:export_usage": run_lib(() => str_out(run_loop($______bend_core_export_usage())), 0),
+  "../../bend/core:is_option": run_lib((a0) => run_loop($______bend_core_is_option(str_in(a0))), 1),
+  "../../bend/core:bare": run_lib((a0,a1) => run_loop($______bend_core_bare(a0,a1)), 2),
+  "../../bend/core:options": run_lib((a0) => run_loop($______bend_core_options(a0)), 1),
+  "../../bend/core:first_of": run_lib((a0) => str_out(run_loop($______bend_core_first_of(a0))), 1),
+  "../../bend/core:value_after": run_lib((a0,a1) => str_out(run_loop($______bend_core_value_after(a0,str_in(a1)))), 2),
+  "../../bend/core:export_asked": run_lib((a0) => run_loop($______bend_core_export_asked(a0)), 1),
+  "../../bend/core:delete_asked": run_lib((a0) => run_loop($______bend_core_delete_asked(a0)), 1),
+  "../../bend/core:what_pick": run_lib((a0,a1,a2,a3) => run_loop($______bend_core_what_pick(a0,a1,a2,a3)), 4),
+  "../../bend/core:what_of": run_lib((a0) => run_loop($______bend_core_what_of(str_in(a0))), 1),
+  "../../bend/core:old_wanted": run_lib((a0,a1) => run_loop($______bend_core_old_wanted(str_in(a0),str_in(a1))), 2),
+  "../../bend/core:based": run_lib((a0,a1) => run_loop($______bend_core_based(str_in(a0),a1)), 2),
+  "../../bend/core:wanted": run_lib((a0,a1,a2) => run_loop($______bend_core_wanted(a0,str_in(a1),str_in(a2))), 3),
+  "../../bend/core:doomed": run_lib((a0,a1,a2,a3,a4) => run_loop($______bend_core_doomed(a0,str_in(a1),str_in(a2),str_in(a3),str_in(a4))), 5),
+  "../../bend/core:goes": run_lib((a0,a1,a2) => run_loop($______bend_core_goes(a0,a1,a2)), 3),
+  "../../bend/core:emptied": run_lib((a0,a1,a2) => run_loop($______bend_core_emptied(a0,a1,str_in(a2))), 3),
+  "../../bend/core:dangling": run_lib((a0,a1) => run_loop($______bend_core_dangling(a0,a1)), 2),
+  "../../bend/core:link_dirs": run_lib((a0,a1,a2) => run_loop($______bend_core_link_dirs(str_in(a0),str_in(a1),str_in(a2))), 3),
+  "../../bend/core:old_home_link": run_lib((a0) => str_out(run_loop($______bend_core_old_home_link(str_in(a0)))), 1),
+  "../../bend/core:delete_usage": run_lib(() => str_out(run_loop($______bend_core_delete_usage())), 0),
+  "../../bend/core:why_pick": run_lib((a0,a1,a2,a3,a4,a5,a6,a7) => str_out(run_loop($______bend_core_why_pick(a0,a1,a2,a3,a4,a5,str_in(a6),str_in(a7)))), 8),
+  "../../bend/core:is_unknown": run_lib((a0) => run_loop($______bend_core_is_unknown(a0)), 1),
+  "../../bend/core:why_not": run_lib((a0,a1,a2,a3,a4) => str_out(run_loop($______bend_core_why_not(a0,str_in(a1),str_in(a2),str_in(a3),str_in(a4)))), 5),
+  "../../bend/core:size_text": run_lib((a0) => str_out(run_loop($______bend_core_size_text(nat_in(a0)))), 1),
+  "../../bend/core:row_lines": run_lib((a0) => run_loop($______bend_core_row_lines(a0)), 1),
+  "../../bend/core:link_lines": run_lib((a0) => run_loop($______bend_core_link_lines(a0)), 1),
+  "../../bend/core:export_line": run_lib((a0,a1,a2,a3) => str_out(run_loop($______bend_core_export_line(a0,str_in(a1),str_in(a2),str_in(a3)))), 4),
+  "../../bend/core:delete_preview": run_lib((a0,a1,a2,a3,a4) => str_out(run_loop($______bend_core_delete_preview(str_in(a0),a1,a2,str_in(a3),a4))), 5),
+  "../../bend/core:deleted_said": run_lib((a0,a1,a2,a3) => str_out(run_loop($______bend_core_deleted_said(a0,a1,str_in(a2),a3))), 4),
+  "../../bend/core:nothing_there": run_lib((a0) => str_out(run_loop($______bend_core_nothing_there(a0))), 1),
+  "../../bend/core:export_first_failed": run_lib((a0) => str_out(run_loop($______bend_core_export_first_failed(str_in(a0)))), 1),
   "is_folder": run_lib((a0) => run_loop($is_folder(str_in(a0))), 1),
   "covers": run_lib((a0,a1) => run_loop($covers(str_in(a0),str_in(a1))), 2),
   "may_write": run_lib((a0,a1) => run_loop($may_write(a0,str_in(a1))), 2),
