@@ -80,7 +80,7 @@ export const core = {
       list(def.objects.map((o) => ({ $: 'Object', symbol: o.symbol, sort: o.type, meaning: o.meaning }))), list(def.primitives),
       list(def.axioms.map((a) => ({ $: 'Axiom', name: a.name, statement: a.statement, stipulated: a.stipulated }))),
       list(def.examples), list(def.non_examples), def.bend,
-      list(def.criteria.map((c) => ({ $: 'Shown', name: c.name, kind: c.kind, weight: c.weight, statement: c.statement,
+      list(def.criteria.map((c) => ({ $: 'Shown', name: c.name, kind: c.gate ? `${c.kind}, gate` : c.kind, weight: c.weight, statement: c.statement,
         how: c.kind === 'judged' ? c.rubric : c.command, lo: String(c.worst), hi: String(c.best), higher: c.best >= c.worst }))),
       bend.climbable(weightOf('exact'), weightOf('proxy'), weightOf('judged')))
   },
@@ -92,10 +92,12 @@ export const core = {
   position: (value, worst, best) => bend.position(Math.fround(value), Math.fround(Math.min(worst, best)), Math.fround(Math.max(worst, best)), best >= worst),
   /** What a judge gave, in thousandths, if it gave a number. */
   judged: (reply) => some(bend.judged(reply)),
+  /** A score held under its gates: never higher than where the candidate stands on any of them. */
+  gated: (score, gates) => bend.gated(score, list(gates)),
   score: (marks) => bend.score(list(marks.map(({ weight, at }) => ({ $: 'Mark', weight, at })))),
   standing: (measuredKinds, unmeasured) => bend.standing(kinds(measuredKinds), unmeasured),
   verified: (measuredKinds, unmeasured) => bend.verified(kinds(measuredKinds), unmeasured),
-  row: (c, measured, at, note) => bend.row(c.name, c.kind, c.weight, measured, at, note ?? ''),
+  row: (c, measured, at, note) => bend.row(c.name, c.gate ? `${c.kind}, gate` : c.kind, c.weight, measured, at, note ?? ''),
   measured: (name, candidate, score, standing, rows) => bend.measured(name, candidate, score, standing, list(rows)),
   noNumber: (code, said) => bend.no_number(whole(code), said),
   judgeAsk: (written, c, candidate) => bend.judge_ask(written, c.name, c.statement, c.rubric, bend.shown_to_judge(candidate)),
@@ -258,7 +260,8 @@ export function apply(ctx, config) {
     const results = await Promise.all(def.criteria.map(one))
     const done = def.criteria.map((c, i) => ({ c, ...results[i] }))
     const marked = done.filter((each) => each.at !== undefined)
-    const score = core.score(marked.map(({ c, at }) => ({ weight: c.weight, at })))
+    // A gate that could not be measured holds the score at nothing: an axiom not shown to hold is not taken to.
+    const score = core.gated(core.score(marked.map(({ c, at }) => ({ weight: c.weight, at }))), done.filter(({ c }) => c.gate).map(({ at }) => at ?? 0))
     const standing = core.standing(marked.map(({ c }) => c.kind), done.length - marked.length)
     const rows = done.map(({ c, at, note }) => core.row(c, at !== undefined, at ?? 0, note))
     try {
@@ -320,6 +323,7 @@ export function apply(ctx, config) {
           kind: { type: 'string', enum: ['exact', 'proxy', 'judged'] },
           weight: { type: 'number', description: 'How much it counts beside the others. Default 1.' },
           command: { type: 'string', description: 'For exact and proxy: a shell command that prints the reading as its last line. The candidate\'s path is its last argument and $DEFINTIRE_CANDIDATE.' },
+          gate: { type: 'boolean', description: 'True when this criterion stands for an axiom: the score is never higher than where the candidate stands on it.' },
           rubric: { type: 'string', description: 'For judged: what 0 looks like and what 100 looks like.' },
           worst: { type: 'number', description: 'The reading that scores 0. Default 0.' },
           best: { type: 'number', description: 'The reading that scores 100. Default 1. Below `worst` when lower readings are better.' } }, required: ['name', 'statement', 'kind'] } },
@@ -340,7 +344,7 @@ export function apply(ctx, config) {
         bend: String(given?.bend ?? ''),
         criteria: items(given?.criteria).map((c) => ({
           name: text(c?.name), statement: text(c?.statement), kind: text(c?.kind), weight: whole(c?.weight ?? 1),
-          command: text(c?.command), rubric: text(c?.rubric),
+          command: text(c?.command), rubric: text(c?.rubric), gate: c?.gate === true,
           worst: text(c?.kind) === 'judged' ? 0 : number(c?.worst, 0), best: text(c?.kind) === 'judged' ? 100 : number(c?.best, 1),
         })),
         root: env.cwd,

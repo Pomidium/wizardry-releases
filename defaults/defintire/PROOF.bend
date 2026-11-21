@@ -66,6 +66,9 @@ def least_fits(a: Nat, b: Nat) -> {Nat.is_le(Nat.min(a, b), b) == True{} : Bool}
 def Laws.position_in_range(v, lo, hi, higher):
   least_fits(Bool.pick(Nat, Bool.and(F32.is_lt(lo, hi), D.real(v)), F32.to_nat(F32.round(F32.mul(1000.0, D.turned(higher, D.along(v, lo, hi))))), 0n), 1000n)
 
+def Laws.a_gate_caps_the_score(score, gate, others):
+  least_fits(D.gated(score, others), gate)
+
 # Points given to the first are taken from the second: the sum is as it was.
 def first_keeps(+a: Nat, +p: Nat, +b: Nat) -> {Nat.add(Nat.add(a, D.least(p, b)), Nat.sub(b, D.least(p, b))) == Nat.add(a, b) : Nat}:
   match p b:

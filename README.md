@@ -281,7 +281,8 @@ A few default plugins ship in [`defaults/`](defaults) and are on for everyone:
   choices rather than findings are marked stipulated), examples and non-examples, and the same
   in Bend where Bend can say it. Criteria tie numbers to it, each one **exact** (a command
   computes the quantity), **proxy** (a command computes a stand-in) or **judged** (a model reads
-  the candidate against a rubric). `defintire_measure` scores a candidate out of 100 by those
+  the candidate against a rubric), and may be a **gate**, standing for an axiom: the score is
+  never higher than where the candidate stands on a gate. `defintire_measure` scores a candidate out of 100 by those
   criteria and nothing else, and says whether the score is verified (every criterion exact),
   estimated or partial. `defintire_rank` compares candidates two at a time and keeps an Elo
   rating for each, for what has no absolute number worth trusting. `defintire_climb` sends

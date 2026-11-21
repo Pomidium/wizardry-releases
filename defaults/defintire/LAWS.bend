@@ -35,6 +35,14 @@ law position_in_range:
   for higher: Bool
   {Nat.is_le(D.position(v, lo, hi, higher), 1000n) == True{} : Bool}
 
+# A score is never higher than where the candidate stands on a gate, whatever the other
+# criteria and gates say.
+law a_gate_caps_the_score:
+  for score: Nat
+  for gate: Nat
+  for others: List<&2, Nat>
+  {Nat.is_le(D.gated(score, gate <> others), gate) == True{} : Bool}
+
 # A comparison only moves points between the two compared: whoever wins, whoever was ahead and
 # by however much, the two ratings add up to what they did.
 law ratings_are_conserved:

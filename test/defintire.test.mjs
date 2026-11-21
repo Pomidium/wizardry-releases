@@ -40,7 +40,7 @@ test('defintire: the proofs check, and the compiled Bend in the repo is what the
   const laws = [...readFileSync(join(DEFINTIRE, 'LAWS.bend'), 'utf8').matchAll(/^law (\w+):/gm)].map((match) => match[1])
   const proofs = [...readFileSync(join(DEFINTIRE, 'PROOF.bend'), 'utf8').matchAll(/^def Laws\.(\w+)\(/gm)].map((match) => match[1])
   assert.deepEqual([...proofs].sort(), [...laws].sort())
-  assert.equal(laws.length, 9)
+  assert.equal(laws.length, 10)
   const out = join(mkdtempSync(join(tmpdir(), 'wizardry-defintire-core-')), 'core.mjs')
   execFileSync(BEND, ['defintire.bend', '-o', out], { cwd: DEFINTIRE, env })
   assert.equal(readFileSync(join(DEFINTIRE, 'core.mjs'), 'utf8'), readFileSync(out, 'utf8'), 'defaults/defintire/core.mjs is stale: run `npm run core`')
@@ -207,6 +207,15 @@ test('defintire: a candidate is scored by the definition\'s criteria, and the sc
   await assert.rejects(actions.invoke('defintire_measure', { definition: 'good commit message', candidate: 'missing.txt' }, { cwd }), /"missing\.txt" is not a file here, and no text was given/)
   const scores = readFileSync(join(home, 'defintire', 'good-commit-message', 'scores.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line))
   assert.deepEqual(scores.map((each) => [each.candidate, each.score]), [['good.txt', 875], ['vague', scores[1].score]])
+
+  // A gate stands for an axiom: the score is never higher than where the candidate stands on it.
+  assert.equal(core.gated(900, [1000, 400, 700]), 400)
+  assert.equal(core.gated(300, [1000, 400]), 300)
+  assert.equal(core.gated(900, []), 900)
+  await actions.invoke('defintire_define', { ...COMMIT, name: 'Gated', criteria: [COMMIT.criteria[0], { name: 'holds', statement: 'x', kind: 'exact', gate: true, command: 'sh -c "echo 0.25" sh' }] }, { cwd })
+  const gated = await actions.invoke('defintire_measure', { definition: 'gated', candidate: 'good.txt' }, { cwd })
+  assert.match(gated, /^"good\.txt" against "Gated": 25\.0\/100 \(verified/, 'brevity is 80 and the mean 61.6, but the gate stands at 25')
+  assert.match(gated, /holds \[exact, gate, weight 1\]: 25\.0\/100/)
 
   // With only exact criteria the score is verified; a command that fails leaves it partial, and says why.
   await actions.invoke('defintire_define', { ...COMMIT, name: 'Short subject', criteria: [COMMIT.criteria[0]] }, { cwd })

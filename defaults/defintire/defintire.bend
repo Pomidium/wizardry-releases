@@ -261,6 +261,16 @@ def score(+marks: List<&2, Mark>) -> Nat:
   +all = heft(marks)
   Bool.pick(Nat, Nat.is_eq(all, 0n), 0n, Nat.div(weighed(marks), all))
 
+# A score held under its gates. A gate is a criterion that stands for an axiom: something that
+# fails it is not an instance, however well it does elsewhere, so the score cannot be higher
+# than where the candidate stands on any gate.
+def gated(score: Nat, gates: List<&2, Nat>) -> Nat:
+  match gates:
+    case Nil{}:
+      score
+    case Con{h, t}:
+      Nat.min(gated(score, t), h)
+
 # Ratings: one number per candidate, moved by comparisons
 # -------------------------------------------------------
 
@@ -630,6 +640,9 @@ def method(hillclimb: String, jacobian: String, home: String, saved: List<&2, St
       "- proxy: a command computes a stand-in (a readability formula for clarity). Say what it stands in for.",
       "- judged: a model reads the candidate against a rubric and gives 0 to 100. Use it for what no script reaches,",
       "  and write the rubric so that two judges would agree: what 0 looks like, what 100 looks like.",
+      "- gate: true on a criterion makes it stand for an axiom: the score can never be higher than where the",
+      "  candidate stands on a gate, so what fails an axiom cannot score well by doing well elsewhere. Give a gate a",
+      "  reading that still falls as the failure gets worse, or a climb has nothing to follow.",
       "- A command runs in the directory the definition was made in, with the candidate's path in $DEFINTIRE_CANDIDATE",
       "  and as its last argument, and prints the reading first on the last line of its output. Tools installed",
       "  for wizardry (below) are on its PATH.",
