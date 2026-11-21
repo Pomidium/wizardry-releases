@@ -261,6 +261,29 @@ A few default plugins ship in [`defaults/`](defaults) and are on for everyone:
   `~/.wizardry/division.json` (`depth`, `timeoutMinutes`, `agent`); every cut is logged in
   `~/.wizardry/division/runs.jsonl`, with how long each part took.
 
+- `defintire`, which turns anything, mathematical or not, into an explicit definition and then into
+  something that can be improved. `defintire_define` keeps a definition: the question it answers,
+  its objects and their types, what is left undefined, its axioms in notation (those that are
+  choices rather than findings are marked stipulated), examples and non-examples, and the same
+  in Bend where Bend can say it. Criteria tie numbers to it, each one **exact** (a command
+  computes the quantity), **proxy** (a command computes a stand-in) or **judged** (a model reads
+  the candidate against a rubric). `defintire_measure` scores a candidate out of 100 by those
+  criteria and nothing else, and says whether the score is verified (every criterion exact),
+  estimated or partial. `defintire_rank` compares candidates two at a time and keeps an Elo
+  rating for each, for what has no absolute number worth trusting. `defintire_climb` sends
+  agents (on your `/default-agent` model) to improve a file: every attempt is measured, only one
+  that scores strictly higher is kept, and the file changes only for something better. It is
+  proven ([`defaults/defintire/LAWS.bend`](defaults/defintire/LAWS.bend)) that a score resting on
+  a proxy or a judgment is never called verified, that no reading scores past the best, that a
+  comparison only moves points between the two compared, and that a climb never goes downhill.
+  It draws on [hillclimb](https://github.com/rebase-energy/hillclimb) (a verifier scores, the
+  best is kept), [Creative-Intelligence](https://github.com/DeepMathLLM/Creative-Intelligence)
+  (a concept is formed from the problem it answers, by counterexample and verification) and
+  [jacobian](https://github.com/morluto/jacobian) (exact, typed mathematical operations), and
+  includes no code of any; when hillclimb or jacobian is installed, the method says how to hand
+  a long search to the one and exact quantities to the other. Definitions are kept in
+  `~/.wizardry/defintire/`, so export and delete take them along.
+
 Switch a default off with `plugin_unload` and `persist: true`; change one by putting a file or
 folder of the same name in `~/.wizardry/plugins/`.
  Sessions are stored in `~/.wizardry/sessions/`. Set `WIZARDRY_HOME` to move all of it.

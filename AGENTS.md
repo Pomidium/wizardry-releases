@@ -105,6 +105,7 @@ Read in this order:
 | `src/look.ts` | Header, themes, how calls and results render |
 | `defaults/*.js` | The shipped default plugins; `bend.js` is the example of a skill as an action |
 | `defaults/division/` | The division default: `division.bend` (who may write what, whether a cut is made, what each agent is told, whether the parts fit), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which starts the agents |
+| `defaults/defintire/` | The defintire default: `defintire.bend` (what counts as a definition, how a reading becomes a score, when a score is verified, how ratings move, which attempt a climb keeps, and the method), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which runs the commands, asks the judge and starts the agents |
 | `defaults/memory/` | The memory plugin, copied in whole from its own repository (see below). Never edit it here |
 | `src/plugins/*.ts` | The builtins; `rtk.ts` is the example of wrapping another plugin's action, `update.ts` of `task/end` and slash commands |
 
@@ -170,7 +171,7 @@ Two classes, and which one a plugin belongs to decides where it lives:
   updated with this repo.
 - **Default**: not intrinsic. A choice that comes switched on and can be changed or removed without
   touching wizardry. Defaults live in two places:
-  - `defaults/` in this repo: shipped to every install (the `bend` skill, `memory`, `division`). Loaded at boot by
+  - `defaults/` in this repo: shipped to every install (the `bend` skill, `memory`, `division`, `defintire`). Loaded at boot by
     `Plugins.boot`; a file of the same name in a plugin directory is loaded instead, and
     `plugin_unload <name>` with `persist: true` switches one off.
   - `$WIZARDRY_HOME/plugins/`: this machine only (a default model). Edit the
@@ -204,6 +205,26 @@ so a lemma renamed there is renamed here too.
   `/default-agent` or `/division` (kept in `$WIZARDRY_HOME/division.json`), and otherwise on the
   calling session's.
 - The trial in `test/division.test.mjs` uses a fake agent (`config.agent`); a real one needs a model.
+
+### The defintire default
+
+`defaults/defintire/` is built here like division: edit `defintire.bend`, run `npm run core`,
+commit `core.mjs` with it. Its proofs import wizardry's own (`../../PROOF.bend`).
+
+- A definition is a folder, `$WIZARDRY_HOME/defintire/<slug>/`: `definition.json` (what the
+  actions read), `definition.md` (the same, written out), `scores.jsonl`, `ratings.json`,
+  `climbs/`. Being a folder of the home, it is exported as it is and deleted with `all`.
+- A criterion's command runs through the shell in the directory the definition was made in, with
+  the candidate's path appended and in `$DEFINTIRE_CANDIDATE`; the reading is the last line.
+  Scores are thousandths inside and shown out of 100.
+- "Verified" is a word with a law behind it (`soft_is_never_verified`,
+  `unmeasured_is_never_verified`): never let a message call a score verified by another route.
+- The judge is the session's model through its registry, or `config.complete` in tests. Without
+  one, judged criteria are left unmeasured and said to be.
+- `defintire_climb` starts agents as division does, on the model in `division.json`
+  (`/default-agent`), each in a directory of its own under `climbs/`, fenced to the one file by
+  `WIZARDRY_DIVISION` when division is loaded. hillclimb and jacobian are never required: the
+  method only mentions how to use them when they are on PATH.
 
 ### The memory default
 
