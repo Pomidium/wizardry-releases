@@ -3,6 +3,10 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/Pomidium/wizardry-releases/main/install.sh | sh
 #
+# With everything the default plugins can use (Bend, jacobian, hillclimb; about 700 MB more):
+#
+#   curl -fsSL https://raw.githubusercontent.com/Pomidium/wizardry-releases/main/install-full.sh | sh
+#
 # Environment:
 #   WIZARDRY_HOME      where wizardry lives           (default: ~/.wizardry)
 #   WIZARDRY_BIN_DIR   where the command is linked   (default: ~/.local/bin)
@@ -11,6 +15,8 @@
 #   WIZARDRY_SKIP_RTK  set to 1 to leave rtk alone   (default: install rtk if it is missing)
 #   WIZARDRY_WITH_TOOLS set to 1 to also install jacobian and hillclimb for the defintire plugin,
 #                      inside WIZARDRY_HOME (about 650 MB with the Python they need; default: no)
+#   WIZARDRY_WITH_BEND set to 1 to also install Bend, which the bend plugin runs (default: no)
+#   WIZARDRY_FULL      set to 1 for both of those: what install-full.sh does
 
 set -eu
 
@@ -72,7 +78,16 @@ main() {
 
   # jacobian (exact mathematics) and hillclimb (long searches), which the defintire plugin uses
   # when they are there. They are large, so only when asked, and kept inside wizardry's directory.
-  if [ "${WIZARDRY_WITH_TOOLS:-}" = "1" ]; then
+  if [ "${WIZARDRY_WITH_BEND:-}" = "1" ] || [ "${WIZARDRY_FULL:-}" = "1" ]; then
+    if command -v bend >/dev/null 2>&1 || [ -x "${BEND_HOME:-$HOME/.bend}/bin/bend" ]; then
+      say "Bend is already installed"
+    else
+      say "installing Bend into ${BEND_HOME:-$HOME/.bend}"
+      curl -fsSL https://bend-lang.com/install.sh | sh >/dev/null 2>&1 || say "could not install Bend; wizardry works without it"
+    fi
+  fi
+
+  if [ "${WIZARDRY_WITH_TOOLS:-}" = "1" ] || [ "${WIZARDRY_FULL:-}" = "1" ]; then
     say "installing jacobian and hillclimb into $HOME_DIR/tools (about 650 MB)"
     command -v uv >/dev/null 2>&1 || [ -x "$HOME/.local/bin/uv" ] || curl -LsSf https://astral.sh/uv/install.sh | sh \
       || say "could not install uv; wizardry works without these tools"

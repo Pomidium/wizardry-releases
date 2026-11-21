@@ -9,6 +9,18 @@ everything the agent can do is a tool call it chooses to make.
 curl -fsSL https://raw.githubusercontent.com/Pomidium/wizardry-releases/main/install.sh | sh
 ```
 
+Or with everything the default plugins can use, which is about 700 MB more:
+
+```
+curl -fsSL https://raw.githubusercontent.com/Pomidium/wizardry-releases/main/install-full.sh | sh
+```
+
+That is the same installer with `WIZARDRY_FULL=1`: it adds [Bend](https://bend-lang.com) for the
+`bend` plugin (in `~/.bend`), and [jacobian](https://github.com/morluto/jacobian) and
+[hillclimb](https://github.com/rebase-energy/hillclimb) for `defintire`, both inside
+`~/.wizardry/tools` with a Python of their own (installed by [uv](https://docs.astral.sh/uv/),
+which it adds to `~/.local/bin` if missing). Run it over a plain install to add them later.
+
 This repo is private; anyone can still install. Every push to `main` is copied (the tree, not its
 history) to the public [Pomidium/wizardry-releases](https://github.com/Pomidium/wizardry-releases)
 by `.github/workflows/mirror.yml`, and the installer and the updater fetch from there. The
@@ -283,8 +295,8 @@ A few default plugins ship in [`defaults/`](defaults) and are on for everyone:
   [jacobian](https://github.com/morluto/jacobian) (exact, typed mathematical operations), and
   includes no code of any; when hillclimb or jacobian is installed, the method says how to hand
   a long search to the one and exact quantities to the other. They are about 650 MB together with
-  the Python they need, so they are not installed by default: `WIZARDRY_WITH_TOOLS=1` on the
-  installer adds them, inside `~/.wizardry/tools` (the method gives the same command for later). Definitions are kept in
+  the Python they need, so they are not in the plain install: the full install (see Install) adds
+  them, inside `~/.wizardry/tools`, and the method gives the same command for later. Definitions are kept in
   `~/.wizardry/defintire/`, so export and delete take them along.
 
 Switch a default off with `plugin_unload` and `persist: true`; change one by putting a file or

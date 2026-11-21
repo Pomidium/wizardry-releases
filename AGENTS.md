@@ -225,7 +225,10 @@ commit `core.mjs` with it. Its proofs import wizardry's own (`../../PROOF.bend`)
   (`/default-agent`), each in a directory of its own under `climbs/`, fenced to the one file by
   `WIZARDRY_DIVISION` when division is loaded.
 - hillclimb and jacobian are never required and not installed by default: the owner's rule is
-  "built in if small", and they are about 650 MB. `WIZARDRY_WITH_TOOLS=1 install.sh` puts them in
+  "built in if small", and they are about 650 MB. There are two installers for that reason:
+  `install.sh`, and `install-full.sh`, which runs it with `WIZARDRY_FULL=1` and so adds Bend and
+  these two. Something a new default can use that is large goes behind `WIZARDRY_FULL`; something
+  small goes in `install.sh` itself. `WIZARDRY_FULL=1` (or `WIZARDRY_WITH_TOOLS=1`) puts them in
   `$WIZARDRY_HOME/tools` with links in `$WIZARDRY_HOME/bin` (uv, with its Python kept there too).
   The plugin looks there first, puts that `bin` on the PATH of criterion commands and climbing
   agents, and names the full path in the method. `tools` and `bin` are in `own_folders`, so an
