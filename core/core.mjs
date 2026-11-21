@@ -2289,6 +2289,26 @@ function $export_first_failed(_why_0) {
   return $String_concat({$: "Con", "head": "nothing was deleted: the export did not finish (", "tail": {$: "Con", "head": _why_0, "tail": {$: "Con", "head": "). Fix that, or pass --no-export to delete without one.", "tail": {$: "Nil"}}}});
 }
 
+function $setting(_name_0, _value_0) {
+  return $Bool_pick($$String_is_empty(_value_0), {$: "Nil"}, {$: "Con", "head": {$: "Var", "name": _name_0, "value": _value_0}, "tail": {$: "Nil"}});
+}
+
+function $default_settings(_provider_0, _model_0, _thinking_0) {
+  return $List_concat({$: "Con", "head": $$setting("defaultProvider", _provider_0), "tail": {$: "Con", "head": $$setting("defaultModel", _model_0), "tail": {$: "Con", "head": $$setting("defaultThinkingLevel", _thinking_0), "tail": {$: "Nil"}}}});
+}
+
+function $kept_off(_would_load_0, _loaded_0) {
+  return $without(_would_load_0, _loaded_0);
+}
+
+function $or_unset(_value_0) {
+  return $Bool_pick($$String_is_empty(_value_0), "as it was", _value_0);
+}
+
+function $default_said(_model_0, _thinking_0, _plugins_0) {
+  return $String_concat({$: "Con", "head": "New sessions now start as this one. Model: ", "tail": {$: "Con", "head": $$or_unset(_model_0), "tail": {$: "Con", "head": ". Thinking: ", "tail": {$: "Con", "head": $$or_unset(_thinking_0), "tail": {$: "Con", "head": ". Plugins: ", "tail": {$: "Con", "head": $$String_join(_plugins_0, ", "), "tail": {$: "Con", "head": ".", "tail": {$: "Nil"}}}}}}}});
+}
+
 function $String_eq(_a_0, _b_0) {
   return $Cmp_is_eq($$String_order(_a_0, _b_0));
 }
@@ -3063,6 +3083,8 @@ const $$size_text = $size_text;
 const $$row_lines = $row_lines;
 const $$link_lines = $link_lines;
 const $$export_line = $export_line;
+const $$setting = $setting;
+const $$or_unset = $or_unset;
 const $$String_order = $String_order;
 const $$Nat_show_put = $Nat_show_put;
 const $$String_split = $String_split;
@@ -3350,4 +3372,9 @@ const $$String_join_go = $String_join_go;export default {
   "deleted_said": run_lib((a0,a1,a2,a3) => str_out(run_loop($deleted_said(a0,a1,str_in(a2),a3))), 4),
   "nothing_there": run_lib((a0) => str_out(run_loop($nothing_there(a0))), 1),
   "export_first_failed": run_lib((a0) => str_out(run_loop($export_first_failed(str_in(a0)))), 1),
+  "setting": run_lib((a0,a1) => run_loop($setting(str_in(a0),str_in(a1))), 2),
+  "default_settings": run_lib((a0,a1,a2) => run_loop($default_settings(str_in(a0),str_in(a1),str_in(a2))), 3),
+  "kept_off": run_lib((a0,a1) => run_loop($kept_off(a0,a1)), 2),
+  "or_unset": run_lib((a0) => str_out(run_loop($or_unset(str_in(a0)))), 1),
+  "default_said": run_lib((a0,a1,a2) => str_out(run_loop($default_said(str_in(a0),str_in(a1),a2))), 3),
 };

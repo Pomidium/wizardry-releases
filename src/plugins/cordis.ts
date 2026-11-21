@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import { core } from '../core.js'
@@ -8,12 +8,44 @@ function describe(verb: string, plugin: { name: string; state: string; actions: 
   return core.loadedText(verb, plugin.name, plugin.state, plugin.actions)
 }
 
+/**
+ * `/default`: make this session's setup the one new sessions start with. Its model and thinking
+ * level go into the settings of the Pi wizardry runs (in wizardry's own directory, which Pi
+ * rewrites only for the settings it changes itself), and the plugins loaded now become the ones
+ * that load at every start. The user's, not the agent's.
+ */
+export function defaultCommand(ctx: Context) {
+  ctx.root.get('pi')?.command('default', {
+    description: 'Make this session\'s model, thinking level and plugins what new sessions start with',
+    run(_args, piCtx) {
+      const plugins = ctx.root.get('plugins')!
+      const model = piCtx.model
+      let thinking = ''
+      try {
+        thinking = String(ctx.root.get('pi')?.api?.getThinkingLevel?.() ?? '')
+      } catch {}
+      const dir = core.ownPi(plugins.home)
+      const file = join(dir, 'settings.json')
+      let settings: Record<string, unknown> = {}
+      try {
+        settings = JSON.parse(readFileSync(file, 'utf8'))
+      } catch {}
+      // Which settings are written is decided in Bend: only what this session has.
+      for (const { name, value } of core.defaultSettings(model?.provider ?? '', model?.id ?? '', thinking)) settings[name] = value
+      mkdirSync(dir, { recursive: true, mode: 0o700 })
+      writeFileSync(file, `${JSON.stringify(settings, null, 2)}\n`)
+      piCtx.ui.notify(core.defaultSaid(model ? `${model.provider}/${model.id}` : '', thinking, plugins.keep()), 'info')
+    },
+  })
+}
+
 /** The agent's view of, and hands on, the Cordis runtime it runs on. */
 export const cordis = {
   name: 'cordis',
   inject: ['plugins'],
   apply(ctx: Context) {
     updateCommand(ctx)
+    defaultCommand(ctx)
 
     ctx.actions.register({
       name: 'cordis_inspect',

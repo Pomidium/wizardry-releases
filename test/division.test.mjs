@@ -44,7 +44,7 @@ test('division: the proofs check, and the compiled Bend in the repo is what the 
   const laws = [...readFileSync(join(DIVISION, 'LAWS.bend'), 'utf8').matchAll(/^law (\w+):/gm)].map((match) => match[1])
   const proofs = [...readFileSync(join(DIVISION, 'PROOF.bend'), 'utf8').matchAll(/^def Laws\.(\w+)\(/gm)].map((match) => match[1])
   assert.deepEqual([...proofs].sort(), [...laws].sort())
-  assert.equal(laws.length, 12)
+  assert.equal(laws.length, 14)
   const out = join(mkdtempSync(join(tmpdir(), 'wizardry-division-core-')), 'core.mjs')
   execFileSync(BEND, ['division.bend', '-o', out], { cwd: DIVISION, env })
   assert.equal(readFileSync(join(DIVISION, 'core.mjs'), 'utf8'), readFileSync(out, 'utf8'), 'defaults/division/core.mjs is stale: run `npm run core`')
@@ -55,30 +55,36 @@ test('division: who may write what, and whether a cut is made, answer as plain J
   const covers = (own, path) => own === path || (own.endsWith('/') && path.startsWith(own))
   const may = (owns, path) => !owns || owns.some((own) => covers(own, path))
   const overlap = (xs, ys) => xs.some((x) => ys.some((y) => covers(x, y) || covers(y, x)))
+  const twice = (xs) => xs.some((x, i) => xs.indexOf(x) !== i)
   const seen = new Set()
-  for (let i = 0; i < 6000; i++) {
+  const sizes = new Set()
+  for (let i = 0; i < 8000; i++) {
     const parent = pick([undefined, undefined, some(PATHS, 3)])
-    const first = { name: pick(['a', 'b']), owns: some(PATHS, 3), laws: some(['p', 'q', 'r'], 2), minutes: pick([0, 5, 14, 15, 16, 40]) }
-    const second = { name: pick(['b', 'c']), owns: some(PATHS, 3), laws: some(['q', 'r', 's'], 2), minutes: pick([5, 15, 30]) }
+    // However many parts: none, one, two, five.
+    const parts = Array.from({ length: below(6) }, (_, n) => ({
+      name: pick([`part${n}`, `part${n}`, `part${n}`, 'same']), owns: some(PATHS, pick([0, 1, 1, 2])), laws: some(['p', 'q', 'r', 's', 't', 'u'], pick([0, 0, 1, 2])),
+    }))
     const depth = below(5)
     const expected =
       depth >= 3 ? 'TooDeep'
-      : first.minutes < 15 || second.minutes < 15 ? 'TooSmall'
-      : !first.owns.length || !second.owns.length ? 'NoFiles'
-      : !first.laws.length || !second.laws.length ? 'NoLaws'
-      : first.name === second.name ? 'SameName'
-      : first.laws.some((law) => second.laws.includes(law)) ? 'SharedLaw'
-      : ![...first.owns, ...second.owns].every((own) => may(parent, own)) ? 'Outside'
-      : overlap(first.owns, second.owns) ? 'Trample'
+      : !parts.length ? 'NoParts'
+      : twice(parts.map((part) => part.name)) ? 'SameName'
+      : twice(parts.flatMap((part) => part.laws)) ? 'SharedLaw'
+      : !parts.every((part) => part.owns.every((own) => may(parent, own))) ? 'Outside'
+      : parts.some((part, a) => parts.some((other, b) => a < b && overlap(part.owns, other.owns))) ? 'Trample'
       : 'Divide'
-    assert.equal(core.judge(depth, 3, 15, parent, first, second), expected, JSON.stringify({ depth, parent, first, second }))
+    assert.equal(core.judge(depth, 3, parent, parts), expected, JSON.stringify({ depth, parent, parts }))
     seen.add(expected)
     const path = pick(PATHS)
     assert.equal(core.may(parent, path), may(parent, path))
-    // What the laws promise, seen from here: a cut that is made never lets both halves write one path.
-    if (expected === 'Divide') for (const each of PATHS) assert.ok(!(may(first.owns, each) && may(second.owns, each)), each)
+    // What the laws promise, seen from here: a cut that is made never gives one path two writers.
+    if (expected === 'Divide') {
+      sizes.add(parts.length)
+      for (const each of PATHS) assert.ok(parts.filter((part) => may(part.owns, each)).length <= 1, each)
+    }
   }
-  assert.equal(seen.size, 9, `every verdict was reached: ${[...seen]}`)
+  assert.equal(seen.size, 7, `every verdict was reached: ${[...seen]}`)
+  assert.deepEqual([...sizes].sort(), [1, 2, 3, 4, 5], 'a cut is not refused for how many parts it has')
 })
 
 test('division: paths are taken relative to the task, and laws are found where they are declared', () => {
@@ -92,10 +98,15 @@ test('division: paths are taken relative to the task, and laws are found where t
   assert.equal(entry(cwd, './src/../src/deep/x.bend'), 'src/deep/x.bend')
   for (const outside of ['../x', '/etc/passwd', '.', '']) assert.equal(entry(cwd, outside), undefined, outside)
   assert.deepEqual([...declaredLaws(cwd)].sort(), ['Nat.twice', 'double', 'inner'])
-  assert.match(method(CFG), /You have the whole task/)
-  assert.match(method(CFG, { depth: 2, name: 'parser', owns: ['src/'], laws: ['parses'], check: 'bend PROOF.bend' }), /a half of a divided task, 2 cuts down: "parser"/)
-  const told = brief({ name: 'a', task: 'Do A.', owns: ['a.bend'], laws: ['p'] }, { name: 'b', task: 'Do B.', owns: ['b.bend'], laws: ['q'] }, 'All of it.', 'bend PROOF.bend', CFG)
-  for (const part of ['Your half: a', 'Do A.', 'All of it.', 'Files you own: a.bend', 'Laws you must prove: p', 'Laws the other half is proving: q', 'bend PROOF.bend']) assert.ok(told.includes(part), part)
+  assert.match(method(), /You have the whole task/)
+  assert.match(method({ depth: 2, name: 'parser', owns: ['src/'], laws: ['parses'], check: 'bend PROOF.bend' }), /a part of a divided task, 2 cuts down: "parser"/)
+  assert.doesNotMatch(method(), /\d+ minutes|cut in two|halves/, 'the method names no number of parts and no size')
+  const others = [{ name: 'b', task: 'Do B.', owns: ['b.bend'], laws: ['q'] }, { name: 'c', task: 'Look into C.', owns: [], laws: [] }]
+  const told = brief({ name: 'a', task: 'Do A.', owns: ['a.bend'], laws: ['p'] }, others, 'All of it.', 'bend PROOF.bend')
+  for (const part of ['Your part: a', 'Do A.', 'All of it.', 'Files you own: a.bend', 'Laws you must prove: p', '- "b": Do B. It proves: q', '- "c": Look into C.', 'Check your work with: bend PROOF.bend']) assert.ok(told.includes(part), part)
+  const reader = brief(others[1], [], '', '')
+  assert.match(reader, /You own no file: read whatever you need, write nothing/)
+  assert.doesNotMatch(reader, /Laws you must prove|Check your work with|The other parts/)
 })
 
 /** An agent that does what it was told without a model: it fills its law from a file it owns, and says so. */
@@ -105,14 +116,16 @@ const place = JSON.parse(process.env.WIZARDRY_DIVISION)
 const stamp = (what) => appendFileSync('times.log', place.name + ' ' + what + ' ' + Date.now() + '\\n')
 stamp('start')
 await new Promise((done) => setTimeout(done, 500))
+if (!place.owns.length) { stamp('end'); console.log(place.name + ' only read'); process.exit(0) }
 const fill = {
+  notes: "notes\\n",
   doubling: "import Base\\nimport ./LAWS.bend as L\\n\\ndef L.double(x):\\n  match x:\\n    case 0n:\\n      0n\\n    case 1n+p:\\n      2n+L.double(p)\\n",
   quadrupling: "import Base\\nimport ./LAWS.bend as L\\nimport ./a.bend as A\\n\\ndef L.quad(x):\\n  L.double(L.double(x))\\n",
   lazy: "import Base\\nimport ./LAWS.bend as L\\nimport ./a.bend as A\\n",
 }
 writeFileSync(place.owns[0], fill[place.name])
 stamp('end')
-if (!process.argv.at(-1).includes('Your half: ' + place.name)) process.exit(3)
+if (!process.argv.at(-1).includes('Your part: ' + place.name)) process.exit(3)
 console.log(place.name + ' filled ' + place.owns[0] + ' at depth ' + place.depth + ' for: ' + place.laws.join(','))
 `
 
@@ -126,30 +139,30 @@ function project() {
   return { home, cwd }
 }
 
-const firstHalf = { name: 'doubling', task: 'Write double.', owns: ['a.bend'], laws: ['double'], minutes: 20 }
-const secondHalf = { name: 'quadrupling', task: 'Write quad with double.', owns: ['b.bend'], laws: ['quad'], minutes: 20 }
+const firstHalf = { name: 'doubling', task: 'Write double.', owns: ['a.bend'], laws: ['double'] }
+const secondHalf = { name: 'quadrupling', task: 'Write quad with double.', owns: ['b.bend'], laws: ['quad'] }
 const first = firstHalf
 const second = secondHalf
 
-test('division: a cut that would not help, or would let agents collide, is refused and starts nothing', async () => {
+test('division: a cut that would let agents collide is refused and starts nothing; nothing else is', async () => {
   const { home, cwd } = project()
   const { root, plugins } = await boot({ home, cwd, defaults: ['cordis'] })
   await plugins.load(DIVISION, { agent: [process.execPath, join(cwd, 'fake.mjs')] }, { cwd })
-  const split = (args) => root.get('actions').invoke('division_split', { first, second, ...args }, { cwd })
+  const split = ({ first: a = first, second: b = second, more = [] }) => root.get('actions').invoke('division_split', { parts: [a, b, ...more] }, { cwd })
   const refused = async (args, why) => {
     const said = await split(args)
     assert.match(said, /^Not divided: /)
     assert.match(said, why)
     assert.ok(!existsSync(join(cwd, 'times.log')), 'no agent was started')
   }
-  await refused({ first: { ...first, minutes: 5 } }, /under 15 minutes of work is not worth an agent/)
   await refused({ second: { ...second, owns: ['a.bend'] } }, /a file in common/)
   await refused({ first: { ...first, owns: ['./'] } }, /outside/)
-  await refused({ first: { ...first, owns: ['src/'] }, second: { ...second, owns: ['src/b.bend'] } }, /a folder that holds the other's file/)
-  await refused({ second: { ...second, laws: [] } }, /at least one law to prove/)
+  await refused({ first: { ...first, owns: ['src/'] }, second: { ...second, owns: ['src/b.bend'] } }, /a folder that holds another's file/)
+  await refused({ more: [{ name: 'third', task: 'T.', owns: ['c.bend'] }, { name: 'fourth', task: 'F.', owns: ['c.bend'] }] }, /a file in common/)
+  await refused({ more: [{ name: 'third', task: '' }] }, /a name and a task/)
   await refused({ second: { ...second, laws: ['double'] } }, /every law has one prover/)
   await refused({ second: { ...second, laws: ['octuple'] } }, /no \.bend file here declares `law octuple`/)
-  await refused({ second: { ...second, name: 'doubling' } }, /different names/)
+  await refused({ second: { ...second, name: 'doubling' } }, /the same name/)
   await refused({ first: { ...first, owns: ['../elsewhere.bend'] } }, /outside/)
   assert.match(await root.get('actions').invoke('division', {}, { cwd }), /You have the whole task/)
   await root.fiber.dispose()
@@ -160,11 +173,11 @@ test('division: both halves run at the same time, each in its own file, and the 
   const { root, plugins } = await boot({ home, cwd, defaults: ['cordis'] })
   await plugins.load(DIVISION, { agent: [process.execPath, join(cwd, 'fake.mjs')] }, { cwd })
   const updates = []
-  const said = await root.get('actions').invoke('division_split', { first, second, whole: 'Double and quadruple.' }, { cwd, update: (text) => updates.push(text) })
+  const said = await root.get('actions').invoke('division_split', { parts: [first, second], whole: 'Double and quadruple.' }, { cwd, update: (text) => updates.push(text) })
   assert.match(said, /## doubling: done in/)
   assert.match(said, /doubling filled a\.bend at depth 1 for: double/)
   assert.match(said, /quadrupling filled b\.bend at depth 1 for: quad/)
-  assert.match(said, /## The check: bend PROOF\.bend\nIt passes: the halves fit\./)
+  assert.match(said, /## The check: bend PROOF\.bend\nIt passes: the parts fit\./)
   assert.match(said, /ALL PROOFS CHECK/)
   assert.equal(updates.at(-1), 'doubling: done\nquadrupling: done')
 
@@ -178,9 +191,20 @@ test('division: both halves run at the same time, each in its own file, and the 
 
   // A half that did not do its part: the check says so, and so does the report.
   writeFileSync(join(cwd, 'b.bend'), 'import Base\nimport ./LAWS.bend as L\nimport ./a.bend as A\n')
-  const again = await root.get('actions').invoke('division_split', { first, second: { ...second, name: 'lazy' } }, { cwd })
-  assert.match(again, /It FAILS: the halves do not fit yet/)
+  const again = await root.get('actions').invoke('division_split', { parts: [first, { ...second, name: 'lazy' }] }, { cwd })
+  assert.match(again, /It FAILS: the parts do not fit yet/)
   assert.match(again, /SOME PROOFS FAIL/)
+
+  // As many parts as the task has, with or without laws: one that proves, one that writes prose,
+  // one that only reads. The check is whatever says the parts fit, or none.
+  const three = await root.get('actions').invoke('division_split', { check: 'test -s notes.md', parts: [
+    first, { name: 'notes', task: 'Write the notes.', owns: ['notes.md'] }, { name: 'reader', task: 'Find out how doubling is used.' }] }, { cwd })
+  assert.match(three, /^Every part is back after/)
+  assert.match(three, /## notes: done in[^\n]*\nOwned: notes\.md\nLaws: \(none\)/)
+  assert.match(three, /## reader: done in[^\n]*\nOwned: \(none\)\nLaws: \(none\)\n\nreader only read/)
+  assert.match(three, /## The check: test -s notes\.md\nIt passes: the parts fit\./)
+  const alone = await root.get('actions').invoke('division_split', { parts: [{ name: 'reader', task: 'Read.' }] }, { cwd: join(cwd, '..') })
+  assert.match(alone, /reader only read[\s\S]*## No check was given\nWhether the parts fit is yours to see/)
   await root.fiber.dispose()
 })
 
@@ -197,16 +221,14 @@ test('division: a half is stopped from writing a file it was not handed, and fro
     await actions.invoke('write', { path: join(cwd, 'src', 'deep', 'new.bend'), content: 'mine too\n' }, { cwd })
     assert.equal(readFileSync(join(cwd, 'src', 'deep', 'new.bend'), 'utf8'), 'mine too\n')
     for (const path of [join(cwd, 'b.bend'), join(cwd, 'LAWS.bend'), join(cwd, 'src', '..', 'PROOF.bend'), join(cwd, '..', 'outside.bend'), 'relative-to-somewhere-else.bend', '/tmp/wizardry-division-elsewhere']) {
-      await assert.rejects(actions.invoke('write', { path, content: 'trampled\n' }, { cwd }), /is not yours to write: your half \("doubling"\) owns a\.bend, src\//, path)
+      await assert.rejects(actions.invoke('write', { path, content: 'trampled\n' }, { cwd }), /is not yours to write: your part \("doubling"\) owns a\.bend, src\//, path)
       await assert.rejects(actions.invoke('edit', { path, edits: [{ oldText: 'import', newText: 'x' }] }, { cwd }), /is not yours to write/, path)
     }
     assert.equal(readFileSync(join(cwd, 'b.bend'), 'utf8'), 'import Base\nimport ./LAWS.bend as L\nimport ./a.bend as A\n', 'the other half\'s file is as it was')
     assert.match((await actions.invoke('read', { path: join(cwd, 'b.bend') }, { cwd })).text, /import/, 'reading anything is fine')
 
-    assert.match(await actions.invoke('division', {}, { cwd }), /a half of a divided task, 3 cuts down: "doubling"/)
-    const deeper = await actions.invoke('division_split', {
-      first: { ...first, owns: ['a.bend'] }, second: { ...second, owns: ['src/q.bend'] },
-    }, { cwd })
+    assert.match(await actions.invoke('division', {}, { cwd }), /a part of a divided task, 3 cuts down: "doubling"/)
+    const deeper = await actions.invoke('division_split', { parts: [{ ...first, owns: ['a.bend'] }, { ...second, owns: ['src/q.bend'] }] }, { cwd })
     assert.match(deeper, /Not divided: this task has already been cut 3 times/)
     await root.fiber.dispose()
 
@@ -214,15 +236,15 @@ test('division: a half is stopped from writing a file it was not handed, and fro
     process.env.WIZARDRY_DIVISION = JSON.stringify({ ...place, depth: 2 })
     const next = await boot({ home, cwd, defaults: ['cordis'] })
     await next.plugins.load(DIVISION, { agent: [process.execPath, join(cwd, 'fake.mjs')] }, { cwd })
-    const outside = await next.root.get('actions').invoke('division_split', { first, second }, { cwd })
-    assert.match(outside, /Not divided: a half was given a file that is not yours to hand out/)
+    const outside = await next.root.get('actions').invoke('division_split', { parts: [first, second] }, { cwd })
+    assert.match(outside, /Not divided: a part was given a file that is not yours to hand out/)
     await next.root.fiber.dispose()
   } finally {
     delete process.env.WIZARDRY_DIVISION
   }
 })
 
-test('division: /division chooses the model and thinking level the halves run on, and the choice is kept', async () => {
+test('division: /default-agent and /division choose what deployed agents run on, and the choice is kept', async () => {
   const { home, cwd } = project()
   // An agent that only says what it was started with.
   writeFileSync(join(cwd, 'echo.mjs'), `console.log('ARGS ' + JSON.stringify(process.argv.slice(2, -1)))`)
@@ -231,7 +253,7 @@ test('division: /division chooses the model and thinking level the halves run on
     await plugins.load(DIVISION, undefined, { cwd })
     const commands = {}
     root.get('pi').attach({ registerTool() {}, on() {}, getThinkingLevel: () => 'high', registerCommand: (name, command) => { commands[name] = command } })
-    return { root, plugins, command: commands.division }
+    return { root, plugins, command: commands.division, agent: commands['default-agent'] }
   }
   const said = []
   const picks = []
@@ -271,7 +293,7 @@ test('division: /division chooses the model and thinking level the halves run on
   // The next session starts with the choice, and the halves are started on it.
   writeFileSync(join(home, 'division.json'), JSON.stringify({ model: 'radius/claude-fable-5-2', thinking: 'off', agent: [process.execPath, join(cwd, 'echo.mjs'), '--no-session'] }))
   const split = async (session) => {
-    const report = await session.root.get('actions').invoke('division_split', { first: firstHalf, second: secondHalf, check: 'true' }, { cwd, pi: piCtx })
+    const report = await session.root.get('actions').invoke('division_split', { parts: [firstHalf, secondHalf], check: 'true' }, { cwd, pi: piCtx })
     return JSON.parse(/ARGS (.*)/.exec(report)[1])
   }
   const second = await start()
@@ -288,5 +310,18 @@ test('division: /division chooses the model and thinking level the halves run on
   await third.command.handler('thinking same', piCtx)
   assert.match(said.at(-1)[1], /model: radius\/claude-opus-5-5 \(the same as this session\)\n  thinking: high \(the same as this session\)/)
   assert.equal(JSON.parse(readFileSync(join(home, 'division.json'), 'utf8')).model, '')
+
+  // /default-agent: this session's setup becomes the agents', a model can be named, and "same" gives it back.
+  await third.agent.handler('', piCtx)
+  assert.match(said.at(-1)[1], /^The agents you deploy run on\n  model: radius\/claude-opus-5-5 \(chosen\)\n  thinking: high \(chosen\)/)
+  assert.deepEqual(JSON.parse(readFileSync(join(home, 'division.json'), 'utf8')), { model: 'radius/claude-opus-5-5', thinking: 'high', agent: [process.execPath, join(cwd, 'echo.mjs'), '--no-session'] })
+  await third.agent.handler('gpt', piCtx)
+  assert.match(said.at(-1)[1], /model: openai\/gpt-5 \(chosen\)\n  thinking: high \(chosen\)/)
+  await third.agent.handler('nothing-like-it', piCtx)
+  assert.deepEqual([said.at(-1)[0], /No model "nothing-like-it" is signed in/.test(said.at(-1)[1])], ['warning', true])
+  assert.equal(JSON.parse(readFileSync(join(home, 'division.json'), 'utf8')).model, 'openai/gpt-5')
+  await third.agent.handler('same', piCtx)
+  assert.match(said.at(-1)[1], /model: radius\/claude-opus-5-5 \(the same as this session\)\n  thinking: high \(the same as this session\)/)
+  assert.deepEqual(third.agent.getArgumentCompletions(''), [{ value: 'same', label: 'same' }])
   await third.root.fiber.dispose()
 })

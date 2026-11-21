@@ -1268,3 +1268,9 @@ def old_inside(+home: String, +old: String, +userhome: String, +to: String) ->
 
 def Laws.old_spares_wizardry(home, old, userhome, to):
   (old_takes(home, old, userhome, to), old_inside(home, old, userhome, to))
+
+def Laws.default_keeps_what_is_loaded(would_load, loaded):
+  clean(would_load, loaded)
+
+def Laws.default_writes_only_what_is_set():
+  {==}

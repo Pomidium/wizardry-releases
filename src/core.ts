@@ -395,4 +395,11 @@ export const core = {
     bend.deleted_said(rows_(rows), list(links), to, waived),
   nothingThere: (what: string): string => bend.nothing_there(bend.what_of(what)),
   exportFirstFailed: (why: string): string => bend.export_first_failed(why),
+
+  /** What /default writes to Pi's settings: this session's model and thinking level. */
+  defaultSettings: (provider: string, model: string, thinking: string): Var[] =>
+    array<Var>(bend.default_settings(provider, model, thinking)).map(({ name, value }) => ({ name, value })),
+  /** Of what would load at a start, what is switched off when the plugins loaded now become the default. */
+  keptOff: (wouldLoad: readonly string[], loaded: readonly string[]): string[] => array(bend.kept_off(list(wouldLoad), list(loaded))),
+  defaultSaid: (model: string, thinking: string, plugins: readonly string[]): string => bend.default_said(model, thinking, list(plugins)),
 }

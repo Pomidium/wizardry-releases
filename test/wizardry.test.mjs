@@ -852,3 +852,41 @@ test('delete says what would go and removes nothing until --yes; then it exports
   assert.throws(() => lstatSync(join(user, '.local', 'bin', 'wizardry')))
   assert.ok(existsSync(kept) && existsSync(join(user, 'kept-old')) && existsSync(join(user, 'work')), 'the exports and everything else in the home directory are untouched')
 })
+
+test('/default makes this session\'s model, thinking level and plugins what the next one starts with', async () => {
+  const { home, cwd } = scratch()
+  mkdirSync(join(home, 'plugins'))
+  writeFileSync(join(home, 'plugins', 'echo.mjs'), pluginSource('home:'))
+  const extra = join(cwd, 'extra.mjs')
+  writeFileSync(extra, pluginSource('extra:').replaceAll('echo', 'extra'))
+  mkdirSync(join(home, 'pi'))
+  writeFileSync(join(home, 'pi', 'settings.json'), JSON.stringify({ defaultProvider: 'old', defaultModel: 'small', httpProxy: 'http://proxy' }))
+
+  const first = await boot({ home, cwd, defaults: ['pi', 'cordis', 'fs', 'shell'] })
+  const commands = {}
+  first.root.get('pi').attach({ registerTool() {}, on() {}, getAllTools: () => [], getActiveTools: () => [], setActiveTools() {}, getThinkingLevel: () => 'high', registerCommand: (name, command) => { commands[name] = command } })
+  // This session: without the shell and the home plugin, with one loaded by hand and the gate.
+  await first.plugins.unload('shell')
+  await first.plugins.unload('echo')
+  await first.plugins.load(extra)
+  await first.plugins.load('gate')
+  const said = []
+  await commands.default.handler('', { model: { provider: 'acme', id: 'big' }, ui: { notify: (text) => said.push(text) } })
+  assert.equal(said[0], 'New sessions now start as this one. Model: acme/big. Thinking: high. Plugins: pi, cordis, fs, extra, gate.')
+  assert.deepEqual(JSON.parse(readFileSync(join(home, 'pi', 'settings.json'), 'utf8')),
+    { defaultProvider: 'acme', defaultModel: 'big', httpProxy: 'http://proxy', defaultThinkingLevel: 'high' }, 'the settings it does not speak of are as they were')
+  await first.root.fiber.dispose()
+
+  const second = await boot({ home, cwd, defaults: ['pi', 'cordis', 'fs', 'shell'] })
+  assert.deepEqual(second.failures, [])
+  assert.deepEqual(second.plugins.list().map((plugin) => plugin.name).sort(), ['cordis', 'extra', 'fs', 'gate', 'pi'])
+  // And back: with everything loaded again, nothing stays switched off.
+  await second.plugins.load('shell')
+  await second.plugins.load(join(home, 'plugins', 'echo.mjs'))
+  second.plugins.keep()
+  assert.deepEqual(JSON.parse(readFileSync(join(home, 'plugins.json'), 'utf8')).disabled, [])
+  await second.root.fiber.dispose()
+  const third = await boot({ home, cwd, defaults: ['pi', 'cordis', 'fs', 'shell'] })
+  assert.deepEqual(third.plugins.list().map((plugin) => plugin.name).sort(), ['cordis', 'echo', 'extra', 'fs', 'gate', 'pi', 'shell'])
+  await third.root.fiber.dispose()
+})

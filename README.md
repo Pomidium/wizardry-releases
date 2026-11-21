@@ -63,6 +63,10 @@ wizardry --plugin ./x.ts      # load a plugin for this run
 Every other option goes to Pi unchanged (`--model`, `--thinking`, `-c`, `-r`, `--mode json`, ...).
 `wizardry auth login` signs in: it is Pi's `auth` command, run on wizardry's own logins.
 
+In a session, `/default` makes its setup the one new sessions start with: its model and thinking
+level, and the plugins loaded now (one loaded for this session loads from then on, one unloaded
+stays off). `/default-agent` does the same for the agents it deploys (see `division` below).
+
 wizardry starts with its own header, an ASCII wizard's cap, and its own blue themes: `wizardry` on a
 dark terminal and `wizardry-light` on a light one (`themes/`, logo and header in `src/look.ts`).
 `--use-theme <name>` picks another theme for a run, for example `--use-theme system`.
@@ -241,18 +245,21 @@ A few default plugins ship in [`defaults/`](defaults) and are on for everyone:
   [claude-mem](https://github.com/thedotmack/claude-mem), with its decisions written and proven in
   Bend.
 
-- `division`, for large tasks only: the agent cuts the task in two, writes Bend laws at the cut,
-  and hands each half to its own agent; both work at the same time in the same directory, and a
-  half that is still large cuts itself again. Each half owns its own files and may count on the
-  other's laws before they are proven. `bend PROOF.bend` then says whether the pieces fit. A cut
-  whose halves are under 15 minutes of work is refused, since an agent costs more to start than
-  that saves. It is proven ([`defaults/division/LAWS.bend`](defaults/division/LAWS.bend)) that two
-  halves can never write the same file, that a half never owns more than the agent that cut, and
-  that every law has one prover. `/division model` and `/division thinking` choose what those
-  agents run on (a list to pick from, or name it: `/division model provider/id`,
-  `/division thinking low`; `same` follows the session again). Other settings go in
-  `~/.wizardry/division.json` (`chunkMinutes`, `depth`, `timeoutMinutes`, `agent`); every cut is logged in
-  `~/.wizardry/division/runs.jsonl`, with how long each half took.
+- `division`, a way for the agent to deploy agents: it cuts a task into parts, as many as the
+  task has, and hands each to its own agent; all work at the same time in the same directory,
+  and a part may cut again. Each part owns its own files, and what crosses between parts is said
+  beforehand, best as Bend laws that one part proves and the others count on before the proof
+  exists; a part with no law is held by the check alone, and a part with no file only reads and
+  reports. It is a way of working, not a set of limits: how many parts, how large, and whether to
+  cut at all are the agent's to judge. A cut is refused only when it would let agents undo each
+  other. It is proven ([`defaults/division/LAWS.bend`](defaults/division/LAWS.bend)) that no path
+  ever has two agents that may write it, that a part never owns more than the agent that cut,
+  that every law has one prover, that cutting ends, and that nothing else is asked of a cut.
+  `/default-agent` makes this session's model and thinking level what those agents run on
+  (`/default-agent provider/id` names a model, `/default-agent same` follows each session again);
+  `/division` shows the choice and sets either alone. Other settings go in
+  `~/.wizardry/division.json` (`depth`, `timeoutMinutes`, `agent`); every cut is logged in
+  `~/.wizardry/division/runs.jsonl`, with how long each part took.
 
 Switch a default off with `plugin_unload` and `persist: true`; change one by putting a file or
 folder of the same name in `~/.wizardry/plugins/`.

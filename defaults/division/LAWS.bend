@@ -27,98 +27,68 @@ law stays_inside:
   for mine: {D.may_write(entries, path) == True{} : Bool}
   {D.may(parent, path) == True{} : Bool}
 
-# When a cut is made, no path can be written by both halves.
-law halves_never_share_a_file:
-  for depth: Nat
-  for limit: Nat
-  for +chunk: Nat
-  for +parent: D.Owns
-  for +n1: String
-  for +o1: List<&2, String>
-  for +l1: List<&2, String>
-  for +m1: Nat
-  for +n2: String
-  for +o2: List<&2, String>
-  for +l2: List<&2, String>
-  for +m2: Nat
+# However many agents there are, when no two of them own a file in common, no path has more
+# than one of them that may write it.
+law one_writer:
+  for +owns: List<&2, List<&2, String>>
   for +path: String
-  for cut: {D.judge(depth, limit, chunk, parent, D.Piece{n1, o1, l1, m1}, D.Piece{n2, o2, l2, m2}) == D.Divide{} : D.Verdict}
-  for mine: {D.may_write(o1, path) == True{} : Bool}
-  {D.may_write(o2, path) == False{} : Bool}
+  for +apart: {D.disjoint(owns) == True{} : Bool}
+  {Nat.is_le(D.writers(owns, path), 1n) == True{} : Bool}
 
-# When a cut is made, both halves own only what the agent cutting may write.
-law halves_stay_inside:
+# When a cut is made, into however many parts, no two parts own a file in common.
+law parts_never_share_a_file:
   for depth: Nat
   for limit: Nat
-  for +chunk: Nat
   for +parent: D.Owns
-  for +n1: String
-  for +o1: List<&2, String>
-  for +l1: List<&2, String>
-  for +m1: Nat
-  for +n2: String
-  for +o2: List<&2, String>
-  for +l2: List<&2, String>
-  for +m2: Nat
-  for cut: {D.judge(depth, limit, chunk, parent, D.Piece{n1, o1, l1, m1}, D.Piece{n2, o2, l2, m2}) == D.Divide{} : D.Verdict}
-  {D.inside(o1, parent) == True{} : Bool} & {D.inside(o2, parent) == True{} : Bool}
+  for +pieces: List<&2, D.Piece>
+  for cut: {D.judge(depth, limit, parent, pieces) == D.Divide{} : D.Verdict}
+  {D.disjoint(D.owns_of(pieces)) == True{} : Bool}
 
-# When a cut is made, every law at it has one prover: a law one half must prove is not the
-# other's too.
+# When a cut is made, every part owns only what the agent cutting may write.
+law parts_stay_inside:
+  for depth: Nat
+  for limit: Nat
+  for +parent: D.Owns
+  for +pieces: List<&2, D.Piece>
+  for cut: {D.judge(depth, limit, parent, pieces) == D.Divide{} : D.Verdict}
+  {D.all_inside(D.owns_of(pieces), parent) == True{} : Bool}
+
+# When a cut is made, every law at it has one prover: no law is given to two parts, and no two
+# parts go by one name.
 law one_prover_per_law:
-  for depth: Nat
-  for limit: Nat
-  for +chunk: Nat
-  for +parent: D.Owns
-  for +n1: String
-  for +o1: List<&2, String>
-  for +l1: List<&2, String>
-  for +m1: Nat
-  for +n2: String
-  for +o2: List<&2, String>
-  for +l2: List<&2, String>
-  for +m2: Nat
-  for +claim: String
-  for cut: {D.judge(depth, limit, chunk, parent, D.Piece{n1, o1, l1, m1}, D.Piece{n2, o2, l2, m2}) == D.Divide{} : D.Verdict}
-  for mine: {C.has(l1, claim) == True{} : Bool}
-  {C.has(l2, claim) == False{} : Bool}
-
-# When a cut is made, each half has a law to prove: no agent's work goes unchecked.
-law every_half_is_checked:
-  for depth: Nat
-  for limit: Nat
-  for +chunk: Nat
-  for +parent: D.Owns
-  for +n1: String
-  for +o1: List<&2, String>
-  for +l1: List<&2, String>
-  for +m1: Nat
-  for +n2: String
-  for +o2: List<&2, String>
-  for +l2: List<&2, String>
-  for +m2: Nat
-  for cut: {D.judge(depth, limit, chunk, parent, D.Piece{n1, o1, l1, m1}, D.Piece{n2, o2, l2, m2}) == D.Divide{} : D.Verdict}
-  {List.is_empty(&2, String, l1) == False{} : Bool} & {List.is_empty(&2, String, l2) == False{} : Bool}
-
-# A cut is made only of a large task: each half is at least a chunk of work, and the tree is not
-# yet as deep as it may get.
-law only_large_tasks_divide:
   for +depth: Nat
   for +limit: Nat
-  for +chunk: Nat
   for +parent: D.Owns
-  for +n1: String
-  for +o1: List<&2, String>
-  for +l1: List<&2, String>
-  for +m1: Nat
-  for +n2: String
-  for +o2: List<&2, String>
-  for +l2: List<&2, String>
-  for +m2: Nat
-  for +cut: {D.judge(depth, limit, chunk, parent, D.Piece{n1, o1, l1, m1}, D.Piece{n2, o2, l2, m2}) == D.Divide{} : D.Verdict}
-  ({Nat.is_ge(m1, chunk) == True{} : Bool} & {Nat.is_ge(m2, chunk) == True{} : Bool}) & {Nat.is_lt(depth, limit) == True{} : Bool}
+  for +pieces: List<&2, D.Piece>
+  for +cut: {D.judge(depth, limit, parent, pieces) == D.Divide{} : D.Verdict}
+  {D.distinct(D.laws_of(pieces)) == True{} : Bool} & {D.distinct(D.names_of(pieces)) == True{} : Bool}
 
-# A model or thinking level chosen with /division is what the halves run on, whatever the
+# Cutting ends: a cut is made only while the tree is not yet as deep as it may get.
+law cutting_ends:
+  for +depth: Nat
+  for +limit: Nat
+  for +parent: D.Owns
+  for +pieces: List<&2, D.Piece>
+  for cut: {D.judge(depth, limit, parent, pieces) == D.Divide{} : D.Verdict}
+  {Nat.is_lt(depth, limit) == True{} : Bool}
+
+# Nothing else is asked of a cut: how many parts there are and how large each is are not what a
+# cut is refused for. Parts with names of their own, files of their own inside what is the
+# cutter's, and laws of their own, are cut.
+law nothing_else_is_asked:
+  for depth: Nat
+  for limit: Nat
+  for +parent: D.Owns
+  for +h: D.Piece
+  for +t: List<&2, D.Piece>
+  for shallow: {Nat.is_lt(depth, limit) == True{} : Bool}
+  for names: {D.distinct(D.names_of(h <> t)) == True{} : Bool}
+  for laws: {D.distinct(D.laws_of(h <> t)) == True{} : Bool}
+  for within: {D.all_inside(D.owns_of(h <> t), parent) == True{} : Bool}
+  for apart: {D.disjoint(D.owns_of(h <> t)) == True{} : Bool}
+  {D.judge(depth, limit, parent, h <> t) == D.Divide{} : D.Verdict}
+
+# A model or thinking level chosen with /default-agent or /division is what the agents run on, whatever the
 # session is on.
 law choice_runs:
   for c: Char
@@ -139,6 +109,10 @@ law same_follows_session:
 # /division alone shows the choices; "model" and "thinking" are the two that can be set.
 law division_words:
   ({D.wants("") == D.Show{} : D.Wants} & {D.wants("model") == D.Model{} : D.Wants}) & {D.wants("thinking") == D.Thinking{} : D.Wants}
+
+# /default-agent alone takes this session's setup for the agents, and "same" gives it back.
+law default_agent_words:
+  {D.agent_wants("") == D.Current{} : D.Agent} & {D.agent_wants("same") == D.Follow{} : D.Agent}
 
 # The halves are never said to fit when the check ended badly or was stopped, whatever it printed.
 law a_failed_check_never_fits:

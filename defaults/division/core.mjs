@@ -2289,6 +2289,26 @@ function $______bend_core_export_first_failed(_why_0) {
   return $String_concat({$: "Con", "head": "nothing was deleted: the export did not finish (", "tail": {$: "Con", "head": _why_0, "tail": {$: "Con", "head": "). Fix that, or pass --no-export to delete without one.", "tail": {$: "Nil"}}}});
 }
 
+function $______bend_core_setting(_name_0, _value_0) {
+  return $Bool_pick($$String_is_empty(_value_0), {$: "Nil"}, {$: "Con", "head": {$: "Var", "name": _name_0, "value": _value_0}, "tail": {$: "Nil"}});
+}
+
+function $______bend_core_default_settings(_provider_0, _model_0, _thinking_0) {
+  return $List_concat({$: "Con", "head": $$______bend_core_setting("defaultProvider", _provider_0), "tail": {$: "Con", "head": $$______bend_core_setting("defaultModel", _model_0), "tail": {$: "Con", "head": $$______bend_core_setting("defaultThinkingLevel", _thinking_0), "tail": {$: "Nil"}}}});
+}
+
+function $______bend_core_kept_off(_would_load_0, _loaded_0) {
+  return $______bend_core_without(_would_load_0, _loaded_0);
+}
+
+function $______bend_core_or_unset(_value_0) {
+  return $Bool_pick($$String_is_empty(_value_0), "as it was", _value_0);
+}
+
+function $______bend_core_default_said(_model_0, _thinking_0, _plugins_0) {
+  return $String_concat({$: "Con", "head": "New sessions now start as this one. Model: ", "tail": {$: "Con", "head": $$______bend_core_or_unset(_model_0), "tail": {$: "Con", "head": ". Thinking: ", "tail": {$: "Con", "head": $$______bend_core_or_unset(_thinking_0), "tail": {$: "Con", "head": ". Plugins: ", "tail": {$: "Con", "head": $$String_join(_plugins_0, ", "), "tail": {$: "Con", "head": ".", "tail": {$: "Nil"}}}}}}}});
+}
+
 function $is_folder(_entry_0) {
   return $String_ends_with(_entry_0, "/");
 }
@@ -2360,6 +2380,101 @@ function $inside(_entries_0, _parent_0) {
   }
 }
 
+function $names_of(_pieces_0) {
+  if (_pieces_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _pieces_0["head"];
+    const _name_0 = _t_0["name"];
+    const _t_1 = _pieces_0["tail"];
+    return {$: "Con", "head": _name_0, "tail": $$names_of(_t_1)};
+  }
+}
+
+function $owns_of(_pieces_0) {
+  if (_pieces_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _pieces_0["head"];
+    const _owns_0 = _t_0["owns"];
+    const _t_1 = _pieces_0["tail"];
+    return {$: "Con", "head": _owns_0, "tail": $$owns_of(_t_1)};
+  }
+}
+
+function $laws_of(_pieces_0) {
+  if (_pieces_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _pieces_0["head"];
+    const _laws_0 = _t_0["laws"];
+    const _t_1 = _pieces_0["tail"];
+    return $List_append(_laws_0, $$laws_of(_t_1));
+  }
+}
+
+function $distinct(_xs_0) {
+  if (_xs_0.$ === "Nil") {
+    return true;
+  } else {
+    const _h_0 = _xs_0["head"];
+    const _t_0 = _xs_0["tail"];
+    return $Bool_and($$Bool_not($$______bend_core_has(_t_0, _h_0)), $$distinct(_t_0));
+  }
+}
+
+function $shares(_mine_0, _others_0) {
+  if (_others_0.$ === "Nil") {
+    return false;
+  } else {
+    const _h_0 = _others_0["head"];
+    const _t_0 = _others_0["tail"];
+    const _x_0 = $$overlap(_mine_0, _h_0);
+    const _x_1 = $$shares(_mine_0, _t_0);
+    return (_x_0 || _x_1);
+  }
+}
+
+function $disjoint(_owns_0) {
+  if (_owns_0.$ === "Nil") {
+    return true;
+  } else {
+    const _h_0 = _owns_0["head"];
+    const _t_0 = _owns_0["tail"];
+    return $Bool_and($$Bool_not($$shares(_h_0, _t_0)), $$disjoint(_t_0));
+  }
+}
+
+function $all_inside(_owns_0, _parent_0) {
+  if (_owns_0.$ === "Nil") {
+    return true;
+  } else {
+    const _h_0 = _owns_0["head"];
+    const _t_0 = _owns_0["tail"];
+    return $Bool_and($$inside(_h_0, _parent_0), $$all_inside(_t_0, _parent_0));
+  }
+}
+
+function $one_if(_b_0) {
+  if (_b_0) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+function $writers(_owns_0, _path_0) {
+  if (_owns_0.$ === "Nil") {
+    return 0;
+  } else {
+    const _h_0 = _owns_0["head"];
+    const _t_0 = _owns_0["tail"];
+    const _x_0 = $$one_if($$may_write(_h_0, _path_0));
+    const _x_1 = $$writers(_t_0, _path_0);
+    return nat_chk(_x_0 + _x_1);
+  }
+}
+
 function $guard(_bad_0, _why_0, _rest_0) {
   if (_bad_0) {
     return {$: "Refuse", "why": _why_0};
@@ -2368,20 +2483,12 @@ function $guard(_bad_0, _why_0, _rest_0) {
   }
 }
 
-function $judge(_depth_0, _limit_0, _chunk_0, _parent_0, _first_0, _second_0) {
-  const _n1_0 = _first_0["name"];
-  const _o1_0 = _first_0["owns"];
-  const _l1_0 = _first_0["laws"];
-  const _m1_0 = _first_0["minutes"];
-  const _n2_0 = _second_0["name"];
-  const _o2_0 = _second_0["owns"];
-  const _l2_0 = _second_0["laws"];
-  const _m2_0 = _second_0["minutes"];
-  const _x_0 = $$List_is_empty(_o1_0);
-  const _x_1 = $$List_is_empty(_o2_0);
-  const _x_2 = $$List_is_empty(_l1_0);
-  const _x_3 = $$List_is_empty(_l2_0);
-  return $guard($$Bool_not((_depth_0 < _limit_0)), {$: "TooDeep"}, $$guard($$Bool_not($$Bool_and($$Nat_is_ge(_m1_0, _chunk_0), $$Nat_is_ge(_m2_0, _chunk_0))), {$: "TooSmall"}, $$guard((_x_0 || _x_1), {$: "NoFiles"}, $$guard((_x_2 || _x_3), {$: "NoLaws"}, $$guard($$String_eq(_n1_0, _n2_0), {$: "SameName"}, $$guard($$______bend_core_overlaps(_l1_0, _l2_0), {$: "SharedLaw"}, $$guard($$Bool_not($$Bool_and($$inside(_o1_0, _parent_0), $$inside(_o2_0, _parent_0))), {$: "Outside"}, $$guard($$overlap(_o1_0, _o2_0), {$: "Trample"}, {$: "Divide"}))))))));
+function $verdict(_deep_0, _none_0, _names_0, _laws_0, _outside_0, _trample_0) {
+  return $guard(_deep_0, {$: "TooDeep"}, $$guard(_none_0, {$: "NoParts"}, $$guard(_names_0, {$: "SameName"}, $$guard(_laws_0, {$: "SharedLaw"}, $$guard(_outside_0, {$: "Outside"}, $$guard(_trample_0, {$: "Trample"}, {$: "Divide"}))))));
+}
+
+function $judge(_depth_0, _limit_0, _parent_0, _pieces_0) {
+  return $verdict($$Bool_not((_depth_0 < _limit_0)), $$List_is_empty(_pieces_0), $$Bool_not($$distinct($$names_of(_pieces_0))), $$Bool_not($$distinct($$laws_of(_pieces_0))), $$Bool_not($$all_inside($$owns_of(_pieces_0), _parent_0)), $$Bool_not($$disjoint($$owns_of(_pieces_0))));
 }
 
 function $runs_on(_choice_0, _session_0) {
@@ -2558,28 +2665,24 @@ function $entry_of(_rel_0, _absolute_0, _folder_0) {
   return $entry_pick((_x_1 || _x_2), _folder_0, $$slashed(_rel_0));
 }
 
-function $why(_reason_0, _chunk_0, _depth_0) {
+function $why(_reason_0, _depth_0) {
   if (_reason_0.$ === "TooDeep") {
-    return $String_concat({$: "Con", "head": "this task has already been cut ", "tail": {$: "Con", "head": $$Nat_show(_depth_0), "tail": {$: "Con", "head": " times on the way here", "tail": {$: "Nil"}}}});
-  } else if (_reason_0.$ === "TooSmall") {
-    return $String_concat({$: "Con", "head": "a half under ", "tail": {$: "Con", "head": $$Nat_show(_chunk_0), "tail": {$: "Con", "head": " minutes of work is not worth an agent of its own", "tail": {$: "Nil"}}}});
-  } else if (_reason_0.$ === "NoFiles") {
-    return "each half needs at least one file or folder that is its own";
-  } else if (_reason_0.$ === "NoLaws") {
-    return "each half needs at least one law to prove, or nothing checks its work";
+    return $String_concat({$: "Con", "head": "this task has already been cut ", "tail": {$: "Con", "head": $$Nat_show(_depth_0), "tail": {$: "Con", "head": " times on the way here; do this part yourself", "tail": {$: "Nil"}}}});
+  } else if (_reason_0.$ === "NoParts") {
+    return "no part was given";
   } else if (_reason_0.$ === "SameName") {
-    return "the halves need different names";
+    return "two parts have the same name";
   } else if (_reason_0.$ === "SharedLaw") {
-    return "a law was given to both halves; every law has one prover";
+    return "a law was given to two parts; every law has one prover";
   } else if (_reason_0.$ === "Outside") {
-    return "a half was given a file that is not yours to hand out";
+    return "a part was given a file that is not yours to hand out";
   } else {
-    return "the halves were given a file in common, or one a folder that holds the other's file";
+    return "two parts were given a file in common, or one a folder that holds another's file";
   }
 }
 
 function $refused(_why_0) {
-  return $String_concat({$: "Con", "head": "Not divided: ", "tail": {$: "Con", "head": _why_0, "tail": {$: "Con", "head": ". Nothing was started. Do this task yourself, or cut it differently.", "tail": {$: "Nil"}}}});
+  return $String_concat({$: "Con", "head": "Not divided: ", "tail": {$: "Con", "head": _why_0, "tail": {$: "Con", "head": ". Nothing was started. Cut it differently, or do the task yourself.", "tail": {$: "Nil"}}}});
 }
 
 function $ticked(_names_0) {
@@ -2652,8 +2755,12 @@ function $first_said(_out_0, _err_0) {
   return $Bool_pick($$String_is_empty(_out_0), $$Bool_pick($$String_is_empty(_err_0), "(it said nothing)", _err_0), _out_0);
 }
 
+function $or_none(_text_0) {
+  return $Bool_pick($$String_is_empty(_text_0), "(none)", _text_0);
+}
+
 function $half_report(_name_0, _owns_0, _laws_0, _ended_0, _ms_0, _out_0, _err_0) {
-  return $String_concat({$: "Con", "head": "## ", "tail": {$: "Con", "head": _name_0, "tail": {$: "Con", "head": ": ", "tail": {$: "Con", "head": $$how(_ended_0, _ms_0), "tail": {$: "Con", "head": "\nOwned: ", "tail": {$: "Con", "head": $$String_join(_owns_0, ", "), "tail": {$: "Con", "head": "\nLaws: ", "tail": {$: "Con", "head": $$String_join(_laws_0, ", "), "tail": {$: "Con", "head": "\n\n", "tail": {$: "Con", "head": $$clip($$first_said(_out_0, _err_0), (6000 )), "tail": {$: "Nil"}}}}}}}}}}});
+  return $String_concat({$: "Con", "head": "## ", "tail": {$: "Con", "head": _name_0, "tail": {$: "Con", "head": ": ", "tail": {$: "Con", "head": $$how(_ended_0, _ms_0), "tail": {$: "Con", "head": "\nOwned: ", "tail": {$: "Con", "head": $$or_none($$String_join(_owns_0, ", ")), "tail": {$: "Con", "head": "\nLaws: ", "tail": {$: "Con", "head": $$or_none($$String_join(_laws_0, ", ")), "tail": {$: "Con", "head": "\n\n", "tail": {$: "Con", "head": $$clip($$first_said(_out_0, _err_0), (6000 )), "tail": {$: "Nil"}}}}}}}}}}});
 }
 
 function $fits(_ended_0, _said_0) {
@@ -2664,22 +2771,30 @@ function $fits(_ended_0, _said_0) {
 
 function $check_said(_fit_0, _stopped_0) {
   if (_fit_0) {
-    return "It passes: the halves fit.";
+    return "It passes: the parts fit.";
   } else {
-    return $String_concat({$: "Con", "head": "It FAILS", "tail": {$: "Con", "head": $$Bool_pick($$String_is_empty(_stopped_0), "", $$String_concat({$: "Con", "head": " (", "tail": {$: "Con", "head": _stopped_0, "tail": {$: "Con", "head": ")", "tail": {$: "Nil"}}}})), "tail": {$: "Con", "head": ": the halves do not fit yet. Repair it yourself if it is small; if a law was wrong, change it and cut again.", "tail": {$: "Nil"}}}});
+    return $String_concat({$: "Con", "head": "It FAILS", "tail": {$: "Con", "head": $$Bool_pick($$String_is_empty(_stopped_0), "", $$String_concat({$: "Con", "head": " (", "tail": {$: "Con", "head": _stopped_0, "tail": {$: "Con", "head": ")", "tail": {$: "Nil"}}}})), "tail": {$: "Con", "head": ": the parts do not fit yet. Repair it yourself if it is small; if a law was wrong, change it and cut again.", "tail": {$: "Nil"}}}});
+  }
+}
+
+function $check_lines(_none_0, _check_0, _fit_0, _stopped_0, _said_0) {
+  if (_none_0) {
+    return {$: "Con", "head": "## No check was given", "tail": {$: "Con", "head": "Whether the parts fit is yours to see: read what each said, and what is in the files.", "tail": {$: "Nil"}}};
+  } else {
+    return {$: "Con", "head": ("## The check: " + _check_0), "tail": {$: "Con", "head": $$check_said(_fit_0, _stopped_0), "tail": {$: "Con", "head": $$clip($$Bool_pick($$String_is_empty(_said_0), "(no output)", _said_0), (4000 )), "tail": {$: "Nil"}}}};
   }
 }
 
 function $joined(_ms_0, _reports_0, _check_0, _fit_0, _stopped_0, _said_0) {
-  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": $$String_concat({$: "Con", "head": "Both halves are back after ", "tail": {$: "Con", "head": $$minutes(_ms_0), "tail": {$: "Con", "head": ". Every file is yours again.", "tail": {$: "Nil"}}}}), "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}, "tail": {$: "Con", "head": _reports_0, "tail": {$: "Con", "head": {$: "Con", "head": "", "tail": {$: "Con", "head": ("## The check: " + _check_0), "tail": {$: "Con", "head": $$check_said(_fit_0, _stopped_0), "tail": {$: "Con", "head": $$clip($$Bool_pick($$String_is_empty(_said_0), "(no output)", _said_0), (4000 )), "tail": {$: "Nil"}}}}}, "tail": {$: "Nil"}}}}), "\n");
+  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": $$String_concat({$: "Con", "head": "Every part is back after ", "tail": {$: "Con", "head": $$minutes(_ms_0), "tail": {$: "Con", "head": ". Every file is yours again.", "tail": {$: "Nil"}}}}), "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}, "tail": {$: "Con", "head": _reports_0, "tail": {$: "Con", "head": {$: "Con", "head": "", "tail": {$: "Nil"}}, "tail": {$: "Con", "head": $$check_lines($$String_is_empty(_check_0), _check_0, _fit_0, _stopped_0, _said_0), "tail": {$: "Nil"}}}}}), "\n");
 }
 
 function $stopped_early() {
-  return "Stopped: both halves were ended before they finished. What they wrote so far is in their files.";
+  return "Stopped: the parts were ended before they finished. What they wrote so far is in their files.";
 }
 
 function $not_yours(_path_0, _name_0, _owns_0) {
-  return $String_concat({$: "Con", "head": "\"", "tail": {$: "Con", "head": _path_0, "tail": {$: "Con", "head": "\" is not yours to write: your half (\"", "tail": {$: "Con", "head": _name_0, "tail": {$: "Con", "head": "\") owns ", "tail": {$: "Con", "head": $$String_join(_owns_0, ", "), "tail": {$: "Con", "head": ". If the task cannot be done without it, stop and say so in your reply.", "tail": {$: "Nil"}}}}}}}});
+  return $String_concat({$: "Con", "head": "\"", "tail": {$: "Con", "head": _path_0, "tail": {$: "Con", "head": "\" is not yours to write: your part (\"", "tail": {$: "Con", "head": _name_0, "tail": {$: "Con", "head": "\") owns ", "tail": {$: "Con", "head": $$or_none($$String_join(_owns_0, ", ")), "tail": {$: "Con", "head": ". If the task cannot be done without it, stop and say so in your reply.", "tail": {$: "Nil"}}}}}}}});
 }
 
 function $option(_flag_0, _value_0) {
@@ -2696,7 +2811,23 @@ function $showing_line(_what_0, _choice_0, _session_0) {
 }
 
 function $showing(_model_0, _session_model_0, _thinking_0, _session_thinking_0) {
-  return $String_join({$: "Con", "head": "The agents division starts run on", "tail": {$: "Con", "head": $$showing_line("model", _model_0, _session_model_0), "tail": {$: "Con", "head": $$showing_line("thinking", _thinking_0, _session_thinking_0), "tail": {$: "Con", "head": "Change with /division model and /division thinking.", "tail": {$: "Nil"}}}}}, "\n");
+  return $String_join({$: "Con", "head": "The agents you deploy run on", "tail": {$: "Con", "head": $$showing_line("model", _model_0, _session_model_0), "tail": {$: "Con", "head": $$showing_line("thinking", _thinking_0, _session_thinking_0), "tail": {$: "Con", "head": "/default-agent makes this session's model and thinking level theirs; /default-agent same follows each session again.", "tail": {$: "Nil"}}}}}, "\n");
+}
+
+function $agent_pick(_empty_0, _same_0) {
+  if (_empty_0) {
+    return {$: "Current"};
+  } else {
+    if (_same_0) {
+      return {$: "Follow"};
+    } else {
+      return {$: "Named"};
+    }
+  }
+}
+
+function $agent_wants(_word_0) {
+  return $agent_pick($$String_is_empty(_word_0), $$String_eq(_word_0, "same"));
 }
 
 function $cuts(_depth_0) {
@@ -2712,32 +2843,81 @@ function $standing(_place_0) {
     const _owns_0 = _place_0["owns"];
     const _laws_0 = _place_0["laws"];
     const _check_0 = _place_0["check"];
-    const _x_0 = $$String_join(_owns_0, ", ");
-    const _x_1 = $$String_join(_laws_0, ", ");
-    return {$: "Con", "head": $$String_concat({$: "Con", "head": "You are a half of a divided task, ", "tail": {$: "Con", "head": $$cuts(_depth_0), "tail": {$: "Con", "head": " down: \"", "tail": {$: "Con", "head": _name_0, "tail": {$: "Con", "head": "\".", "tail": {$: "Nil"}}}}}}), "tail": {$: "Con", "head": ("Files you own: " + _x_0), "tail": {$: "Con", "head": ("Laws you must prove: " + _x_1), "tail": {$: "Con", "head": ("The check: " + _check_0), "tail": {$: "Nil"}}}}};
+    const _x_0 = $$or_none($$String_join(_owns_0, ", "));
+    const _x_1 = $$or_none($$String_join(_laws_0, ", "));
+    const _x_2 = $$or_none(_check_0);
+    return {$: "Con", "head": $$String_concat({$: "Con", "head": "You are a part of a divided task, ", "tail": {$: "Con", "head": $$cuts(_depth_0), "tail": {$: "Con", "head": " down: \"", "tail": {$: "Con", "head": _name_0, "tail": {$: "Con", "head": "\".", "tail": {$: "Nil"}}}}}}), "tail": {$: "Con", "head": ("Files you own: " + _x_0), "tail": {$: "Con", "head": ("Laws you must prove: " + _x_1), "tail": {$: "Con", "head": ("The check: " + _x_2), "tail": {$: "Nil"}}}}};
   }
 }
 
-function $method(_chunk_0, _depth_0, _place_0) {
-  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": "DIVISION: a large task cut in two, each half done by its own agent at the same time.", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}, "tail": {$: "Con", "head": $$standing(_place_0), "tail": {$: "Con", "head": {$: "Con", "head": "", "tail": {$: "Con", "head": "When to cut", "tail": {$: "Con", "head": $$String_concat({$: "Con", "head": "- Only when you take each half to be at least ", "tail": {$: "Con", "head": $$Nat_show(_chunk_0), "tail": {$: "Con", "head": " minutes of work for an agent, and the", "tail": {$: "Nil"}}}}), "tail": {$: "Con", "head": "  place where the halves meet can be said exactly, as Bend laws. Otherwise do the task yourself:", "tail": {$: "Con", "head": "  a cut costs a planning step and two agents starting from nothing.", "tail": {$: "Con", "head": "- Not when the work is finding something out (a bug, a design, how a library behaves), and not", "tail": {$: "Con", "head": "  when the halves would each need most of what the other makes. Cut where little crosses.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "How to cut", "tail": {$: "Con", "head": "1. Write the laws at the cut, in a .bend file you own, before anything else (call `bend` for the", "tail": {$: "Con", "head": "   language). A `law` with only a type is a signature: it says what one half provides. A `law`", "tail": {$: "Con", "head": "   with an equation says what the other half may count on. Example, in LAWS.bend:", "tail": {$: "Con", "head": "       law double:            # the first half provides this", "tail": {$: "Con", "head": "         for x: Nat", "tail": {$: "Con", "head": "         Nat", "tail": {$: "Con", "head": "       law double_even:       # and the second half may count on this", "tail": {$: "Con", "head": "         for +x: Nat", "tail": {$: "Con", "head": "         {even(double(x)) == True{} : Bool}", "tail": {$: "Con", "head": "2. Give each half files of its own, and create them: a half fills a law from its own file, with", "tail": {$: "Con", "head": "   `import ./LAWS.bend as L` and `def L.double(x): ...`. Work flows one way: the half that uses", "tail": {$: "Con", "head": "   the other's defs imports the other's file, never both ways.", "tail": {$: "Con", "head": "3. Make one file the gate (PROOF.bend) that imports the laws and every half's files, so that", "tail": {$: "Con", "head": "   `bend PROOF.bend` prints ALL PROOFS CHECK only when every law at every cut is proven.", "tail": {$: "Con", "head": "4. Call `division_split` with the two halves. Both run now, in this directory, and you get", "tail": {$: "Con", "head": "   their reports and the result of the check when both are done.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "What holds while the halves work (proven in division's LAWS.bend)", "tail": {$: "Con", "head": "- A half may write only the files it was handed, and no file is handed to both.", "tail": {$: "Con", "head": "- A half may count on every law at the cut, proven or not: the other half is proving it now.", "tail": {$: "Con", "head": "  Until it has, the checker reports that def as missing; that is expected.", "tail": {$: "Con", "head": "- A half does not change a law. If one cannot be proven as written, it stops and says why, and", "tail": {$: "Con", "head": "  the agent that cut decides: that is you, for your own cut.", "tail": {$: "Con", "head": $$String_concat({$: "Con", "head": "- A half that finds divisible work in what it was handed cuts again, and so do its halves, up to ", "tail": {$: "Con", "head": $$Nat_show(_depth_0), "tail": {$: "Con", "head": " cuts deep:", "tail": {$: "Nil"}}}}), "tail": {$: "Con", "head": "  whoever holds work that passes \"When to cut\" splits it instead of doing both parts in a row.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "When the halves are back", "tail": {$: "Con", "head": "- Every file is yours again. If the check fails, read what each half said: repair it yourself", "tail": {$: "Con", "head": "  when it is small, change the law and cut again when the law was wrong.", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, "tail": {$: "Nil"}}}}), "\n");
+function $method(_place_0) {
+  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": "DIVISION: a task cut into parts, each done by its own agent at the same time.", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}, "tail": {$: "Con", "head": $$standing(_place_0), "tail": {$: "Con", "head": {$: "Con", "head": "", "tail": {$: "Con", "head": "When it helps", "tail": {$: "Con", "head": "- When the parts can go on at the same time without waiting for each other, and what one needs", "tail": {$: "Con", "head": "  of another can be said plainly beforehand. Cut where little crosses.", "tail": {$: "Con", "head": "- An agent starts from nothing and costs a start, so a part should be worth one. How many parts", "tail": {$: "Con", "head": "  and how large is yours to judge: two, five, one for the part you would rather not hold in", "tail": {$: "Con", "head": "  your own context. Work you can simply do is done faster by doing it.", "tail": {$: "Con", "head": "- A part that owns no file only reads and reports: finding something out can be a part too.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "How to cut", "tail": {$: "Con", "head": "1. Give each part a name, a task said in full, and the files that are its own. Create the files", "tail": {$: "Con", "head": "   or folders first if that makes the cut clearer. No file may be in two parts.", "tail": {$: "Con", "head": "2. Say what crosses between parts. The strongest way is Bend laws in a file you keep (call", "tail": {$: "Con", "head": "   `bend` for the language): a `law` with only a type is a signature one part provides, a `law`", "tail": {$: "Con", "head": "   with an equation is what the others may count on, and each law is given to the one part", "tail": {$: "Con", "head": "   that proves it, in a file of its own (`import ./LAWS.bend as L`, `def L.name(..): ...`).", "tail": {$: "Con", "head": "   Where laws do not fit the work (prose, configuration, another language), say it in the tasks", "tail": {$: "Con", "head": "   and give a check that tells whether the parts fit: a test run, a build, a script.", "tail": {$: "Con", "head": "3. Call `division_split` with the parts. They all run now, in this directory, and you get each", "tail": {$: "Con", "head": "   one's report and the result of the check when all are back.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "What holds while the parts work (proven in division's LAWS.bend)", "tail": {$: "Con", "head": "- A part may write only the files it was handed, and no file is handed to two.", "tail": {$: "Con", "head": "- A part may count on every law at the cut, proven or not: another part is proving it now.", "tail": {$: "Con", "head": "  Until it has, the checker reports that def as missing; that is expected.", "tail": {$: "Con", "head": "- A part does not change a law. If one cannot be proven as written, it stops and says why, and", "tail": {$: "Con", "head": "  the agent that cut decides: that is you, for your own cut.", "tail": {$: "Con", "head": "- A part may cut again among its own files, and so may its parts.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "When the parts are back", "tail": {$: "Con", "head": "- Every file is yours again. If the check fails, read what each part said: repair it yourself", "tail": {$: "Con", "head": "  when it is small, change what crosses and cut again when that was wrong.", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, "tail": {$: "Nil"}}}}), "\n");
 }
 
 function $whole_lines(_whole_0) {
   return $Bool_pick($$String_is_empty(_whole_0), {$: "Nil"}, {$: "Con", "head": "The whole task, so you know what yours is part of:", "tail": {$: "Con", "head": _whole_0, "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}});
 }
 
-function $brief(_name_0, _task_0, _owns_0, _laws_0, _other_0, _other_task_0, _other_laws_0, _whole_0, _check_0, _chunk_0) {
-  const _x_0 = $$String_join(_owns_0, ", ");
-  const _x_1 = $$String_join(_laws_0, ", ");
-  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": "You are one half of a larger task that was cut in two. Another agent is doing the other half right now, in this same directory.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("Your half: " + _name_0), "tail": {$: "Con", "head": _task_0, "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}}}, "tail": {$: "Con", "head": $$whole_lines(_whole_0), "tail": {$: "Con", "head": {$: "Con", "head": $$String_concat({$: "Con", "head": "The other half (\"", "tail": {$: "Con", "head": _other_0, "tail": {$: "Con", "head": "\"), which is not yours to do: ", "tail": {$: "Con", "head": _other_task_0, "tail": {$: "Nil"}}}}}), "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("Files you own: " + _x_0), "tail": {$: "Con", "head": "You may create and change only these (a name ending in \"/\" is a folder and everything in it). You may read anything. A write anywhere else is refused.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("Laws you must prove: " + _x_1), "tail": {$: "Con", "head": "They are declared in the .bend files here. Prove each with a def of the same name in a file you own (call the `bend` action first if you have not used Bend).", "tail": {$: "Con", "head": $$String_concat({$: "Con", "head": "Laws the other half is proving: ", "tail": {$: "Con", "head": $$String_join(_other_laws_0, ", "), "tail": {$: "Con", "head": ". Count on them as if they were proven, and on any signature among them as if it were written: until the other half is done the checker reports those defs as missing, which is expected and not yours to fix.", "tail": {$: "Nil"}}}}), "tail": {$: "Con", "head": "Do not change a law. If one of yours cannot be proven as written, or you need something no law gives you, stop and say exactly what and why.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("Check your work with: " + _check_0), "tail": {$: "Con", "head": $$String_concat({$: "Con", "head": "Before you start, and again whenever the work turns out larger than it looked, look for a cut in your own half: if you find two parts of at least ", "tail": {$: "Con", "head": $$Nat_show(_chunk_0), "tail": {$: "Con", "head": " minutes each that meet at something you can state as Bend laws, cut again (call `division` for how) instead of doing them in a row. The halves you start are told the same. Do it directly only when there is no such cut.", "tail": {$: "Nil"}}}}), "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "When you are done, reply with what you did, which of your laws are proven, and anything the agent that cut the task needs to know. That reply is all it will see of your work besides the files.", "tail": {$: "Nil"}}}}}}}}}}}}}}}, "tail": {$: "Nil"}}}}), "\n");
+function $other_lines(_others_0) {
+  if (_others_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _others_0["head"];
+    const _name_0 = _t_0["name"];
+    const _task_0 = _t_0["task"];
+    const _laws_0 = _t_0["laws"];
+    const _t_1 = _others_0["tail"];
+    const _x_0 = $$String_join(_laws_0, ", ");
+    return {$: "Con", "head": $$String_concat({$: "Con", "head": "- \"", "tail": {$: "Con", "head": _name_0, "tail": {$: "Con", "head": "\": ", "tail": {$: "Con", "head": _task_0, "tail": {$: "Con", "head": $$Bool_pick($$List_is_empty(_laws_0), "", (" It proves: " + _x_0)), "tail": {$: "Nil"}}}}}}), "tail": $$other_lines(_t_1)};
+  }
 }
 
-function $describe_division(_chunk_0) {
-  return $String_concat({$: "Con", "head": "For a LARGE task only: one you take to be at least ", "tail": {$: "Con", "head": $$Nat_show(nat_chk(_chunk_0 + _chunk_0)), "tail": {$: "Con", "head": " minutes of work, that cuts cleanly in two. ", "tail": {$: "Con", "head": "Division cuts it in two halves that separate agents do at the same time, held together by Bend laws written at the cut: ", "tail": {$: "Con", "head": "each half owns its own files, proves its own laws, and counts on the other's before they are proven. ", "tail": {$: "Con", "head": "Returns the method and where you stand in the tree. Do not call it for a small task, for one whose halves would each need ", "tail": {$: "Con", "head": "most of what the other makes, or for work that is finding something out: do those yourself.", "tail": {$: "Nil"}}}}}}}});
+function $others_part(_others_0) {
+  if (_others_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _h_0 = _others_0["head"];
+    const _t_0 = _others_0["tail"];
+    return $List_concat({$: "Con", "head": {$: "Con", "head": "The other parts, which are not yours to do and are being done right now in this same directory:", "tail": {$: "Nil"}}, "tail": {$: "Con", "head": $$other_lines({$: "Con", "head": _h_0, "tail": _t_0}), "tail": {$: "Con", "head": {$: "Con", "head": "", "tail": {$: "Nil"}}, "tail": {$: "Nil"}}}});
+  }
 }
 
-function $describe_split(_chunk_0) {
-  return $String_concat({$: "Con", "head": "Cut the task you have in two and run both halves now, each as its own agent in this directory. Call `division` first for the method. ", "tail": {$: "Con", "head": "Write the laws at the cut before calling. Returns when both halves are done, with what each said and the result of the check. ", "tail": {$: "Con", "head": "Refused, with the reason, when a half is under ", "tail": {$: "Con", "head": $$Nat_show(_chunk_0), "tail": {$: "Con", "head": " minutes of work, has no law to prove, or the halves share a file.", "tail": {$: "Nil"}}}}}});
+function $owns_part(_owns_0) {
+  if (_owns_0.$ === "Nil") {
+    return {$: "Con", "head": "You own no file: read whatever you need, write nothing, and put what you find in your reply.", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}};
+  } else {
+    const _h_0 = _owns_0["head"];
+    const _t_0 = _owns_0["tail"];
+    const _x_0 = $$String_join({$: "Con", "head": _h_0, "tail": _t_0}, ", ");
+    return {$: "Con", "head": ("Files you own: " + _x_0), "tail": {$: "Con", "head": "You may create and change only these (a name ending in \"/\" is a folder and everything in it). You may read anything. A write anywhere else is refused.", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}};
+  }
+}
+
+function $laws_part(_laws_0) {
+  if (_laws_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _h_0 = _laws_0["head"];
+    const _t_0 = _laws_0["tail"];
+    const _x_0 = $$String_join({$: "Con", "head": _h_0, "tail": _t_0}, ", ");
+    return {$: "Con", "head": ("Laws you must prove: " + _x_0), "tail": {$: "Con", "head": "They are declared in the .bend files here. Prove each with a def of the same name in a file you own (call the `bend` action first if you have not used Bend).", "tail": {$: "Con", "head": "Laws another part is proving are named above: count on them as if they were proven, and on any signature among them as if it were written. Until that part is done the checker reports those defs as missing, which is expected and not yours to fix.", "tail": {$: "Con", "head": "Do not change a law. If one of yours cannot be proven as written, or you need something nothing gives you, stop and say exactly what and why.", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}}};
+  }
+}
+
+function $check_part(_check_0) {
+  return $Bool_pick($$String_is_empty(_check_0), {$: "Nil"}, {$: "Con", "head": ("Check your work with: " + _check_0), "tail": {$: "Nil"}});
+}
+
+function $brief(_name_0, _task_0, _owns_0, _laws_0, _others_0, _whole_0, _check_0) {
+  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": "You are one part of a larger task that was cut into parts, each done by its own agent.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("Your part: " + _name_0), "tail": {$: "Con", "head": _task_0, "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}}}, "tail": {$: "Con", "head": $$whole_lines(_whole_0), "tail": {$: "Con", "head": $$others_part(_others_0), "tail": {$: "Con", "head": $$owns_part(_owns_0), "tail": {$: "Con", "head": $$laws_part(_laws_0), "tail": {$: "Con", "head": $$check_part(_check_0), "tail": {$: "Con", "head": {$: "Con", "head": "If your part turns out to hold work that would go faster as parts of its own, you may cut again among your files (call `division` for how). That is yours to judge.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "When you are done, reply with what you did, what is proven or checked, and anything the agent that cut the task needs to know. That reply is all it will see of your work besides the files.", "tail": {$: "Nil"}}}}, "tail": {$: "Nil"}}}}}}}}), "\n");
+}
+
+function $describe_division() {
+  return $String_concat({$: "Con", "head": "A way to deploy agents on a task: cut it into parts that separate agents do at the same time. ", "tail": {$: "Con", "head": "Each part owns its own files, so no two agents write the same one, and what crosses between parts is said beforehand, ", "tail": {$: "Con", "head": "best as Bend laws that each part proves and the others count on. ", "tail": {$: "Con", "head": "Returns the method and where you stand in the tree. How many parts, how large, and whether to cut at all are yours to judge.", "tail": {$: "Nil"}}}}});
+}
+
+function $describe_split() {
+  return $String_concat({$: "Con", "head": "Cut the task you have into parts and run them all now, each as its own agent in this directory. Call `division` first for the method. ", "tail": {$: "Con", "head": "Returns when every part is back, with what each said and the result of the check. ", "tail": {$: "Con", "head": "Refused, with the reason, only when two parts would own the same file, a part is handed a file that is not yours, a law is given to two parts, or two parts share a name.", "tail": {$: "Nil"}}}});
 }
 
 function $String_eq(_a_0, _b_0) {
@@ -3567,6 +3747,8 @@ const $$______bend_core_size_text = $______bend_core_size_text;
 const $$______bend_core_row_lines = $______bend_core_row_lines;
 const $$______bend_core_link_lines = $______bend_core_link_lines;
 const $$______bend_core_export_line = $______bend_core_export_line;
+const $$______bend_core_setting = $______bend_core_setting;
+const $$______bend_core_or_unset = $______bend_core_or_unset;
 const $$is_folder = $is_folder;
 const $$covers = $covers;
 const $$may_write = $may_write;
@@ -3575,6 +3757,15 @@ const $$clashes = $clashes;
 const $$overlap = $overlap;
 const $$may = $may;
 const $$inside = $inside;
+const $$names_of = $names_of;
+const $$owns_of = $owns_of;
+const $$laws_of = $laws_of;
+const $$distinct = $distinct;
+const $$shares = $shares;
+const $$disjoint = $disjoint;
+const $$all_inside = $all_inside;
+const $$one_if = $one_if;
+const $$writers = $writers;
 const $$guard = $guard;
 const $$Char_is_alpha = $Char_is_alpha;
 const $$Char_is_digit = $Char_is_digit;
@@ -3590,15 +3781,22 @@ const $$slashed = $slashed;
 const $$ticked = $ticked;
 const $$minutes = $minutes;
 const $$how = $how;
+const $$or_none = $or_none;
 const $$first_said = $first_said;
 const $$clip = $clip;
 const $$check_said = $check_said;
+const $$check_lines = $check_lines;
 const $$runs_on = $runs_on;
 const $$option = $option;
 const $$showing_line = $showing_line;
 const $$cuts = $cuts;
 const $$standing = $standing;
+const $$other_lines = $other_lines;
 const $$whole_lines = $whole_lines;
+const $$others_part = $others_part;
+const $$owns_part = $owns_part;
+const $$laws_part = $laws_part;
+const $$check_part = $check_part;
 const $$String_order = $String_order;
 const $$Nat_show_put = $Nat_show_put;
 const $$Char_is_upper = $Char_is_upper;
@@ -3888,6 +4086,11 @@ const $$String_join_go = $String_join_go;export default {
   "../../bend/core:deleted_said": run_lib((a0,a1,a2,a3) => str_out(run_loop($______bend_core_deleted_said(a0,a1,str_in(a2),a3))), 4),
   "../../bend/core:nothing_there": run_lib((a0) => str_out(run_loop($______bend_core_nothing_there(a0))), 1),
   "../../bend/core:export_first_failed": run_lib((a0) => str_out(run_loop($______bend_core_export_first_failed(str_in(a0)))), 1),
+  "../../bend/core:setting": run_lib((a0,a1) => run_loop($______bend_core_setting(str_in(a0),str_in(a1))), 2),
+  "../../bend/core:default_settings": run_lib((a0,a1,a2) => run_loop($______bend_core_default_settings(str_in(a0),str_in(a1),str_in(a2))), 3),
+  "../../bend/core:kept_off": run_lib((a0,a1) => run_loop($______bend_core_kept_off(a0,a1)), 2),
+  "../../bend/core:or_unset": run_lib((a0) => str_out(run_loop($______bend_core_or_unset(str_in(a0)))), 1),
+  "../../bend/core:default_said": run_lib((a0,a1,a2) => str_out(run_loop($______bend_core_default_said(str_in(a0),str_in(a1),a2))), 3),
   "is_folder": run_lib((a0) => run_loop($is_folder(str_in(a0))), 1),
   "covers": run_lib((a0,a1) => run_loop($covers(str_in(a0),str_in(a1))), 2),
   "may_write": run_lib((a0,a1) => run_loop($may_write(a0,str_in(a1))), 2),
@@ -3896,8 +4099,18 @@ const $$String_join_go = $String_join_go;export default {
   "clashes": run_lib((a0,a1) => run_loop($clashes(str_in(a0),a1)), 2),
   "overlap": run_lib((a0,a1) => run_loop($overlap(a0,a1)), 2),
   "inside": run_lib((a0,a1) => run_loop($inside(a0,a1)), 2),
+  "names_of": run_lib((a0) => run_loop($names_of(a0)), 1),
+  "owns_of": run_lib((a0) => run_loop($owns_of(a0)), 1),
+  "laws_of": run_lib((a0) => run_loop($laws_of(a0)), 1),
+  "distinct": run_lib((a0) => run_loop($distinct(a0)), 1),
+  "shares": run_lib((a0,a1) => run_loop($shares(a0,a1)), 2),
+  "disjoint": run_lib((a0) => run_loop($disjoint(a0)), 1),
+  "all_inside": run_lib((a0,a1) => run_loop($all_inside(a0,a1)), 2),
+  "one_if": run_lib((a0) => run_loop($one_if(a0)), 1),
+  "writers": run_lib((a0,a1) => run_loop($writers(a0,str_in(a1))), 2),
   "guard": run_lib((a0,a1,a2) => run_loop($guard(a0,a1,a2)), 3),
-  "judge": run_lib((a0,a1,a2,a3,a4,a5) => run_loop($judge(nat_in(a0),nat_in(a1),nat_in(a2),a3,a4,a5)), 6),
+  "verdict": run_lib((a0,a1,a2,a3,a4,a5) => run_loop($verdict(a0,a1,a2,a3,a4,a5)), 6),
+  "judge": run_lib((a0,a1,a2,a3) => run_loop($judge(nat_in(a0),nat_in(a1),a2,a3)), 4),
   "runs_on": run_lib((a0,a1) => str_out(run_loop($runs_on(str_in(a0),str_in(a1)))), 2),
   "kept": run_lib((a0) => str_out(run_loop($kept(str_in(a0)))), 1),
   "levels": run_lib(() => run_loop($levels()), 0),
@@ -3919,7 +4132,7 @@ const $$String_join_go = $String_join_go;export default {
   "slashed": run_lib((a0) => str_out(run_loop($slashed(str_in(a0)))), 1),
   "entry_pick": run_lib((a0,a1,a2) => run_loop($entry_pick(a0,a1,str_in(a2))), 3),
   "entry_of": run_lib((a0,a1,a2) => run_loop($entry_of(str_in(a0),a1,a2)), 3),
-  "why": run_lib((a0,a1,a2) => str_out(run_loop($why(a0,nat_in(a1),nat_in(a2)))), 3),
+  "why": run_lib((a0,a1) => str_out(run_loop($why(a0,nat_in(a1)))), 2),
   "refused": run_lib((a0) => str_out(run_loop($refused(str_in(a0)))), 1),
   "ticked": run_lib((a0) => run_loop($ticked(a0)), 1),
   "laws_missing": run_lib((a0) => str_out(run_loop($laws_missing(a0))), 1),
@@ -3931,9 +4144,11 @@ const $$String_join_go = $String_join_go;export default {
   "how_pick": run_lib((a0,a1,a2,a3,a4) => str_out(run_loop($how_pick(a0,a1,str_in(a2),nat_in(a3),str_in(a4)))), 5),
   "how": run_lib((a0,a1) => str_out(run_loop($how(a0,nat_in(a1)))), 2),
   "first_said": run_lib((a0,a1) => str_out(run_loop($first_said(str_in(a0),str_in(a1)))), 2),
+  "or_none": run_lib((a0) => str_out(run_loop($or_none(str_in(a0)))), 1),
   "half_report": run_lib((a0,a1,a2,a3,a4,a5,a6) => str_out(run_loop($half_report(str_in(a0),a1,a2,a3,nat_in(a4),str_in(a5),str_in(a6)))), 7),
   "fits": run_lib((a0,a1) => run_loop($fits(a0,str_in(a1))), 2),
   "check_said": run_lib((a0,a1) => str_out(run_loop($check_said(a0,str_in(a1)))), 2),
+  "check_lines": run_lib((a0,a1,a2,a3,a4) => run_loop($check_lines(a0,str_in(a1),a2,str_in(a3),str_in(a4))), 5),
   "joined": run_lib((a0,a1,a2,a3,a4,a5) => str_out(run_loop($joined(nat_in(a0),a1,str_in(a2),a3,str_in(a4),str_in(a5)))), 6),
   "stopped_early": run_lib(() => str_out(run_loop($stopped_early())), 0),
   "not_yours": run_lib((a0,a1,a2) => str_out(run_loop($not_yours(str_in(a0),str_in(a1),a2))), 3),
@@ -3941,11 +4156,18 @@ const $$String_join_go = $String_join_go;export default {
   "half_args": run_lib((a0,a1,a2,a3) => run_loop($half_args(str_in(a0),str_in(a1),str_in(a2),str_in(a3))), 4),
   "showing_line": run_lib((a0,a1,a2) => str_out(run_loop($showing_line(str_in(a0),str_in(a1),str_in(a2)))), 3),
   "showing": run_lib((a0,a1,a2,a3) => str_out(run_loop($showing(str_in(a0),str_in(a1),str_in(a2),str_in(a3)))), 4),
+  "agent_pick": run_lib((a0,a1) => run_loop($agent_pick(a0,a1)), 2),
+  "agent_wants": run_lib((a0) => run_loop($agent_wants(str_in(a0))), 1),
   "cuts": run_lib((a0) => str_out(run_loop($cuts(nat_in(a0)))), 1),
   "standing": run_lib((a0) => run_loop($standing(a0)), 1),
-  "method": run_lib((a0,a1,a2) => str_out(run_loop($method(nat_in(a0),nat_in(a1),a2))), 3),
+  "method": run_lib((a0) => str_out(run_loop($method(a0))), 1),
   "whole_lines": run_lib((a0) => run_loop($whole_lines(str_in(a0))), 1),
-  "brief": run_lib((a0,a1,a2,a3,a4,a5,a6,a7,a8,a9) => str_out(run_loop($brief(str_in(a0),str_in(a1),a2,a3,str_in(a4),str_in(a5),a6,str_in(a7),str_in(a8),nat_in(a9)))), 10),
-  "describe_division": run_lib((a0) => str_out(run_loop($describe_division(nat_in(a0)))), 1),
-  "describe_split": run_lib((a0) => str_out(run_loop($describe_split(nat_in(a0)))), 1),
+  "other_lines": run_lib((a0) => run_loop($other_lines(a0)), 1),
+  "others_part": run_lib((a0) => run_loop($others_part(a0)), 1),
+  "owns_part": run_lib((a0) => run_loop($owns_part(a0)), 1),
+  "laws_part": run_lib((a0) => run_loop($laws_part(a0)), 1),
+  "check_part": run_lib((a0) => run_loop($check_part(str_in(a0))), 1),
+  "brief": run_lib((a0,a1,a2,a3,a4,a5,a6) => str_out(run_loop($brief(str_in(a0),str_in(a1),a2,a3,a4,str_in(a5),str_in(a6)))), 7),
+  "describe_division": run_lib(() => str_out(run_loop($describe_division())), 0),
+  "describe_split": run_lib(() => str_out(run_loop($describe_split())), 0),
 };

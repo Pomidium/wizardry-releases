@@ -150,9 +150,33 @@ export class Plugins extends Service {
     return this.load(record.source, record.config)
   }
 
+  /**
+   * Make what is loaded now what loads at every start: a plugin loaded for this session is
+   * loaded from now on, and one that would load but is not loaded now is switched off.
+   */
+  keep() {
+    const loaded = [...this.records.values()]
+    const names = loaded.map((record) => record.name)
+    const wouldLoad = [...this.defaults, ...this.shipped().map((entry) => entry.name), ...this.found().map((entry) => entry.name)]
+    this.save((saved) => {
+      // What is switched off is decided in Bend, where it is proven that nothing loaded now is.
+      saved.disabled = core.keptOff(wouldLoad, names)
+      saved.load = loaded
+        .filter((record) => core.remembered(record.source.startsWith('builtin:'), this.isDefault(record.name)))
+        .map(({ source, config }) => ({ source, config }))
+    })
+    return names
+  }
+
+  private cwd = process.cwd()
+  private shipped = () => pluginFiles(this.config.shipped ?? join(here, '..', 'defaults'))
+  // Both directories are the same one when wizardry runs from its own home's parent (e.g. ~).
+  private found = () => core.pluginDirs(join(this.config.home, 'plugins'), join(this.cwd, '.wizardry', 'plugins')).flatMap((dir) => pluginFiles(dir))
+
   /** Bring up the defaults, the plugin directories, and whatever was persisted. */
   async boot(defaults: string[], cwd: string) {
     this.defaults = defaults
+    this.cwd = cwd
     const saved = this.saved()
     const failures: string[] = []
     const attempt = async (source: string, config?: unknown) => {
@@ -163,10 +187,8 @@ export class Plugins extends Service {
       }
     }
     for (const name of core.builtinsAtBoot(defaults, saved.disabled)) await attempt(`builtin:${name}`)
-    // Both directories are the same one when wizardry runs from its own home's parent (e.g. ~).
-    const dirs = core.pluginDirs(join(this.config.home, 'plugins'), join(cwd, '.wizardry', 'plugins'))
-    const found = dirs.flatMap((dir) => pluginFiles(dir))
-    const shipped = pluginFiles(this.config.shipped ?? join(here, '..', 'defaults'))
+    const found = this.found()
+    const shipped = this.shipped()
     // Which of them load is decided in Bend, where it is proven (LAWS.bend) that a shipped default
     // steps aside for a file of the same name in a plugin directory, which is how a user changes
     // one without touching wizardry, and that nothing switched off is loaded.

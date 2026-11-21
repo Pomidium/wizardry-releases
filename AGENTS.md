@@ -68,6 +68,14 @@ setup that is distinctly its own, that nothing installed for another tool can ad
 - The tests for all of this run wizardry as a command against a made-up home directory
   (`machine()` in `test/wizardry.test.mjs`). Never try `delete` against the real one.
 
+## /default
+
+`/default` (`defaultCommand` in `src/plugins/cordis.ts`) writes the session's model and thinking
+level to `$WIZARDRY_HOME/pi/settings.json` and calls `Plugins.keep()`, which makes the loaded set
+the one that boots. Pi's extension API cannot persist a model, so the file is written directly:
+that is safe because Pi rewrites only the settings it changed itself. `/default-agent` is the
+division default's, since what deployed agents run on is its setting.
+
 ## The old name
 
 wizardry was called izardry until November 2026. `adoptOldName` in `src/boot.ts` carries an old
@@ -96,7 +104,7 @@ Read in this order:
 | `src/keep.ts` | `wizardry export` and `wizardry delete`, and the `export` event plugins answer |
 | `src/look.ts` | Header, themes, how calls and results render |
 | `defaults/*.js` | The shipped default plugins; `bend.js` is the example of a skill as an action |
-| `defaults/division/` | The division default: `division.bend` (who may write what, whether a cut is made, what each agent is told, whether the halves fit), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which starts the agents |
+| `defaults/division/` | The division default: `division.bend` (who may write what, whether a cut is made, what each agent is told, whether the parts fit), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which starts the agents |
 | `defaults/memory/` | The memory plugin, copied in whole from its own repository (see below). Never edit it here |
 | `src/plugins/*.ts` | The builtins; `rtk.ts` is the example of wrapping another plugin's action, `update.ts` of `task/end` and slash commands |
 
@@ -176,18 +184,25 @@ and in `$WIZARDRY_HOME/plugins/` if it is for this machine. Never into `src/`.
 
 ### The division default
 
-`defaults/division/` cuts a large task in two and runs each half as its own headless wizardry, in
-the same directory, at the same time. Unlike memory it is built here: edit `division.bend`, run
+`defaults/division/` cuts a task into parts and runs each as its own headless wizardry, in the
+same directory, at the same time. Unlike memory it is built here: edit `division.bend`, run
 `npm run core`, commit `core.mjs` with it. Its proofs import wizardry's own (`../../PROOF.bend`),
 so a lemma renamed there is renamed here too.
 
-- A half learns its place from `WIZARDRY_DIVISION` (root, depth, name, owned files, laws, check).
-  In a half, an `action/before` listener refuses `write` and `edit` outside the owned files. `bash`
+- **It is a loose framework, by the owner's word.** No number is a rule: not how many parts, not
+  how large a part is, not whether it has laws or files. `judge` refuses only what would let
+  agents undo each other (a shared file, a file outside the cutter's, a law or a name given
+  twice) or never end (`depth`, a backstop in the config that the method does not preach).
+  `nothing_else_is_asked` is the law that keeps it so: do not add a refusal without removing that law,
+  and do not put thresholds in the method's text.
+- A part learns its place from `WIZARDRY_DIVISION` (root, depth, name, owned files, laws, check).
+  In a part, an `action/before` listener refuses `write` and `edit` outside the owned files. `bash`
   is not fenced: the ownership is a rule the agent is told and the write tools enforce, not a sandbox.
-- A half unloads `memory`: what it is told is not something the user said.
-- `division_split` blocks until both halves exit, then runs the check. Halves are started with
-  `-p --no-session`, on the model and thinking level the user chose with `/division` (kept in
-  `$WIZARDRY_HOME/division.json`), and otherwise on the calling session's.
+- A part unloads `memory`: what it is told is not something the user said.
+- `division_split` blocks until every part exits, then runs the check if there is one. Parts are
+  started with `-p --no-session`, on the model and thinking level the user chose with
+  `/default-agent` or `/division` (kept in `$WIZARDRY_HOME/division.json`), and otherwise on the
+  calling session's.
 - The trial in `test/division.test.mjs` uses a fake agent (`config.agent`); a real one needs a model.
 
 ### The memory default

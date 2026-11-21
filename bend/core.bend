@@ -1899,3 +1899,27 @@ def nothing_there(what: What) -> String:
 
 def export_first_failed(why: String) -> String:
   String.concat(["nothing was deleted: the export did not finish (", why, "). Fix that, or pass --no-export to delete without one."])
+
+# /default: this session's setup, made the one new sessions start with
+# --------------------------------------------------------------------
+
+def setting(name: String, +value: String) -> List<&2, Var>:
+  Bool.pick(List<&2, Var>, String.is_empty(value), Nil{}, [Var{name, value}])
+
+# What is written to Pi's settings, in wizardry's own directory: the model and thinking level of
+# this session. What the session does not have is left as it was.
+def default_settings(provider: String, model: String, thinking: String) -> List<&2, Var>:
+  List.concat(&2, Var, [setting("defaultProvider", provider), setting("defaultModel", model), setting("defaultThinkingLevel", thinking)])
+
+# Of everything that would load at a start, what is switched off for good when the plugins loaded
+# now are made the default: whatever is not loaded now.
+def kept_off(would_load: List<&2, String>, loaded: List<&2, String>) -> List<&2, String>:
+  without(would_load, loaded)
+
+def or_unset(+value: String) -> String:
+  Bool.pick(String, String.is_empty(value), "as it was", value)
+
+# What /default says it did.
+def default_said(model: String, thinking: String, plugins: List<&2, String>) -> String:
+  String.concat(["New sessions now start as this one. Model: ", or_unset(model), ". Thinking: ", or_unset(thinking),
+    ". Plugins: ", String.join(plugins, ", "), "."])

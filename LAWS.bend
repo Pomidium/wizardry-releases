@@ -488,3 +488,16 @@ law old_spares_wizardry:
   for +userhome: String
   for +to: String
   {C.takes(C.doomed(C.Old{}, home, old, userhome, to), home) == False{} : Bool} & {any_inside(C.doomed(C.Old{}, home, old, userhome, to), home) == False{} : Bool}
+
+# /default
+# --------
+
+# Making what is loaded now the default switches off nothing that is loaded now.
+law default_keeps_what_is_loaded:
+  for would_load: List<&2, String>
+  for +loaded: List<&2, String>
+  {C.overlaps(C.kept_off(would_load, loaded), loaded) == False{} : Bool}
+
+# A session with no model or thinking level to speak of changes neither default.
+law default_writes_only_what_is_set:
+  {C.default_settings("", "", "") == Nil{} : List<&2, C.Var>}

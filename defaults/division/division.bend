@@ -1,9 +1,11 @@
 # division's decisions, in Bend.
 #
-# A large task is cut in two, each half is handed to its own agent, and a half that is still large
-# is cut again. What keeps the agents out of each other's way is decided here: which files each may
-# write, which laws each must prove, and whether a cut is worth making at all. index.js asks these
-# defs and then starts the agents; LAWS.bend states what must hold of them and PROOF.bend proves it.
+# A task is cut into parts, each part is handed to its own agent, and a part may be cut again.
+# What keeps the agents out of each other's way is decided here: which files each may write, which
+# laws each must prove, and whether a cut can be made at all. How many parts there are and how
+# large each is are the cutting agent's to judge, and nothing here refuses a cut for them.
+# index.js asks these defs and then starts the agents; LAWS.bend states what must hold of them and
+# PROOF.bend proves it.
 #
 # `npm run core` in wizardry checks the proofs and compiles this file to core.mjs.
 
@@ -71,16 +73,83 @@ def inside(entries: List<&2, String>, +parent: Owns) -> Bool:
 # Whether a cut is made
 # ---------------------
 
-# One half of a cut: what it is called, the files it owns, the laws it must prove, and how many
-# minutes of work the agent making the cut takes it to be.
+# One part of a cut: what it is called, the files it owns, and the laws it must prove. Either
+# list may be empty: a part that owns nothing only reads and reports, and a part with no law is
+# checked by the check alone.
 type Piece is Data:
-  Piece{name: String, owns: List<&2, String>, laws: List<&2, String>, minutes: Nat}
+  Piece{name: String, owns: List<&2, String>, laws: List<&2, String>}
+
+def names_of(pieces: List<&2, Piece>) -> List<&2, String>:
+  match pieces:
+    case Nil{}:
+      Nil{}
+    case Con{Piece{name, owns, laws}, t}:
+      name <> names_of(t)
+
+def owns_of(pieces: List<&2, Piece>) -> List<&2, List<&2, String>>:
+  match pieces:
+    case Nil{}:
+      Nil{}
+    case Con{Piece{name, owns, laws}, t}:
+      owns <> owns_of(t)
+
+def laws_of(pieces: List<&2, Piece>) -> List<&2, String>:
+  match pieces:
+    case Nil{}:
+      Nil{}
+    case Con{Piece{name, owns, laws}, t}:
+      List.append(&2, String, laws, laws_of(t))
+
+# Whether no name is there twice.
+def distinct(xs: List<&2, String>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+h, +t}:
+      Bool.and(Bool.not(C.has(t, h)), distinct(t))
+
+# Whether an agent that owns `mine` would own a file in common with any of the others.
+def shares(+mine: List<&2, String>, others: List<&2, List<&2, String>>) -> Bool:
+  match others:
+    case Nil{}:
+      False{}
+    case Con{h, t}:
+      Bool.or(overlap(mine, h), shares(mine, t))
+
+# Whether no two of the agents own a file in common.
+def disjoint(owns: List<&2, List<&2, String>>) -> Bool:
+  match owns:
+    case Nil{}:
+      True{}
+    case Con{+h, +t}:
+      Bool.and(Bool.not(shares(h, t)), disjoint(t))
+
+# Whether everything each agent is handed is the parent's to hand out.
+def all_inside(owns: List<&2, List<&2, String>>, +parent: Owns) -> Bool:
+  match owns:
+    case Nil{}:
+      True{}
+    case Con{h, t}:
+      Bool.and(inside(h, parent), all_inside(t, parent))
+
+def one_if(b: Bool) -> Nat:
+  match b:
+    case True{}:
+      1n
+    case False{}:
+      0n
+
+# How many of the agents may write `path`.
+def writers(owns: List<&2, List<&2, String>>, +path: String) -> Nat:
+  match owns:
+    case Nil{}:
+      0n
+    case Con{h, t}:
+      Nat.add(one_if(may_write(h, path)), writers(t, path))
 
 type Reason is Data:
   TooDeep{}
-  TooSmall{}
-  NoFiles{}
-  NoLaws{}
+  NoParts{}
   SameName{}
   SharedLaw{}
   Outside{}
@@ -98,35 +167,35 @@ def guard(bad: Bool, why: Reason, rest: Verdict) -> Verdict:
     case False{}:
       rest
 
-# Whether a task is cut in two here. It is not when the tree is `limit` deep already, when either
-# half is under `chunk` minutes (an agent costs more to start than that saves), when a half owns no
-# file or has no law to prove (nothing would check its work), when a law is given to both, when a
-# half owns what the agent cutting does not, or when the halves own a file in common.
-def judge(depth: Nat, limit: Nat, +chunk: Nat, +parent: Owns, first: Piece, second: Piece) -> Verdict:
-  match first second:
-    case Piece{n1, +o1, +l1, m1} Piece{n2, +o2, +l2, m2}:
-      guard(Bool.not(Nat.is_lt(depth, limit)), TooDeep{},
-        guard(Bool.not(Bool.and(Nat.is_ge(m1, chunk), Nat.is_ge(m2, chunk))), TooSmall{},
-          guard(Bool.or(List.is_empty(&2, String, o1), List.is_empty(&2, String, o2)), NoFiles{},
-            guard(Bool.or(List.is_empty(&2, String, l1), List.is_empty(&2, String, l2)), NoLaws{},
-              guard(String.eq(n1, n2), SameName{},
-                guard(C.overlaps(l1, l2), SharedLaw{},
-                  guard(Bool.not(Bool.and(inside(o1, parent), inside(o2, parent))), Outside{},
-                    guard(overlap(o1, o2), Trample{},
-                      Divide{}))))))))
+def verdict(deep: Bool, none: Bool, names: Bool, laws: Bool, outside: Bool, trample: Bool) -> Verdict:
+  guard(deep, TooDeep{},
+    guard(none, NoParts{},
+      guard(names, SameName{},
+        guard(laws, SharedLaw{},
+          guard(outside, Outside{},
+            guard(trample, Trample{},
+              Divide{}))))))
 
-# What the halves run on
+# Whether a task is cut here, into however many parts it was cut. How large a part should be and
+# how many there are is the judgment of the agent that cuts. What is refused is only what would
+# let agents undo each other or never end: two parts with one name, a law given to two, a file a
+# part does not have to hand out, a file handed to two, and a tree already `limit` cuts deep.
+def judge(depth: Nat, limit: Nat, +parent: Owns, +pieces: List<&2, Piece>) -> Verdict:
+  verdict(Bool.not(Nat.is_lt(depth, limit)), List.is_empty(&2, Piece, pieces), Bool.not(distinct(names_of(pieces))),
+    Bool.not(distinct(laws_of(pieces))), Bool.not(all_inside(owns_of(pieces), parent)), Bool.not(disjoint(owns_of(pieces))))
+
+# What the agents run on
 # ----------------------
 
-# What a half runs on: what the user chose with /division, and otherwise what the session is on.
+# What a part's agent runs on: what the user chose with /default-agent or /division, and otherwise what the session is on.
 def runs_on(+choice: String, session: String) -> String:
   Bool.pick(String, String.is_empty(choice), session, choice)
 
-# The choice that is kept: "same" is no choice, the halves follow the session again.
+# The choice that is kept: "same" is no choice, the agents follow the session again.
 def kept(+value: String) -> String:
   Bool.pick(String, String.eq(value, "same"), "", value)
 
-# The thinking levels a half can be given, and "same".
+# The thinking levels an agent can be given, and "same".
 def levels() -> List<&2, String>:
   ["same", "off", "minimal", "low", "medium", "high", "xhigh", "max"]
 
@@ -257,27 +326,23 @@ def entry_of(+rel: String, absolute: Bool, folder: Bool) -> Maybe<&2, String>:
 # What is said
 # ------------
 
-def why(reason: Reason, chunk: Nat, depth: Nat) -> String:
+def why(reason: Reason, depth: Nat) -> String:
   match reason:
     case TooDeep{}:
-      String.concat(["this task has already been cut ", Nat.show(depth), " times on the way here"])
-    case TooSmall{}:
-      String.concat(["a half under ", Nat.show(chunk), " minutes of work is not worth an agent of its own"])
-    case NoFiles{}:
-      "each half needs at least one file or folder that is its own"
-    case NoLaws{}:
-      "each half needs at least one law to prove, or nothing checks its work"
+      String.concat(["this task has already been cut ", Nat.show(depth), " times on the way here; do this part yourself"])
+    case NoParts{}:
+      "no part was given"
     case SameName{}:
-      "the halves need different names"
+      "two parts have the same name"
     case SharedLaw{}:
-      "a law was given to both halves; every law has one prover"
+      "a law was given to two parts; every law has one prover"
     case Outside{}:
-      "a half was given a file that is not yours to hand out"
+      "a part was given a file that is not yours to hand out"
     case Trample{}:
-      "the halves were given a file in common, or one a folder that holds the other's file"
+      "two parts were given a file in common, or one a folder that holds another's file"
 
 def refused(why: String) -> String:
-  String.concat(["Not divided: ", why, ". Nothing was started. Do this task yourself, or cut it differently."])
+  String.concat(["Not divided: ", why, ". Nothing was started. Cut it differently, or do the task yourself."])
 
 def ticked(names: List<&2, String>) -> List<&2, String>:
   match names:
@@ -316,7 +381,7 @@ def state_pick(stopped: Bool, ok: Bool, why: String, code: Nat) -> String:
     case False{} False{}:
       String.append("ended with status ", Nat.show(code))
 
-# A half's state, in a word or two, while the other is still working.
+# A part's state, in a word or two, while the others are still working.
 def state(ended: Ended) -> String:
   match ended:
     case Ended{+code, +stopped}:
@@ -339,12 +404,15 @@ def how(ended: Ended, ms: Nat) -> String:
 def first_said(+out: String, +err: String) -> String:
   Bool.pick(String, String.is_empty(out), Bool.pick(String, String.is_empty(err), "(it said nothing)", err), out)
 
-# What the agent that cut is told of one half.
+def or_none(+text: String) -> String:
+  Bool.pick(String, String.is_empty(text), "(none)", text)
+
+# What the agent that cut is told of one part.
 def half_report(name: String, owns: List<&2, String>, laws: List<&2, String>, ended: Ended, ms: Nat, out: String, err: String) -> String:
-  String.concat(["## ", name, ": ", how(ended, ms), "\nOwned: ", String.join(owns, ", "), "\nLaws: ", String.join(laws, ", "),
+  String.concat(["## ", name, ": ", how(ended, ms), "\nOwned: ", or_none(String.join(owns, ", ")), "\nLaws: ", or_none(String.join(laws, ", ")),
     "\n\n", clip(first_said(out, err), 6000n)])
 
-# Whether the halves fit: the check ended well, was not stopped, and no proof failed.
+# Whether the parts fit: the check ended well, was not stopped, and no proof failed.
 def fits(ended: Ended, +said: String) -> Bool:
   match ended:
     case Ended{code, stopped}:
@@ -353,30 +421,38 @@ def fits(ended: Ended, +said: String) -> Bool:
 def check_said(fit: Bool, +stopped: String) -> String:
   match fit:
     case True{}:
-      "It passes: the halves fit."
+      "It passes: the parts fit."
     case False{}:
       String.concat(["It FAILS", Bool.pick(String, String.is_empty(stopped), "", String.concat([" (", stopped, ")"])),
-        ": the halves do not fit yet. Repair it yourself if it is small; if a law was wrong, change it and cut again."])
+        ": the parts do not fit yet. Repair it yourself if it is small; if a law was wrong, change it and cut again."])
 
-# What the agent that cut is told when both halves are back.
-def joined(ms: Nat, reports: List<&2, String>, check: String, fit: Bool, stopped: String, +said: String) -> String:
+def check_lines(none: Bool, check: String, fit: Bool, stopped: String, +said: String) -> List<&2, String>:
+  match none:
+    case True{}:
+      ["## No check was given", "Whether the parts fit is yours to see: read what each said, and what is in the files."]
+    case False{}:
+      [String.append("## The check: ", check), check_said(fit, stopped),
+        clip(Bool.pick(String, String.is_empty(said), "(no output)", said), 4000n)]
+
+# What the agent that cut is told when every part is back.
+def joined(ms: Nat, reports: List<&2, String>, +check: String, fit: Bool, stopped: String, said: String) -> String:
   String.join(List.concat(&2, String, [
-    [String.concat(["Both halves are back after ", minutes(ms), ". Every file is yours again."]), ""],
+    [String.concat(["Every part is back after ", minutes(ms), ". Every file is yours again."]), ""],
     reports,
-    ["", String.append("## The check: ", check), check_said(fit, stopped),
-      clip(Bool.pick(String, String.is_empty(said), "(no output)", said), 4000n)]]), "\n")
+    [""],
+    check_lines(String.is_empty(check), check, fit, stopped, said)]), "\n")
 
 def stopped_early() -> String:
-  "Stopped: both halves were ended before they finished. What they wrote so far is in their files."
+  "Stopped: the parts were ended before they finished. What they wrote so far is in their files."
 
 def not_yours(path: String, name: String, owns: List<&2, String>) -> String:
-  String.concat(["\"", path, "\" is not yours to write: your half (\"", name, "\") owns ", String.join(owns, ", "),
+  String.concat(["\"", path, "\" is not yours to write: your part (\"", name, "\") owns ", or_none(String.join(owns, ", ")),
     ". If the task cannot be done without it, stop and say so in your reply."])
 
 def option(flag: String, +value: String) -> List<&2, String>:
   Bool.pick(List<&2, String>, String.is_empty(value), Nil{}, [flag, value])
 
-# The options a half is started with, so that it runs on the user's choice, or else on what the
+# The options a part's agent is started with, so that it runs on the user's choice, or else on what the
 # session is on.
 def half_args(model: String, session_model: String, thinking: String, session_thinking: String) -> List<&2, String>:
   List.append(&2, String, option("--model", runs_on(model, session_model)), option("--thinking", runs_on(thinking, session_thinking)))
@@ -386,15 +462,35 @@ def showing_line(what: String, +choice: String, session: String) -> String:
   String.concat(["  ", what, ": ", Bool.pick(String, String.is_empty(on), "Pi's default", on),
     Bool.pick(String, String.is_empty(choice), " (the same as this session)", " (chosen)")])
 
-# What /division shows.
+# What /division and /default-agent show.
 def showing(model: String, session_model: String, thinking: String, session_thinking: String) -> String:
-  String.join(["The agents division starts run on", showing_line("model", model, session_model),
-    showing_line("thinking", thinking, session_thinking), "Change with /division model and /division thinking."], "\n")
+  String.join(["The agents you deploy run on", showing_line("model", model, session_model),
+    showing_line("thinking", thinking, session_thinking),
+    "/default-agent makes this session's model and thinking level theirs; /default-agent same follows each session again."], "\n")
+
+# What /default-agent was asked for: nothing takes the session's setup, "same" takes the choice
+# back, and anything else names a model.
+type Agent is Data:
+  Current{}
+  Follow{}
+  Named{}
+
+def agent_pick(empty: Bool, same: Bool) -> Agent:
+  match empty same:
+    case True{} _:
+      Current{}
+    case False{} True{}:
+      Follow{}
+    case False{} False{}:
+      Named{}
+
+def agent_wants(+word: String) -> Agent:
+  agent_pick(String.is_empty(word), String.eq(word, "same"))
 
 def cuts(+depth: Nat) -> String:
   String.concat([Nat.show(depth), " cut", Bool.pick(String, Nat.is_eq(depth, 1n), "", "s")])
 
-# What a half is told of where it stands; nothing for the agent with the whole task.
+# What a part is told of where it stands; nothing for the agent with the whole task.
 type Place is Data:
   Whole{}
   Half{depth: Nat, name: String, owns: List<&2, String>, laws: List<&2, String>, check: String}
@@ -404,91 +500,119 @@ def standing(place: Place) -> List<&2, String>:
     case Whole{}:
       ["You have the whole task: every file is yours to hand out."]
     case Half{depth, name, owns, laws, check}:
-      [ String.concat(["You are a half of a divided task, ", cuts(depth), " down: \"", name, "\"."]),
-        String.append("Files you own: ", String.join(owns, ", ")),
-        String.append("Laws you must prove: ", String.join(laws, ", ")),
-        String.append("The check: ", check)]
+      [ String.concat(["You are a part of a divided task, ", cuts(depth), " down: \"", name, "\"."]),
+        String.append("Files you own: ", or_none(String.join(owns, ", "))),
+        String.append("Laws you must prove: ", or_none(String.join(laws, ", "))),
+        String.append("The check: ", or_none(check))]
 
-# The method: what `division` returns.
-def method(+chunk: Nat, depth: Nat, place: Place) -> String:
+# The method: what `division` returns. It is a way of working, not a set of limits: how many
+# parts, how large, and whether to cut at all are the agent's to judge.
+def method(place: Place) -> String:
   String.join(List.concat(&2, String, [
-    ["DIVISION: a large task cut in two, each half done by its own agent at the same time.", ""],
+    ["DIVISION: a task cut into parts, each done by its own agent at the same time.", ""],
     standing(place),
     [ "",
-      "When to cut",
-      String.concat(["- Only when you take each half to be at least ", Nat.show(chunk), " minutes of work for an agent, and the"]),
-      "  place where the halves meet can be said exactly, as Bend laws. Otherwise do the task yourself:",
-      "  a cut costs a planning step and two agents starting from nothing.",
-      "- Not when the work is finding something out (a bug, a design, how a library behaves), and not",
-      "  when the halves would each need most of what the other makes. Cut where little crosses.",
+      "When it helps",
+      "- When the parts can go on at the same time without waiting for each other, and what one needs",
+      "  of another can be said plainly beforehand. Cut where little crosses.",
+      "- An agent starts from nothing and costs a start, so a part should be worth one. How many parts",
+      "  and how large is yours to judge: two, five, one for the part you would rather not hold in",
+      "  your own context. Work you can simply do is done faster by doing it.",
+      "- A part that owns no file only reads and reports: finding something out can be a part too.",
       "",
       "How to cut",
-      "1. Write the laws at the cut, in a .bend file you own, before anything else (call `bend` for the",
-      "   language). A `law` with only a type is a signature: it says what one half provides. A `law`",
-      "   with an equation says what the other half may count on. Example, in LAWS.bend:",
-      "       law double:            # the first half provides this",
-      "         for x: Nat",
-      "         Nat",
-      "       law double_even:       # and the second half may count on this",
-      "         for +x: Nat",
-      "         {even(double(x)) == True{} : Bool}",
-      "2. Give each half files of its own, and create them: a half fills a law from its own file, with",
-      "   `import ./LAWS.bend as L` and `def L.double(x): ...`. Work flows one way: the half that uses",
-      "   the other's defs imports the other's file, never both ways.",
-      "3. Make one file the gate (PROOF.bend) that imports the laws and every half's files, so that",
-      "   `bend PROOF.bend` prints ALL PROOFS CHECK only when every law at every cut is proven.",
-      "4. Call `division_split` with the two halves. Both run now, in this directory, and you get",
-      "   their reports and the result of the check when both are done.",
+      "1. Give each part a name, a task said in full, and the files that are its own. Create the files",
+      "   or folders first if that makes the cut clearer. No file may be in two parts.",
+      "2. Say what crosses between parts. The strongest way is Bend laws in a file you keep (call",
+      "   `bend` for the language): a `law` with only a type is a signature one part provides, a `law`",
+      "   with an equation is what the others may count on, and each law is given to the one part",
+      "   that proves it, in a file of its own (`import ./LAWS.bend as L`, `def L.name(..): ...`).",
+      "   Where laws do not fit the work (prose, configuration, another language), say it in the tasks",
+      "   and give a check that tells whether the parts fit: a test run, a build, a script.",
+      "3. Call `division_split` with the parts. They all run now, in this directory, and you get each",
+      "   one's report and the result of the check when all are back.",
       "",
-      "What holds while the halves work (proven in division's LAWS.bend)",
-      "- A half may write only the files it was handed, and no file is handed to both.",
-      "- A half may count on every law at the cut, proven or not: the other half is proving it now.",
+      "What holds while the parts work (proven in division's LAWS.bend)",
+      "- A part may write only the files it was handed, and no file is handed to two.",
+      "- A part may count on every law at the cut, proven or not: another part is proving it now.",
       "  Until it has, the checker reports that def as missing; that is expected.",
-      "- A half does not change a law. If one cannot be proven as written, it stops and says why, and",
+      "- A part does not change a law. If one cannot be proven as written, it stops and says why, and",
       "  the agent that cut decides: that is you, for your own cut.",
-      String.concat(["- A half that finds divisible work in what it was handed cuts again, and so do its halves, up to ", Nat.show(depth), " cuts deep:"]),
-      "  whoever holds work that passes \"When to cut\" splits it instead of doing both parts in a row.",
+      "- A part may cut again among its own files, and so may its parts.",
       "",
-      "When the halves are back",
-      "- Every file is yours again. If the check fails, read what each half said: repair it yourself",
-      "  when it is small, change the law and cut again when the law was wrong."]]), "\n")
+      "When the parts are back",
+      "- Every file is yours again. If the check fails, read what each part said: repair it yourself",
+      "  when it is small, change what crosses and cut again when that was wrong."]]), "\n")
 
 def whole_lines(+whole: String) -> List<&2, String>:
   Bool.pick(List<&2, String>, String.is_empty(whole), Nil{}, ["The whole task, so you know what yours is part of:", whole, ""])
 
-# What a half is told. It starts from nothing, so everything it needs is here.
-def brief(name: String, task: String, owns: List<&2, String>, laws: List<&2, String>,
-  other: String, other_task: String, other_laws: List<&2, String>, whole: String, check: String, chunk: Nat) -> String:
+# Another part of the same cut, as a part is told of it.
+type Other is Data:
+  Other{name: String, task: String, laws: List<&2, String>}
+
+def other_lines(others: List<&2, Other>) -> List<&2, String>:
+  match others:
+    case Nil{}:
+      Nil{}
+    case Con{Other{name, task, +laws}, t}:
+      String.concat(["- \"", name, "\": ", task, Bool.pick(String, List.is_empty(&2, String, laws), "", String.append(" It proves: ", String.join(laws, ", ")))])
+        <> other_lines(t)
+
+def others_part(others: List<&2, Other>) -> List<&2, String>:
+  match others:
+    case Nil{}:
+      Nil{}
+    case Con{h, t}:
+      List.concat(&2, String, [["The other parts, which are not yours to do and are being done right now in this same directory:"], other_lines(h <> t), [""]])
+
+def owns_part(owns: List<&2, String>) -> List<&2, String>:
+  match owns:
+    case Nil{}:
+      ["You own no file: read whatever you need, write nothing, and put what you find in your reply.", ""]
+    case Con{h, t}:
+      [ String.append("Files you own: ", String.join(h <> t, ", ")),
+        "You may create and change only these (a name ending in \"/\" is a folder and everything in it). You may read anything. A write anywhere else is refused.",
+        ""]
+
+def laws_part(laws: List<&2, String>) -> List<&2, String>:
+  match laws:
+    case Nil{}:
+      Nil{}
+    case Con{h, t}:
+      [ String.append("Laws you must prove: ", String.join(h <> t, ", ")),
+        "They are declared in the .bend files here. Prove each with a def of the same name in a file you own (call the `bend` action first if you have not used Bend).",
+        "Laws another part is proving are named above: count on them as if they were proven, and on any signature among them as if it were written. Until that part is done the checker reports those defs as missing, which is expected and not yours to fix.",
+        "Do not change a law. If one of yours cannot be proven as written, or you need something nothing gives you, stop and say exactly what and why.",
+        ""]
+
+def check_part(+check: String) -> List<&2, String>:
+  Bool.pick(List<&2, String>, String.is_empty(check), Nil{}, [String.append("Check your work with: ", check)])
+
+# What a part is told. It starts from nothing, so everything it needs is here.
+def brief(name: String, task: String, owns: List<&2, String>, laws: List<&2, String>, others: List<&2, Other>, whole: String, check: String) -> String:
   String.join(List.concat(&2, String, [
-    [ "You are one half of a larger task that was cut in two. Another agent is doing the other half right now, in this same directory.",
+    [ "You are one part of a larger task that was cut into parts, each done by its own agent.",
       "",
-      String.append("Your half: ", name),
+      String.append("Your part: ", name),
       task,
       ""],
     whole_lines(whole),
-    [ String.concat(["The other half (\"", other, "\"), which is not yours to do: ", other_task]),
+    others_part(others),
+    owns_part(owns),
+    laws_part(laws),
+    check_part(check),
+    [ "If your part turns out to hold work that would go faster as parts of its own, you may cut again among your files (call `division` for how). That is yours to judge.",
       "",
-      String.append("Files you own: ", String.join(owns, ", ")),
-      "You may create and change only these (a name ending in \"/\" is a folder and everything in it). You may read anything. A write anywhere else is refused.",
-      "",
-      String.append("Laws you must prove: ", String.join(laws, ", ")),
-      "They are declared in the .bend files here. Prove each with a def of the same name in a file you own (call the `bend` action first if you have not used Bend).",
-      String.concat(["Laws the other half is proving: ", String.join(other_laws, ", "), ". Count on them as if they were proven, and on any signature among them as if it were written: until the other half is done the checker reports those defs as missing, which is expected and not yours to fix."]),
-      "Do not change a law. If one of yours cannot be proven as written, or you need something no law gives you, stop and say exactly what and why.",
-      "",
-      String.append("Check your work with: ", check),
-      String.concat(["Before you start, and again whenever the work turns out larger than it looked, look for a cut in your own half: if you find two parts of at least ", Nat.show(chunk), " minutes each that meet at something you can state as Bend laws, cut again (call `division` for how) instead of doing them in a row. The halves you start are told the same. Do it directly only when there is no such cut."]),
-      "",
-      "When you are done, reply with what you did, which of your laws are proven, and anything the agent that cut the task needs to know. That reply is all it will see of your work besides the files."]]), "\n")
+      "When you are done, reply with what you did, what is proven or checked, and anything the agent that cut the task needs to know. That reply is all it will see of your work besides the files."]]), "\n")
 
-def describe_division(+chunk: Nat) -> String:
-  String.concat(["For a LARGE task only: one you take to be at least ", Nat.show(Nat.add(chunk, chunk)), " minutes of work, that cuts cleanly in two. ",
-    "Division cuts it in two halves that separate agents do at the same time, held together by Bend laws written at the cut: ",
-    "each half owns its own files, proves its own laws, and counts on the other's before they are proven. ",
-    "Returns the method and where you stand in the tree. Do not call it for a small task, for one whose halves would each need ",
-    "most of what the other makes, or for work that is finding something out: do those yourself."])
+def describe_division() -> String:
+  String.concat(["A way to deploy agents on a task: cut it into parts that separate agents do at the same time. ",
+    "Each part owns its own files, so no two agents write the same one, and what crosses between parts is said beforehand, ",
+    "best as Bend laws that each part proves and the others count on. ",
+    "Returns the method and where you stand in the tree. How many parts, how large, and whether to cut at all are yours to judge."])
 
-def describe_split(chunk: Nat) -> String:
-  String.concat(["Cut the task you have in two and run both halves now, each as its own agent in this directory. Call `division` first for the method. ",
-    "Write the laws at the cut before calling. Returns when both halves are done, with what each said and the result of the check. ",
-    "Refused, with the reason, when a half is under ", Nat.show(chunk), " minutes of work, has no law to prove, or the halves share a file."])
+def describe_split() -> String:
+  String.concat(["Cut the task you have into parts and run them all now, each as its own agent in this directory. Call `division` first for the method. ",
+    "Returns when every part is back, with what each said and the result of the check. ",
+    "Refused, with the reason, only when two parts would own the same file, a part is handed a file that is not yours, a law is given to two parts, or two parts share a name."])

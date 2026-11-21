@@ -340,29 +340,44 @@ def and_then(bad: Bool, -why: D.Reason, -rest: D.Verdict, e: {D.guard(bad, why, 
     case True{}:
       Empty.absurd({rest == D.Divide{} : D.Verdict}, divide_is(D.Refuse{why}, Equal.sym(D.Verdict, D.Refuse{why}, D.Divide{}, e)))
 
-# A cut that is made got past guard 1: TooDeep.
-def past_1(b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Bool, b7: Bool, b8: Bool, e: {D.guard(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))))) == D.Divide{} : D.Verdict}) -> {b1 == False{} : Bool}:
-  let_through(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))))))), e)
+# A cut that is made got past every guard.
+def past_1(b1: Bool, -b2: Bool, -b3: Bool, -b4: Bool, -b5: Bool, -b6: Bool, e: {D.verdict(b1, b2, b3, b4, b5, b6) == D.Divide{} : D.Verdict}) -> {b1 == False{} : Bool}:
+  let_through(b1, D.TooDeep{}, D.guard(b2, D.NoParts{}, D.guard(b3, D.SameName{}, D.guard(b4, D.SharedLaw{}, D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{}))))), e)
 
-# A cut that is made got past guard 2: TooSmall.
-def past_2(b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Bool, b7: Bool, b8: Bool, e: {D.guard(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))))) == D.Divide{} : D.Verdict}) -> {b2 == False{} : Bool}:
-  let_through(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))), and_then(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))))))), e))
+def rest_1(b1: Bool, -b2: Bool, -b3: Bool, -b4: Bool, -b5: Bool, -b6: Bool, e: {D.verdict(b1, b2, b3, b4, b5, b6) == D.Divide{} : D.Verdict}) -> {D.guard(b2, D.NoParts{}, D.guard(b3, D.SameName{}, D.guard(b4, D.SharedLaw{}, D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{}))))) == D.Divide{} : D.Verdict}:
+  and_then(b1, D.TooDeep{}, D.guard(b2, D.NoParts{}, D.guard(b3, D.SameName{}, D.guard(b4, D.SharedLaw{}, D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{}))))), e)
 
-# A cut that is made got past guard 4: NoLaws.
-def past_4(b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Bool, b7: Bool, b8: Bool, e: {D.guard(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))))) == D.Divide{} : D.Verdict}) -> {b4 == False{} : Bool}:
-  let_through(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))), and_then(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))))), and_then(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))), and_then(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))))))), e))))
+def rest_2(b1: Bool, b2: Bool, -b3: Bool, -b4: Bool, -b5: Bool, -b6: Bool, e: {D.verdict(b1, b2, b3, b4, b5, b6) == D.Divide{} : D.Verdict}) -> {D.guard(b3, D.SameName{}, D.guard(b4, D.SharedLaw{}, D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{})))) == D.Divide{} : D.Verdict}:
+  and_then(b2, D.NoParts{}, D.guard(b3, D.SameName{}, D.guard(b4, D.SharedLaw{}, D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{})))), rest_1(b1, b2, b3, b4, b5, b6, e))
 
-# A cut that is made got past guard 6: SharedLaw.
-def past_6(b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Bool, b7: Bool, b8: Bool, e: {D.guard(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))))) == D.Divide{} : D.Verdict}) -> {b6 == False{} : Bool}:
-  let_through(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})), and_then(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))), and_then(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))), and_then(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))))), and_then(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))), and_then(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))))))), e))))))
+def rest_3(b1: Bool, b2: Bool, b3: Bool, -b4: Bool, -b5: Bool, -b6: Bool, e: {D.verdict(b1, b2, b3, b4, b5, b6) == D.Divide{} : D.Verdict}) -> {D.guard(b4, D.SharedLaw{}, D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{}))) == D.Divide{} : D.Verdict}:
+  and_then(b3, D.SameName{}, D.guard(b4, D.SharedLaw{}, D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{}))), rest_2(b1, b2, b3, b4, b5, b6, e))
 
-# A cut that is made got past guard 7: Outside.
-def past_7(b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Bool, b7: Bool, b8: Bool, e: {D.guard(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))))) == D.Divide{} : D.Verdict}) -> {b7 == False{} : Bool}:
-  let_through(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}), and_then(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})), and_then(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))), and_then(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))), and_then(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))))), and_then(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))), and_then(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))))))), e)))))))
+def rest_4(b1: Bool, b2: Bool, b3: Bool, b4: Bool, -b5: Bool, -b6: Bool, e: {D.verdict(b1, b2, b3, b4, b5, b6) == D.Divide{} : D.Verdict}) -> {D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{})) == D.Divide{} : D.Verdict}:
+  and_then(b4, D.SharedLaw{}, D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{})), rest_3(b1, b2, b3, b4, b5, b6, e))
 
-# A cut that is made got past guard 8: Trample.
-def past_8(b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Bool, b7: Bool, b8: Bool, e: {D.guard(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))))) == D.Divide{} : D.Verdict}) -> {b8 == False{} : Bool}:
-  let_through(b8, D.Trample{}, D.Divide{}, and_then(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}), and_then(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})), and_then(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))), and_then(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))), and_then(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))))), and_then(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{})))))), and_then(b1, D.TooDeep{}, D.guard(b2, D.TooSmall{}, D.guard(b3, D.NoFiles{}, D.guard(b4, D.NoLaws{}, D.guard(b5, D.SameName{}, D.guard(b6, D.SharedLaw{}, D.guard(b7, D.Outside{}, D.guard(b8, D.Trample{}, D.Divide{}))))))), e))))))))
+def rest_5(b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, -b6: Bool, e: {D.verdict(b1, b2, b3, b4, b5, b6) == D.Divide{} : D.Verdict}) -> {D.guard(b6, D.Trample{}, D.Divide{}) == D.Divide{} : D.Verdict}:
+  and_then(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{}), rest_4(b1, b2, b3, b4, b5, b6, e))
+
+def past_3(b1: Bool, b2: Bool, b3: Bool, -b4: Bool, -b5: Bool, -b6: Bool, e: {D.verdict(b1, b2, b3, b4, b5, b6) == D.Divide{} : D.Verdict}) -> {b3 == False{} : Bool}:
+  let_through(b3, D.SameName{}, D.guard(b4, D.SharedLaw{}, D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{}))), rest_2(b1, b2, b3, b4, b5, b6, e))
+
+def past_4(b1: Bool, b2: Bool, b3: Bool, b4: Bool, -b5: Bool, -b6: Bool, e: {D.verdict(b1, b2, b3, b4, b5, b6) == D.Divide{} : D.Verdict}) -> {b4 == False{} : Bool}:
+  let_through(b4, D.SharedLaw{}, D.guard(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{})), rest_3(b1, b2, b3, b4, b5, b6, e))
+
+def past_5(b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, -b6: Bool, e: {D.verdict(b1, b2, b3, b4, b5, b6) == D.Divide{} : D.Verdict}) -> {b5 == False{} : Bool}:
+  let_through(b5, D.Outside{}, D.guard(b6, D.Trample{}, D.Divide{}), rest_4(b1, b2, b3, b4, b5, b6, e))
+
+def past_6(b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Bool, e: {D.verdict(b1, b2, b3, b4, b5, b6) == D.Divide{} : D.Verdict}) -> {b6 == False{} : Bool}:
+  let_through(b6, D.Trample{}, D.Divide{}, rest_5(b1, b2, b3, b4, b5, b6, e))
+
+# What is not true is false.
+def not_so(a: Bool, e: {Bool.not(a) == True{} : Bool}) -> {a == False{} : Bool}:
+  match a:
+    case False{}:
+      {==}
+    case True{}:
+      P.not_false({True{} == False{} : Bool}, e)
 
 def both_true(a: Bool, b: Bool, +e: {Bool.and(a, b) == True{} : Bool}) -> {a == True{} : Bool} & {b == True{} : Bool}:
   match a b:
@@ -382,48 +397,69 @@ def neither(a: Bool, b: Bool, +e: {Bool.or(a, b) == False{} : Bool}) -> {a == Fa
     case True{} _:
       (e, P.not_true({b == False{} : Bool}, e))
 
-def Laws.halves_never_share_a_file(depth, limit, chunk, parent, n1, o1, l1, m1, n2, o2, l2, m2, path, cut, mine):
-  Laws.no_trample(o1, o2, path, past_8(Bool.not(Nat.is_lt(depth, limit)), Bool.not(Bool.and(Nat.is_ge(m1, chunk), Nat.is_ge(m2, chunk))), Bool.or(List.is_empty(&2, String, o1), List.is_empty(&2, String, o2)), Bool.or(List.is_empty(&2, String, l1), List.is_empty(&2, String, l2)), String.eq(n1, n2), C.overlaps(l1, l2), Bool.not(Bool.and(D.inside(o1, parent), D.inside(o2, parent))), D.overlap(o1, o2), cut), mine)
+# One of the agents may write a path: then none of the others that share no file with it may.
+def none_step(
+  -h: List<&2, String>, -t: List<&2, List<&2, String>>, -path: String,
+  eh: {D.may_write(h, path) == False{} : Bool},
+  et: {D.writers(t, path) == 0n : Nat}
+) -> {D.writers(h <> t, path) == 0n : Nat}:
+  %Equal.sym(Bool, D.may_write(h, path), False{}, eh) : {Nat.add(D.one_if(_), D.writers(t, path)) == 0n : Nat}
+  et
 
-def Laws.halves_stay_inside(depth, limit, chunk, parent, n1, o1, l1, m1, n2, o2, l2, m2, cut):
-  both_true(D.inside(o1, parent), D.inside(o2, parent),
-    not_not(Bool.and(D.inside(o1, parent), D.inside(o2, parent)), past_7(Bool.not(Nat.is_lt(depth, limit)), Bool.not(Bool.and(Nat.is_ge(m1, chunk), Nat.is_ge(m2, chunk))), Bool.or(List.is_empty(&2, String, o1), List.is_empty(&2, String, o2)), Bool.or(List.is_empty(&2, String, l1), List.is_empty(&2, String, l2)), String.eq(n1, n2), C.overlaps(l1, l2), Bool.not(Bool.and(D.inside(o1, parent), D.inside(o2, parent))), D.overlap(o1, o2), cut)))
-
-def prover_step(
-  q: Bool, +h: String, +x: String, -t: List<&2, String>, +bad: List<&2, String>,
-  eq: {String.eq(h, x) == q : Bool},
-  +ov: {Bool.or(C.has(bad, h), C.overlaps(t, bad)) == False{} : Bool},
-  inn: {Bool.or(q, C.has(t, x)) == True{} : Bool},
-  ih: {C.overlaps(t, bad) == False{} : Bool} -> {C.has(t, x) == True{} : Bool} -> {C.has(bad, x) == False{} : Bool}
-) -> {C.has(bad, x) == False{} : Bool}:
-  match q:
-    case True{}:
-      %P.alike(h, x, eq) : {C.has(bad, _) == False{} : Bool}
-      P.or_left(C.has(bad, h), C.overlaps(t, bad), ov)
-    case False{}:
-      ih(P.or_right(C.has(bad, h), C.overlaps(t, bad), ov))(inn)
-
-# A name in one of two lists with none in common is not in the other.
-def one_side(xs: List<&2, String>, +bad: List<&2, String>, +x: String,
-  ov: {C.overlaps(xs, bad) == False{} : Bool},
-  inn: {C.has(xs, x) == True{} : Bool}
-) -> {C.has(bad, x) == False{} : Bool}:
-  match xs:
+def none_write(+mine: List<&2, String>, others: List<&2, List<&2, String>>, +path: String,
+  +apart: {D.shares(mine, others) == False{} : Bool},
+  +writes: {D.may_write(mine, path) == True{} : Bool}
+) -> {D.writers(others, path) == 0n : Nat}:
+  match others:
     case Nil{}:
-      P.not_false({C.has(bad, x) == False{} : Bool}, inn)
+      {==}
     case Con{+h, +t}:
-      prover_step(String.eq(h, x), h, x, t, bad, {==}, ov, inn, k1 => k2 => one_side(t, bad, x, k1, k2))
+      none_step(h, t, path,
+        Laws.no_trample(mine, h, path, P.or_left(D.overlap(mine, h), D.shares(mine, t), apart), writes),
+        none_write(mine, t, path, P.or_right(D.overlap(mine, h), D.shares(mine, t), apart), writes))
 
-def Laws.one_prover_per_law(depth, limit, chunk, parent, n1, o1, l1, m1, n2, o2, l2, m2, claim, cut, mine):
-  one_side(l1, l2, claim, past_6(Bool.not(Nat.is_lt(depth, limit)), Bool.not(Bool.and(Nat.is_ge(m1, chunk), Nat.is_ge(m2, chunk))), Bool.or(List.is_empty(&2, String, o1), List.is_empty(&2, String, o2)), Bool.or(List.is_empty(&2, String, l1), List.is_empty(&2, String, l2)), String.eq(n1, n2), C.overlaps(l1, l2), Bool.not(Bool.and(D.inside(o1, parent), D.inside(o2, parent))), D.overlap(o1, o2), cut), mine)
+def writer_step(
+  w: Bool, +h: List<&2, String>, +t: List<&2, List<&2, String>>, +path: String,
+  ew: {D.may_write(h, path) == w : Bool},
+  +apart: {D.shares(h, t) == False{} : Bool},
+  ih: {Nat.is_le(D.writers(t, path), 1n) == True{} : Bool}
+) -> {Nat.is_le(Nat.add(D.one_if(w), D.writers(t, path)), 1n) == True{} : Bool}:
+  match w:
+    case False{}:
+      ih
+    case True{}:
+      %Equal.sym(Nat, D.writers(t, path), 0n, none_write(h, t, path, apart, ew)) : {Nat.is_le(1n+_, 1n) == True{} : Bool}
+      {==}
 
-def Laws.every_half_is_checked(depth, limit, chunk, parent, n1, o1, l1, m1, n2, o2, l2, m2, cut):
-  neither(List.is_empty(&2, String, l1), List.is_empty(&2, String, l2), past_4(Bool.not(Nat.is_lt(depth, limit)), Bool.not(Bool.and(Nat.is_ge(m1, chunk), Nat.is_ge(m2, chunk))), Bool.or(List.is_empty(&2, String, o1), List.is_empty(&2, String, o2)), Bool.or(List.is_empty(&2, String, l1), List.is_empty(&2, String, l2)), String.eq(n1, n2), C.overlaps(l1, l2), Bool.not(Bool.and(D.inside(o1, parent), D.inside(o2, parent))), D.overlap(o1, o2), cut))
+def Laws.one_writer(owns, path, apart):
+  match owns:
+    case Nil{}:
+      {==}
+    case Con{+h, +t}:
+      writer_step(D.may_write(h, path), h, t, path, {==},
+        not_so(D.shares(h, t), and_left(Bool.not(D.shares(h, t)), D.disjoint(t), apart)),
+        Laws.one_writer(t, path, and_right(Bool.not(D.shares(h, t)), D.disjoint(t), apart)))
 
-def Laws.only_large_tasks_divide(depth, limit, chunk, parent, n1, o1, l1, m1, n2, o2, l2, m2, cut):
-  (both_true(Nat.is_ge(m1, chunk), Nat.is_ge(m2, chunk),
-     not_not(Bool.and(Nat.is_ge(m1, chunk), Nat.is_ge(m2, chunk)), past_2(Bool.not(Nat.is_lt(depth, limit)), Bool.not(Bool.and(Nat.is_ge(m1, chunk), Nat.is_ge(m2, chunk))), Bool.or(List.is_empty(&2, String, o1), List.is_empty(&2, String, o2)), Bool.or(List.is_empty(&2, String, l1), List.is_empty(&2, String, l2)), String.eq(n1, n2), C.overlaps(l1, l2), Bool.not(Bool.and(D.inside(o1, parent), D.inside(o2, parent))), D.overlap(o1, o2), cut))),
-   not_not(Nat.is_lt(depth, limit), past_1(Bool.not(Nat.is_lt(depth, limit)), Bool.not(Bool.and(Nat.is_ge(m1, chunk), Nat.is_ge(m2, chunk))), Bool.or(List.is_empty(&2, String, o1), List.is_empty(&2, String, o2)), Bool.or(List.is_empty(&2, String, l1), List.is_empty(&2, String, l2)), String.eq(n1, n2), C.overlaps(l1, l2), Bool.not(Bool.and(D.inside(o1, parent), D.inside(o2, parent))), D.overlap(o1, o2), cut)))
+def Laws.parts_never_share_a_file(depth, limit, parent, pieces, cut):
+  not_not(D.disjoint(D.owns_of(pieces)), past_6(Bool.not(Nat.is_lt(depth, limit)), List.is_empty(&2, D.Piece, pieces), Bool.not(D.distinct(D.names_of(pieces))), Bool.not(D.distinct(D.laws_of(pieces))), Bool.not(D.all_inside(D.owns_of(pieces), parent)), Bool.not(D.disjoint(D.owns_of(pieces))), cut))
+
+def Laws.parts_stay_inside(depth, limit, parent, pieces, cut):
+  not_not(D.all_inside(D.owns_of(pieces), parent), past_5(Bool.not(Nat.is_lt(depth, limit)), List.is_empty(&2, D.Piece, pieces), Bool.not(D.distinct(D.names_of(pieces))), Bool.not(D.distinct(D.laws_of(pieces))), Bool.not(D.all_inside(D.owns_of(pieces), parent)), Bool.not(D.disjoint(D.owns_of(pieces))), cut))
+
+def Laws.one_prover_per_law(depth, limit, parent, pieces, cut):
+  (not_not(D.distinct(D.laws_of(pieces)), past_4(Bool.not(Nat.is_lt(depth, limit)), List.is_empty(&2, D.Piece, pieces), Bool.not(D.distinct(D.names_of(pieces))), Bool.not(D.distinct(D.laws_of(pieces))), Bool.not(D.all_inside(D.owns_of(pieces), parent)), Bool.not(D.disjoint(D.owns_of(pieces))), cut)),
+   not_not(D.distinct(D.names_of(pieces)), past_3(Bool.not(Nat.is_lt(depth, limit)), List.is_empty(&2, D.Piece, pieces), Bool.not(D.distinct(D.names_of(pieces))), Bool.not(D.distinct(D.laws_of(pieces))), Bool.not(D.all_inside(D.owns_of(pieces), parent)), Bool.not(D.disjoint(D.owns_of(pieces))), cut)))
+
+def Laws.cutting_ends(depth, limit, parent, pieces, cut):
+  not_not(Nat.is_lt(depth, limit), past_1(Bool.not(Nat.is_lt(depth, limit)), List.is_empty(&2, D.Piece, pieces), Bool.not(D.distinct(D.names_of(pieces))), Bool.not(D.distinct(D.laws_of(pieces))), Bool.not(D.all_inside(D.owns_of(pieces), parent)), Bool.not(D.disjoint(D.owns_of(pieces))), cut))
+
+def Laws.nothing_else_is_asked(depth, limit, parent, h, t, shallow, names, laws, within, apart):
+  %Equal.sym(Bool, Nat.is_lt(depth, limit), True{}, shallow) : {D.verdict(Bool.not(_), False{}, Bool.not(D.distinct(D.names_of(h <> t))), Bool.not(D.distinct(D.laws_of(h <> t))), Bool.not(D.all_inside(D.owns_of(h <> t), parent)), Bool.not(D.disjoint(D.owns_of(h <> t)))) == D.Divide{} : D.Verdict}
+  %Equal.sym(Bool, D.distinct(D.names_of(h <> t)), True{}, names) : {D.verdict(False{}, False{}, Bool.not(_), Bool.not(D.distinct(D.laws_of(h <> t))), Bool.not(D.all_inside(D.owns_of(h <> t), parent)), Bool.not(D.disjoint(D.owns_of(h <> t)))) == D.Divide{} : D.Verdict}
+  %Equal.sym(Bool, D.distinct(D.laws_of(h <> t)), True{}, laws) : {D.verdict(False{}, False{}, False{}, Bool.not(_), Bool.not(D.all_inside(D.owns_of(h <> t), parent)), Bool.not(D.disjoint(D.owns_of(h <> t)))) == D.Divide{} : D.Verdict}
+  %Equal.sym(Bool, D.all_inside(D.owns_of(h <> t), parent), True{}, within) : {D.verdict(False{}, False{}, False{}, False{}, Bool.not(_), Bool.not(D.disjoint(D.owns_of(h <> t)))) == D.Divide{} : D.Verdict}
+  %Equal.sym(Bool, D.disjoint(D.owns_of(h <> t)), True{}, apart) : {D.verdict(False{}, False{}, False{}, False{}, False{}, Bool.not(_)) == D.Divide{} : D.Verdict}
+  {==}
 
 # What the halves run on
 # ----------------------
@@ -439,6 +475,9 @@ def Laws.same_follows_session(session):
 
 def Laws.division_words():
   (({==}, {==}), {==})
+
+def Laws.default_agent_words():
+  ({==}, {==})
 
 def Laws.a_failed_check_never_fits(code, c, why, said):
   ({==}, {==})

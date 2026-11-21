@@ -1,38 +1,37 @@
-// division: a large task cut in two, each half done by its own agent at the same time.
+// division: a task cut into parts, each done by its own agent at the same time.
 //
 // A DEFAULT plugin, not an intrinsic one: wizardry runs the same without it. It ships in wizardry's
 // `defaults/` folder and is switched on for everyone. Switch it off with `plugin_unload division`
 // (persist: true); change it by copying this folder to ~/.wizardry/plugins/division and editing the
 // copy, which is loaded instead of this one.
 //
-// The idea: what lets two agents work on one codebase at once, without waiting for each other and
-// without undoing each other, is the laws at the place where their work meets. The agent with the
-// task writes those laws in Bend (https://bend-lang.com), hands each half the files it owns and the
-// laws it must prove, and both halves start together. Each can count on the other's laws before
-// their proofs exist, because a law says what will be true. A half that finds divisible work cuts itself
-// again. When the halves are back, one check (`bend PROOF.bend`) says whether the pieces fit.
+// The idea: what lets several agents work on one codebase at once, without waiting for each other
+// and without undoing each other, is that each owns its own files and that what crosses between
+// them is said beforehand. The strongest way to say it is laws in Bend (https://bend-lang.com):
+// each part can count on another's laws before their proofs exist, because a law says what will be
+// true. A part may cut again. When the parts are back, one check says whether the pieces fit.
 //
-// The user chooses what the halves run on with /division: `/division model` and `/division thinking`
-// open a list, `/division model <provider/id>` and `/division thinking <level>` set it outright, and
-// `same` goes back to following the session. The choice is kept in ~/.wizardry/division.json.
+// It is a way of working, not a set of limits. How many parts, how large, whether there are laws
+// and whether to cut at all are the agent's to judge; nothing is ever applied for it. The only
+// cuts refused are the ones that would let agents undo each other or never end.
 //
-// It is for large tasks only. Nothing is ever applied for the agent: it chooses to call `division`,
-// and `division_split` refuses a cut whose halves are under a chunk of work, since an agent costs
-// more to start than that saves.
+// The user chooses what the agents run on. `/default-agent` makes this session's model and
+// thinking level theirs, `/default-agent <provider/id>` names a model, and `/default-agent same`
+// goes back to following each session. `/division` shows the choice and sets either one alone
+// (`/division model`, `/division thinking`). It is kept in ~/.wizardry/division.json.
 //
 // Every decision is made in Bend (division.bend, compiled to core.mjs) and the ones that must hold
-// for every cut are proven (LAWS.bend, PROOF.bend): two halves can never write the same file, a
-// half never owns more than the agent that cut, every law has one prover, and small tasks are not
-// cut. This file only does what Bend cannot: it starts the agents, stops a write to a file an agent
-// was not handed, and runs the check.
+// for every cut are proven (LAWS.bend, PROOF.bend): no path ever has two agents that may write it,
+// a part never owns more than the agent that cut, every law has one prover, cutting ends, and
+// nothing else is asked of a cut. This file only does what Bend cannot: it starts the agents, stops
+// a write to a file an agent was not handed, and runs the check.
 //
 // Config (optional, in ~/.wizardry/division.json):
-//   { "chunkMinutes": 15,     a half under this is not worth an agent
-//     "depth": 3,             how many times a task may be cut in two on the way down
+//   { "depth": 3,             how many times a task may be cut on the way down, so that cutting ends
 //     "timeoutMinutes": 60,   how long one agent may take before it is stopped
-//     "model": "",            the model the halves run on, as provider/id; empty: the session's
+//     "model": "",            the model the agents run on, as provider/id; empty: the session's
 //     "thinking": "",         their thinking level; empty: the session's
-//     "agent": ["cmd", ...] } what to run for a half, the prompt as its last argument
+//     "agent": ["cmd", ...] } what to run for a part, the prompt as its last argument
 //                             (default: this wizardry, headless)
 
 import { spawn } from 'node:child_process'
@@ -46,7 +45,7 @@ export const inject = ['plugins']
 /** What a half is told about its place in the tree, handed down in this variable. */
 const PLACE = 'WIZARDRY_DIVISION'
 
-export const DEFAULTS = { chunkMinutes: 15, depth: 3, timeoutMinutes: 60, model: '', thinking: '' }
+export const DEFAULTS = { depth: 3, timeoutMinutes: 60, model: '', thinking: '' }
 
 // ---- the crossing to Bend: arrays in, answers out, no decisions -------------------------------
 
@@ -54,7 +53,7 @@ const list = (items) => items.reduceRight((tail, head) => ({ $: 'Con', head, tai
 const array = (items) => { const out = []; for (let at = items; at.$ === 'Con'; at = at.tail) out.push(at.head); return out }
 const some = (value) => (value.$ === 'Some' ? value.value : undefined)
 const owns = (entries) => (entries ? { $: 'Only', entries: list(entries) } : { $: 'All' })
-const piece = ({ name, owns, laws, minutes }) => ({ $: 'Piece', name, owns: list(owns), laws: list(laws), minutes })
+const piece = ({ name, owns, laws }) => ({ $: 'Piece', name, owns: list(owns), laws: list(laws) })
 const ended = (result) => ({ $: 'Ended', code: Number.isInteger(result.code) && result.code >= 0 ? result.code : 1, stopped: result.failed ?? '' })
 const standing = (place) => (place ? { $: 'Half', depth: place.depth, name: place.name, owns: list(place.owns), laws: list(place.laws), check: place.check } : { $: 'Whole' })
 
@@ -62,12 +61,12 @@ export const core = {
   /** Whether an agent that owns `entries` (undefined: everything) may write `path`. */
   may: (entries, path) => bend.may(owns(entries), path),
   /** Whether a cut is made: "Divide", or the reason it is not. */
-  judge(depth, limit, chunk, parent, first, second) {
-    const verdict = bend.judge(depth, limit, chunk, owns(parent), piece(first), piece(second))
+  judge(depth, limit, parent, pieces) {
+    const verdict = bend.judge(depth, limit, owns(parent), list(pieces.map(piece)))
     return verdict.$ === 'Divide' ? 'Divide' : verdict.why.$
   },
   /** Why a cut is not made, in words. */
-  why: (reason, cfg) => bend.why({ $: reason }, cfg.chunkMinutes, cfg.depth),
+  why: (reason, depth) => bend.why({ $: reason }, depth),
   refused: (why) => bend.refused(why),
   /** The names of the laws a Bend file declares. */
   lawsIn: (text) => array(bend.laws_in(text)),
@@ -84,6 +83,8 @@ export const core = {
   levels: () => array(bend.levels()),
   /** What /division was asked for, by its first word: "Show", "Model", "Thinking" or "Unclear". */
   wants: (word) => bend.wants(word).$,
+  /** What /default-agent was asked for: "Current", "Follow" or "Named". */
+  agentWants: (word) => bend.agent_wants(word).$,
   showing: (model, sessionModel, thinking, sessionThinking) => bend.showing(model ?? '', sessionModel ?? '', thinking ?? '', sessionThinking ?? ''),
   /** The options a half is started with. */
   halfArgs: (model, sessionModel, thinking, sessionThinking) => array(bend.half_args(model ?? '', sessionModel ?? '', thinking ?? '', sessionThinking ?? '')),
@@ -95,11 +96,12 @@ export const core = {
   joined: (ms, reports, check, fit, result, said) => bend.joined(Math.max(0, Math.round(ms)), list(reports), check, fit, result.failed ?? '', said),
   stoppedEarly: () => bend.stopped_early(),
   notYours: (path, name, entries) => bend.not_yours(path, name, list(entries)),
-  method: (cfg, place) => bend.method(cfg.chunkMinutes, cfg.depth, standing(place)),
-  brief: (half, other, whole, check, cfg) =>
-    bend.brief(half.name, half.task, list(half.owns), list(half.laws), other.name, other.task, list(other.laws), whole ?? '', check, cfg.chunkMinutes),
-  describeDivision: (cfg) => bend.describe_division(cfg.chunkMinutes),
-  describeSplit: (cfg) => bend.describe_split(cfg.chunkMinutes),
+  method: (place) => bend.method(standing(place)),
+  brief: (part, others, whole, check) =>
+    bend.brief(part.name, part.task, list(part.owns), list(part.laws),
+      list(others.map((other) => ({ $: 'Other', name: other.name, task: other.task, laws: list(other.laws) }))), whole ?? '', check),
+  describeDivision: () => bend.describe_division(),
+  describeSplit: () => bend.describe_split(),
 }
 
 // ---- files: what only Node can say ------------------------------------------------------------
@@ -141,8 +143,8 @@ export function declaredLaws(root) {
   return laws
 }
 
-export const method = (cfg, place) => core.method(cfg, place)
-export const brief = (half, other, whole, check, cfg) => core.brief(half, other, whole, check, cfg)
+export const method = (place) => core.method(place)
+export const brief = (part, others, whole, check) => core.brief(part, others, whole, check)
 /** The options a half is started with, so that it runs on the user's choice, or else on what the session is on. */
 export const halfArgs = (cfg, sessionModel, sessionThinking) => core.halfArgs(cfg.model, sessionModel, cfg.thinking, sessionThinking)
 
@@ -191,8 +193,8 @@ export function apply(ctx, config) {
   try { place = process.env[PLACE] ? JSON.parse(process.env[PLACE]) : undefined } catch {}
 
   if (place) {
-    // A half writes only what it was handed. Which paths those are is decided in Bend, where it is
-    // proven that no path is both halves' to write; here the write that is not is refused.
+    // A part writes only what it was handed. Which paths those are is decided in Bend, where it is
+    // proven that no path is two parts' to write; here the write that is not is refused.
     ctx.on('action/before', (action, params) => {
       if (action.name !== 'write' && action.name !== 'edit') return
       const path = params?.path
@@ -225,10 +227,41 @@ export function apply(ctx, config) {
   }
   const showing = (piCtx) => core.showing(cfg.model, sessionModel(piCtx), cfg.thinking, sessionThinking())
 
-  // The user's, not the agent's: which model its halves run on is not the agent's to choose.
+  /** The model a word names among the ones signed in, or undefined after saying why not. */
+  const modelNamed = (value, piCtx, hint) => {
+    const known = piCtx.modelRegistry.getAvailable().map((model) => `${model.provider}/${model.id}`)
+    if (value === 'same' || known.includes(value)) return value
+    const close = known.filter((each) => each.includes(value))
+    if (close.length === 1) return close[0]
+    piCtx.ui.notify(`No model "${value}" is signed in${close.length ? `; did you mean ${close.slice(0, 5).join(', ')}?` : `. ${hint}`}`, 'warning')
+    return undefined
+  }
+
+  // The user's, not the agent's: which model its agents run on is not the agent's to choose.
   try {
+    ctx.root.get('pi')?.command('default-agent', {
+      description: 'Make this session\'s model and thinking level what deployed agents run on; "same" follows each session, or name a model',
+      words: ['same'],
+      async run(args, piCtx) {
+        const value = args.trim()
+        // What was asked for is decided in Bend (division.bend).
+        const asked = core.agentWants(value)
+        if (asked === 'Current') {
+          keep('model', sessionModel(piCtx))
+          keep('thinking', sessionThinking())
+        } else if (asked === 'Follow') {
+          keep('model', '')
+          keep('thinking', '')
+        } else {
+          const model = modelNamed(value, piCtx, '/division model lists them.')
+          if (!model) return
+          keep('model', core.kept(model))
+        }
+        piCtx.ui.notify(showing(piCtx), 'info')
+      },
+    })
     ctx.root.get('pi')?.command('division', {
-      description: 'What the agents division starts run on; "/division model" and "/division thinking" choose',
+      description: 'What deployed agents run on; "/division model" and "/division thinking" choose one alone',
       words: ['model', 'thinking'],
       async run(args, piCtx) {
         const [word = '', ...more] = args.split(/\s+/).filter(Boolean)
@@ -239,17 +272,14 @@ export function apply(ctx, config) {
         if (asked === 'Unclear') return piCtx.ui.notify('Usage: /division, /division model [provider/id|same], /division thinking [level|same]', 'warning')
         if (asked === 'Model') {
           const known = piCtx.modelRegistry.getAvailable().map((model) => `${model.provider}/${model.id}`)
-          if (!value) value = (await piCtx.ui.select('The model division\'s agents run on', ['same (as this session)', ...known]))?.split(' ')[0] ?? ''
+          if (!value) value = (await piCtx.ui.select('The model deployed agents run on', ['same (as this session)', ...known]))?.split(' ')[0] ?? ''
           if (!value) return
-          if (value !== 'same' && !known.includes(value)) {
-            const close = known.filter((each) => each.includes(value))
-            if (close.length !== 1) return piCtx.ui.notify(`No model "${value}" is signed in${close.length ? `; did you mean ${close.slice(0, 5).join(', ')}?` : '. /division model lists them.'}`, 'warning')
-            value = close[0]
-          }
+          value = modelNamed(value, piCtx, '/division model lists them.')
+          if (!value) return
           keep('model', core.kept(value))
         } else {
           const levels = core.levels()
-          if (!value) value = (await piCtx.ui.select('The thinking level division\'s agents run on', ['same (as this session)', ...levels.slice(1)]))?.split(' ')[0] ?? ''
+          if (!value) value = (await piCtx.ui.select('The thinking level deployed agents run on', ['same (as this session)', ...levels.slice(1)]))?.split(' ')[0] ?? ''
           if (!value) return
           if (!levels.includes(value)) return piCtx.ui.notify(`No thinking level "${value}". Choose from: ${levels.join(', ')}`, 'warning')
           keep('thinking', core.kept(value))
@@ -270,80 +300,77 @@ export function apply(ctx, config) {
   ctx.actions.register({
     name: 'division',
     title: 'division method',
-    description: core.describeDivision(cfg),
+    description: core.describeDivision(),
     parameters: { type: 'object', properties: {} },
-    execute: () => method(cfg, place),
+    execute: () => method(place),
   })
 
-  const half = {
+  const part = {
     type: 'object',
     properties: {
-      name: { type: 'string', description: 'A short name for this half.' },
-      task: { type: 'string', description: 'What this half is to do, in full: its agent starts from nothing and sees only this, the other half\'s task and the files.' },
-      owns: { type: 'array', items: { type: 'string' }, description: 'The files and folders (ending in "/") only this half may write.' },
-      laws: { type: 'array', items: { type: 'string' }, description: 'The names of the laws this half must prove, already declared in a .bend file.' },
-      minutes: { type: 'number', description: 'How many minutes of work you take this half to be for one agent.' },
+      name: { type: 'string', description: 'A short name for this part.' },
+      task: { type: 'string', description: 'What this part is to do, in full: its agent starts from nothing and sees only this, the other parts\' tasks and the files.' },
+      owns: { type: 'array', items: { type: 'string' }, description: 'The files and folders (ending in "/") only this part may write. Leave it out for a part that only reads and reports.' },
+      laws: { type: 'array', items: { type: 'string' }, description: 'The names of the Bend laws this part must prove, already declared in a .bend file. Leave it out when no law is this part\'s.' },
     },
-    required: ['name', 'task', 'owns', 'laws', 'minutes'],
+    required: ['name', 'task'],
   }
 
   ctx.actions.register({
     name: 'division_split',
     title: 'division split',
-    description: core.describeSplit(cfg),
+    description: core.describeSplit(),
     parameters: {
       type: 'object',
       properties: {
-        first: half,
-        second: half,
-        whole: { type: 'string', description: 'The task being cut, in a few sentences, so each half knows what it is part of.' },
-        check: { type: 'string', description: 'The command that says whether the halves fit. Default: bend PROOF.bend' },
+        parts: { type: 'array', items: part, description: 'The parts, as many as the task has.' },
+        whole: { type: 'string', description: 'The task being cut, in a few sentences, so each part knows what it is part of.' },
+        check: { type: 'string', description: 'The command that says whether the parts fit. Default: bend PROOF.bend when there is one.' },
       },
-      required: ['first', 'second'],
+      required: ['parts'],
     },
-    async execute({ first, second, whole, check }, env) {
+    async execute({ parts: given, whole, check }, env) {
       const root = place?.root ?? env.cwd
       const depth = place?.depth ?? 0
       const refuse = (why) => core.refused(why)
 
-      const halves = []
-      for (const given of [first, second]) {
-        const entries = (given?.owns ?? []).map((path) => entry(root, String(path)))
-        if (entries.includes(undefined)) return refuse(`"${given.owns[entries.indexOf(undefined)]}" is outside ${root}`)
-        halves.push({
-          name: String(given?.name ?? '').trim(),
-          task: String(given?.task ?? '').trim(),
+      const parts = []
+      for (const each of Array.isArray(given) ? given : []) {
+        const entries = (each?.owns ?? []).map((path) => entry(root, String(path)))
+        if (entries.includes(undefined)) return refuse(`"${each.owns[entries.indexOf(undefined)]}" is outside ${root}`)
+        parts.push({
+          name: String(each?.name ?? '').trim(),
+          task: String(each?.task ?? '').trim(),
           owns: entries,
-          laws: (given?.laws ?? []).map((law) => String(law).trim()).filter(Boolean),
-          minutes: Math.max(0, Math.floor(Number(given?.minutes) || 0)),
+          laws: (each?.laws ?? []).map((law) => String(law).trim()).filter(Boolean),
         })
       }
-      const [a, b] = halves
-      if (!a.name || !b.name || !a.task || !b.task) return refuse('each half needs a name and a task')
+      if (parts.some((each) => !each.name || !each.task)) return refuse('each part needs a name and a task')
 
       // Whether the cut is made is decided in Bend (division.bend), and proven (LAWS.bend).
-      const verdict = core.judge(depth, cfg.depth, cfg.chunkMinutes, place?.owns, a, b)
-      if (verdict !== 'Divide') return refuse(core.why(verdict, cfg))
+      const verdict = core.judge(depth, cfg.depth, place?.owns, parts)
+      if (verdict !== 'Divide') return refuse(core.why(verdict, depth))
 
-      const declared = declaredLaws(root)
-      const missing = declared.partial ? [] : core.missing([...a.laws, ...b.laws], [...declared])
+      const named = parts.flatMap((each) => each.laws)
+      const declared = named.length ? declaredLaws(root) : new Set()
+      const missing = declared.partial ? [] : core.missing(named, [...declared])
       if (missing.length) return refuse(core.lawsMissing(missing))
 
-      const command = String(check ?? '').trim() || 'bend PROOF.bend'
-      if (!check && !existsSync(join(root, 'PROOF.bend'))) return refuse('there is no PROOF.bend here to check the halves with; make the gate first, or pass `check`')
-
-      // Each half runs on what the user chose with /division, and otherwise on what this agent is on:
-      // which of the two is decided in Bend, where it is proven that a choice always wins.
+      // The check is the one named, else the gate of the laws when there is one, else nothing to run.
+      const command = String(check ?? '').trim() || (existsSync(join(root, 'PROOF.bend')) ? 'bend PROOF.bend' : '')
+      if (!command && named.length) return refuse('there is no PROOF.bend here to check the laws with; make the gate first, or pass `check`')
+      // Each part runs on what the user chose with /default-agent, and otherwise on what this agent
+      // is on: which of the two is decided in Bend, where it is proven that a choice always wins.
       const chosen = halfArgs(cfg, sessionModel(env.pi), sessionThinking())
       const agent = Array.isArray(cfg.agent) && cfg.agent.length
         ? cfg.agent.map(String)
         : [process.execPath, ...process.execArgv, process.argv[1], '-p', '--no-session', ...chosen]
 
       const state = {}
-      const tell = () => env.update?.(halves.map((each) => `${each.name}: ${state[each.name] ?? 'working'}`).join('\n'))
-      const start = (each, other) => {
+      const tell = () => env.update?.(parts.map((each) => `${each.name}: ${state[each.name] ?? 'working'}`).join('\n'))
+      const start = (each) => {
         const next = { root, depth: depth + 1, name: each.name, owns: each.owns, laws: each.laws, check: command }
-        return run(agent[0], [...agent.slice(1), brief(each, other, whole && String(whole), command, cfg)], {
+        return run(agent[0], [...agent.slice(1), brief(each, parts.filter((other) => other !== each), whole && String(whole), command)], {
           cwd: root,
           env: { ...process.env, [PLACE]: JSON.stringify(next), WIZARDRY_NO_UPDATE: '1' },
           timeoutMs: cfg.timeoutMinutes * 60_000,
@@ -355,17 +382,19 @@ export function apply(ctx, config) {
         })
       }
       tell()
-      log(root, { event: 'cut', depth, runsOn: chosen, halves: halves.map(({ name, owns, laws, minutes }) => ({ name, owns, laws, minutes })) })
+      log(root, { event: 'cut', depth, runsOn: chosen, parts: parts.map(({ name, owns, laws }) => ({ name, owns, laws })) })
       const started = Date.now()
-      const results = await Promise.all([start(a, b), start(b, a)])
+      const results = await Promise.all(parts.map(start))
       if (env.signal?.aborted) return core.stoppedEarly()
 
-      const checked = await run(command, [], { cwd: root, env: process.env, timeoutMs: 10 * 60_000, signal: env.signal, shell: true })
+      const checked = command
+        ? await run(command, [], { cwd: root, env: process.env, timeoutMs: 10 * 60_000, signal: env.signal, shell: true })
+        : { code: 0, out: '', err: '', ms: 0 }
       const said = `${checked.out}\n${checked.err}`.trim()
-      // Whether the halves fit, and what is said of each, is decided in Bend (division.bend).
+      // Whether the parts fit, and what is said of each, is decided in Bend (division.bend).
       const fits = core.fits(checked, said)
-      log(root, { event: 'joined', depth, fits, ms: Date.now() - started, halves: halves.map((each, i) => ({ name: each.name, code: results[i].code, failed: results[i].failed, ms: results[i].ms })) })
-      return core.joined(Date.now() - started, halves.map((each, i) => core.halfReport(each, results[i])), command, fits, checked, said)
+      log(root, { event: 'joined', depth, fits, ms: Date.now() - started, parts: parts.map((each, i) => ({ name: each.name, code: results[i].code, failed: results[i].failed, ms: results[i].ms })) })
+      return core.joined(Date.now() - started, parts.map((each, i) => core.halfReport(each, results[i])), command, fits, checked, said)
     },
   })
 }
