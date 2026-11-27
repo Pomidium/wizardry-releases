@@ -259,6 +259,19 @@ A few default plugins ship in [`defaults/`](defaults) and are on for everyone:
   [claude-mem](https://github.com/thedotmack/claude-mem), with its decisions written and proven in
   Bend.
 
+- `when`, if-then rules: "whenever you make a UI, make it blue." Say a preference and the agent
+  keeps it as a rule in `~/.wizardry/when/rules.json`, with cues for the states it can be in:
+  `asked` (your message), `thinking` (its own reasoning), `doing` (an action and its arguments,
+  before it runs) and `seen` (a result). A cue is a phrase of whole words; `+` joins phrases that
+  must all occur, a final `*` matches any ending (`"landing page"`, `"write + css"`,
+  `"component*"`). When a cue hits, the rule's `then`, and the output of its shell command `run`
+  if it has one, is put in front of the agent at that moment, once per session. Until then a rule
+  costs nothing: it is not in the prompt, there is no action for it in the tool list, and no
+  model is asked whether it applies. Even how to write a rule reaches the agent only when you
+  sound like you are stating one. `/when` lists the rules; edit the file to change them. It is
+  proven ([`defaults/when/LAWS.bend`](defaults/when/LAWS.bend)) that when nothing fires nothing
+  is said, and that a rule fires once.
+
 - `division`, a way for the agent to deploy agents: it cuts a task into parts, as many as the
   task has, and hands each to its own agent; all work at the same time in the same directory,
   and a part may cut again. Each part owns its own files, and what crosses between parts is said

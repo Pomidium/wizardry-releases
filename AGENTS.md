@@ -14,7 +14,8 @@ to the running install. The short manual for writing plugins in-session is the `
 the fs/shell tools and Pi itself are plugins on it. A plugin's only route to the agent is
 `ctx.actions.register(...)`: plugins add nothing to the system prompt (one exception, by name:
 see "The defintire default") and get no hooks into the
-agent's turn. Actions that change the agent (`become`, `focus`, `think`) exist but are never
+agent's turn (two exceptions, by name: memory at compaction, and `when`, whose rules are said to
+the agent at the moment one applies; see "The when default"). Actions that change the agent (`become`, `focus`, `think`) exist but are never
 applied for it. Nothing asks for approval; `gate` is an optional plugin.
 
 ## Which copy runs
@@ -107,6 +108,7 @@ Read in this order:
 | `defaults/*.js` | The shipped default plugins; `bend.js` is the example of a skill as an action |
 | `defaults/division/` | The division default: `division.bend` (who may write what, whether a cut is made, what each agent is told, whether the parts fit), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which starts the agents |
 | `defaults/defintire/` | The defintire default: `defintire.bend` (what counts as a definition, how a reading becomes a score, when a score is verified, how ratings move, which attempt a climb keeps, and the method), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which runs the commands, asks the judge and starts the agents |
+| `defaults/when/` | The when default: `when.bend` (what a cue hits, which rules fire, what is said and how a rule is written), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which listens to Pi, reads the rules and runs their commands |
 | `defaults/memory/` | The memory plugin, copied in whole from its own repository (see below). Never edit it here |
 | `src/plugins/*.ts` | The builtins; `rtk.ts` is the example of wrapping another plugin's action, `update.ts` of `task/end` and slash commands |
 
@@ -172,7 +174,7 @@ Two classes, and which one a plugin belongs to decides where it lives:
   updated with this repo.
 - **Default**: not intrinsic. A choice that comes switched on and can be changed or removed without
   touching wizardry. Defaults live in two places:
-  - `defaults/` in this repo: shipped to every install (the `bend` skill, `memory`, `division`, `defintire`). Loaded at boot by
+  - `defaults/` in this repo: shipped to every install (the `bend` skill, `memory`, `division`, `defintire`, `when`). Loaded at boot by
     `Plugins.boot`; a file of the same name in a plugin directory is loaded instead, and
     `plugin_unload <name>` with `persist: true` switches one off.
   - `$WIZARDRY_HOME/plugins/`: this machine only (a default model). Edit the
@@ -241,6 +243,29 @@ commit `core.mjs` with it. Its proofs import wizardry's own (`../../PROOF.bend`)
   The plugin looks there first, puts that `bin` on the PATH of criterion commands and climbing
   agents, and names the full path in the method. `tools` and `bin` are in `own_folders`, so an
   export does not copy them. hillclimb keeps a cache of its own in `~/.cache/hillclimb`.
+
+### The when default
+
+`defaults/when/` is built here like division: edit `when.bend`, run `npm run core`, commit
+`core.mjs` with it.
+
+- **It reaches the agent other than through an action, by the owner's request**: it listens to
+  Pi's `before_agent_start`, `message_end`, `tool_call` and `tool_result` (hooked as memory hooks
+  compaction, undone on unload). It adds nothing to the system prompt and registers no action,
+  and that is the point of it: a rule costs no tokens until it fires. Do not give it an action, a
+  `mind`, or anything else that is there when no rule applies (`nothing_fired_nothing_said`).
+- A rule is `{name, when: {asked, thinking, doing, seen}, then, run?}` in
+  `$WIZARDRY_HOME/when/rules.json`, read again when the file changes. Whether one fires is word
+  matching in Bend (`cue_hits`); the model's part is writing good cues, once.
+- Where it is said: `asked` as a message beside the user's, `doing` by blocking that call once
+  with the rule as the reason (and the other calls of the same step, so none runs ahead of it),
+  `thinking` and `seen` as text added to a tool result.
+- A rule that fired writes a `when:fired` entry to the session; a resumed session or a branch
+  reads them back, and a compaction clears them, since what was said is gone.
+- How rules are written is the rule `teach` in `when.bend`, fired by words like "whenever" and
+  "from now on". An agent deployed on a part (`WIZARDRY_DIVISION`) is not taught.
+- Texts are cut to 50000 characters before they are read for cues, and of an action's arguments
+  only the first line of each is read (`doing`).
 
 ### The memory default
 
