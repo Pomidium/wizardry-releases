@@ -39,6 +39,10 @@
 // is loaded, defintire puts a few lines in the standing prompt, a habit of saying what a thing is
 // before working on it, and the definitions kept. `plugin_unload defintire` takes them out.
 //
+// A definition must say what happens in at least one case that reality brings and paper did not
+// (`complications`), and every complication named must have an outcome: both are laws
+// (paper_only_is_refused, a_complication_needs_an_outcome).
+//
 // Definitions are kept in ~/.wizardry/defintire/<name>/ (definition.json, definition.md,
 // scores.jsonl, ratings.json, climbs/), so `wizardry export` and `wizardry delete` take them along.
 //
@@ -67,11 +71,15 @@ const text = (value) => String(value ?? '').trim()
 const whole = (value) => Math.max(0, Math.floor(Number(value) || 0))
 const kinds = (words) => list(words.map((word) => bend.kind_of(word)))
 
+// A definition kept before complications were asked for has none: it reads as an empty list.
+const complications = (def) => list((def.complications ?? []).map((c) => ({ $: 'Complication', what: c.case, outcome: c.outcome })))
+
 export const core = {
   slug: (name) => bend.slug(name),
   /** What is missing from a definition; empty when it is one. */
   problems: (def) => array(bend.problems(def.name, def.answers, def.objects.length, def.axioms.length, def.examples.length, def.non_examples.length,
-    list(def.criteria.map((c) => ({ $: 'Criterion', name: c.name, kind: c.kind, weight: c.weight, command: c.command, rubric: c.rubric }))))),
+    list(def.criteria.map((c) => ({ $: 'Criterion', name: c.name, kind: c.kind, weight: c.weight, command: c.command, rubric: c.rubric }))),
+    complications(def))),
   notDefined: (what) => bend.not_defined(list(what)),
   /** A definition, written out in notation. */
   written(def) {
@@ -79,7 +87,7 @@ export const core = {
     return bend.written(def.name, def.answers,
       list(def.objects.map((o) => ({ $: 'Object', symbol: o.symbol, sort: o.type, meaning: o.meaning }))), list(def.primitives),
       list(def.axioms.map((a) => ({ $: 'Axiom', name: a.name, statement: a.statement, stipulated: a.stipulated }))),
-      list(def.examples), list(def.non_examples), def.bend,
+      list(def.examples), list(def.non_examples), complications(def), def.bend,
       list(def.criteria.map((c) => ({ $: 'Shown', name: c.name, kind: c.gate ? `${c.kind}, gate` : c.kind, weight: c.weight, statement: c.statement,
         how: c.kind === 'judged' ? c.rubric : c.command, lo: String(c.worst), hi: String(c.best), higher: c.best >= c.worst }))),
       bend.climbable(weightOf('exact'), weightOf('proxy'), weightOf('judged')))
@@ -298,6 +306,7 @@ export function apply(ctx, config) {
   const strings = (description) => ({ type: 'array', items: { type: 'string' }, description })
   ctx.actions.register({
     name: 'defintire_define',
+    after: 'defintire',
     title: 'defintire define',
     description: bend.describe_define(),
     parameters: {
@@ -316,6 +325,9 @@ export function apply(ctx, config) {
           stipulated: { type: 'boolean', description: 'True when this is a choice the definer makes rather than a fact found.' } }, required: ['name', 'statement'] } },
         examples: strings('Things that fall under the definition.'),
         non_examples: strings('Things that do not, and which axiom each fails. Near misses are the useful ones.'),
+        complications: { type: 'array', description: 'On paper and in reality: the cases reality brings that the definition did not assume, each with what happens then. At least one; a definition with none is refused.', items: { type: 'object', properties: {
+          case: { type: 'string', description: 'What goes otherwise than on paper: the input that is missing, empty, zero or late, the estimate that is wrong.' },
+          outcome: { type: 'string', description: 'What the definition says happens then: still an instance, not one (and which axiom or criterion says so), or outside what it speaks of.' } }, required: ['case', 'outcome'] } },
         bend: { type: 'string', description: 'The definition in Bend, where Bend can say it: a type for the objects, defs or laws for axioms.' },
         criteria: { type: 'array', description: 'What ties numbers to the definition.', items: { type: 'object', properties: {
           name: { type: 'string' },
@@ -328,7 +340,7 @@ export function apply(ctx, config) {
           worst: { type: 'number', description: 'The reading that scores 0. Default 0.' },
           best: { type: 'number', description: 'The reading that scores 100. Default 1. Below `worst` when lower readings are better.' } }, required: ['name', 'statement', 'kind'] } },
       },
-      required: ['name', 'answers', 'objects', 'axioms', 'examples', 'non_examples', 'criteria'],
+      required: ['name', 'answers', 'objects', 'axioms', 'examples', 'non_examples', 'complications', 'criteria'],
     },
     execute(given, env) {
       const items = (value) => (Array.isArray(value) ? value : [])
@@ -341,6 +353,7 @@ export function apply(ctx, config) {
         axioms: items(given?.axioms).map((a) => ({ name: text(a?.name), statement: text(a?.statement), stipulated: a?.stipulated === true })),
         examples: items(given?.examples).map(text).filter(Boolean),
         non_examples: items(given?.non_examples).map(text).filter(Boolean),
+        complications: items(given?.complications).map((c) => ({ case: text(c?.case), outcome: text(c?.outcome) })),
         bend: String(given?.bend ?? ''),
         criteria: items(given?.criteria).map((c) => ({
           name: text(c?.name), statement: text(c?.statement), kind: text(c?.kind), weight: whole(c?.weight ?? 1),
@@ -365,6 +378,7 @@ export function apply(ctx, config) {
   const which = { type: 'string', description: 'The name of a kept definition.' }
   ctx.actions.register({
     name: 'defintire_measure',
+    after: 'defintire',
     title: 'defintire measure',
     description: bend.describe_measure(),
     parameters: {
@@ -386,6 +400,7 @@ export function apply(ctx, config) {
 
   ctx.actions.register({
     name: 'defintire_rank',
+    after: 'defintire',
     title: 'defintire rank',
     description: bend.describe_rank(),
     parameters: {
@@ -431,6 +446,7 @@ export function apply(ctx, config) {
 
   ctx.actions.register({
     name: 'defintire_climb',
+    after: 'defintire',
     title: 'defintire climb',
     description: bend.describe_climb(),
     parameters: {

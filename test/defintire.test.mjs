@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { boot as bootWizardry } from '../dist/index.js'
@@ -40,7 +40,7 @@ test('defintire: the proofs check, and the compiled Bend in the repo is what the
   const laws = [...readFileSync(join(DEFINTIRE, 'LAWS.bend'), 'utf8').matchAll(/^law (\w+):/gm)].map((match) => match[1])
   const proofs = [...readFileSync(join(DEFINTIRE, 'PROOF.bend'), 'utf8').matchAll(/^def Laws\.(\w+)\(/gm)].map((match) => match[1])
   assert.deepEqual([...proofs].sort(), [...laws].sort())
-  assert.equal(laws.length, 10)
+  assert.equal(laws.length, 12)
   const out = join(mkdtempSync(join(tmpdir(), 'wizardry-defintire-core-')), 'core.mjs')
   execFileSync(BEND, ['defintire.bend', '-o', out], { cwd: DEFINTIRE, env })
   assert.equal(readFileSync(join(DEFINTIRE, 'core.mjs'), 'utf8'), readFileSync(out, 'utf8'), 'defaults/defintire/core.mjs is stale: run `npm run core`')
@@ -132,6 +132,7 @@ const COMMIT = {
     { name: 'imperative', statement: 's(m) \\text{ begins with a verb in the imperative}', stipulated: true }],
   examples: ['Fix the crash when the list is empty'],
   non_examples: ['fixed stuff (fails imperative)', 'A subject that goes on and on past seventy-two characters until nobody reads it (fails short)'],
+  complications: [{ case: 'the message is an empty file', outcome: 'not an instance: there is no subject, and verbs reads 0' }],
   bend: 'def short(s: String) -> Bool:\n  Nat.is_le(String.length(s), 72n)\n',
   criteria: [
     { name: 'brevity', statement: '|s(m)|', kind: 'exact', weight: 2, command: 'sh -c \'head -n 1 "$1" | tr -d "\\n" | wc -c\' sh', worst: 100, best: 20 },
@@ -149,13 +150,17 @@ const complete = async ({ user }) => {
   return `${judgedText.includes('because') ? 90 : 40}\nBy the rubric.`
 }
 
-test('defintire: a definition is kept only when it is one, and is written out in notation', async () => {
+test('defintire: a definition is kept only when it is one, and is written out in notation', async (t) => {
   const { home, cwd } = scratch()
   const { root, plugins } = await boot({ home, cwd, defaults: ['cordis'] })
   await plugins.load(DEFINTIRE, { complete }, { cwd })
   const actions = root.get('actions')
   assert.deepEqual(plugins.list().find((plugin) => plugin.name === 'defintire').actions, ['defintire', 'defintire_define', 'defintire_measure', 'defintire_rank', 'defintire_climb'])
 
+  // The machine the tests run on may have the tools: this test is about one that does not.
+  const path = process.env.PATH
+  process.env.PATH = String(path).split(delimiter).filter((dir) => !existsSync(join(dir, 'jacobian')) && !existsSync(join(dir, 'hillclimb'))).join(delimiter)
+  t.after(() => { process.env.PATH = path })
   const method = await actions.invoke('defintire', {}, { cwd })
   assert.match(method, /^DEFINTIRE: say what a thing is, in mathematical form/)
   assert.match(method, /Nothing is defined yet\.$/)
@@ -175,12 +180,17 @@ test('defintire: a definition is kept only when it is one, and is written out in
     /"a" is exact and needs a command/, /"a" is judged and needs a rubric/, /"c" is "vibes": say exact, proxy or judged/, /"c" weighs nothing/, /Nothing was saved\.$/]) assert.match(refused, why)
   assert.ok(!existsSync(join(home, 'defintire', 'good-commit-message')))
 
+  // On paper is not enough: a definition says what happens in a case reality brings, and a case named has an outcome.
+  assert.match(await actions.invoke('defintire_define', { ...COMMIT, complications: [] }, { cwd }), /^Not a definition yet:\n- name at least one complication[^\n]*holds only on paper\nNothing was saved\.$/)
+  assert.match(await actions.invoke('defintire_define', { ...COMMIT, complications: [{ case: 'no subject', outcome: ' ' }] }, { cwd }), /complication "no subject" has no outcome/)
+  assert.ok(!existsSync(join(home, 'defintire', 'good-commit-message')))
+
   const defined = await actions.invoke('defintire_define', COMMIT, { cwd })
   const folder = join(home, 'defintire', 'good-commit-message')
   assert.match(defined, new RegExp(`^Defined "Good commit message", kept in ${folder}\\.`))
   const written = readFileSync(join(folder, 'definition.md'), 'utf8')
   for (const part of ['# Definition: Good commit message', '**Answers:** Given a message m', '- $m : String$ — the message', '## Primitives (left undefined)',
-    '- **(short)** $|s(m)| \\le 72$ *(stipulated: a choice, not a finding)*', '## Non-examples', '```bend\ndef short(s: String) -> Bool:', '- **brevity** (exact, weight 2): $|s(m)|$ — from 100 (worst) to 20 (best), lower readings being better.',
+    '- **(short)** $|s(m)| \\le 72$ *(stipulated: a choice, not a finding)*', '## Non-examples', '- **the message is an empty file** → not an instance: there is no subject, and verbs reads 0', '```bend\ndef short(s: String) -> Bool:', '- **brevity** (exact, weight 2): $|s(m)|$ — from 100 (worst) to 20 (best), lower readings being better.',
     '- **clarity** (judged, weight 1)', 'Hill-climbable: 50% of the weight is exact, 25% proxy, 25% judged.']) assert.ok(written.includes(part), part)
   assert.equal(JSON.parse(readFileSync(join(folder, 'definition.json'), 'utf8')).root, cwd)
   assert.match(await actions.invoke('defintire', {}, { cwd }), /Defined so far: good-commit-message, seven$/)

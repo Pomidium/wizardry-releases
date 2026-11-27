@@ -205,7 +205,8 @@ so a lemma renamed there is renamed here too.
   In a part, an `action/before` listener refuses `write` and `edit` outside the owned files. `bash`
   is not fenced: the ownership is a rule the agent is told and the write tools enforce, not a sandbox.
 - A part unloads `memory`: what it is told is not something the user said.
-- `division_split` blocks until every part exits, then runs the check if there is one. Parts are
+- `division_split` blocks until every part exits, then runs the check if there is one, with
+  `~/.bend/bin` added to its PATH: Bend's installer does not put `bend` on PATH. Parts are
   started with `-p --no-session`, on the model and thinking level the user chose with
   `/default-agent` or `/division` (kept in `$WIZARDRY_HOME/division.json`), and otherwise on the
   calling session's.
@@ -223,6 +224,9 @@ commit `core.mjs` with it. Its proofs import wizardry's own (`../../PROOF.bend`)
   (`only_named_plugins_think`), and the text is cut to 1200 characters. What defintire says is
   `mind` in `defintire.bend`. Adding a name to `minds()` is the owner's decision, never an
   agent's: do not do it to make a plugin work.
+- **A definition must leave the paper**: `complications` (a case reality brings, and what happens
+  then) is required, and one without an outcome is refused (`paper_only_is_refused`,
+  `a_complication_needs_an_outcome`). A definition kept before that reads as having none.
 - A definition is a folder, `$WIZARDRY_HOME/defintire/<slug>/`: `definition.json` (what the
   actions read), `definition.md` (the same, written out), `scores.jsonl`, `ratings.json`,
   `climbs/`. Being a folder of the home, it is exported as it is and deleted with `all`.
@@ -341,6 +345,15 @@ These are the failure modes that cost an agent an hour; all are now covered by t
   `sessionManager`, `isIdle()`.
 - Both are typed in `node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/types.d.ts`.
   Read the types before assuming a method or event exists; Pi's own docs are not load-bearing here.
+- **An action can wait behind another** (`after: 'defintire'` on `defintire_define`): it is out
+  of the tool list until that one has been called in the session, so a skill's long schemas cost
+  nothing where the skill is not used. Which wait is `waiting` in `bend/core.bend`; one that waits
+  behind an action nobody registered is in front (`never_out_of_reach`). `Pi` puts them away at
+  `session_start` and brings them on `action/after`. Before giving an action a long schema, ask
+  whether it can wait: what the agent carries every turn is the cost that counts most here.
+- **Pi activates a tool only the first time it sees it.** One registered again (a plugin loaded
+  again) stays where it was, so `expose` in `src/pi.ts` sets it: `in_front` in Bend decides, and
+  `loaded_again_is_in_front` is the law that keeps `plugin_load`'s word.
 - wizardry switches off Pi's builtin tools, extensions, skills, prompt templates, context files,
   theme discovery, MCP servers and project-local files (`pi_args` in `bend/core.bend`); what the
   agent can do comes only from Cordis plugins.

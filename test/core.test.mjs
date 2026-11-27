@@ -333,7 +333,10 @@ test('the header, the session, rtk and the home directory answer as the TypeScri
     assert.equal(core.lastIdentity(written), written.at(-1) ?? '')
     const [wanted, attached, tui, idle, active] = [below(2), below(2), below(2), below(2), below(2)].map(Boolean)
     assert.equal(core.restartsNow(wanted, attached, tui, idle), wanted && attached && tui && idle)
-    assert.equal(core.staysAway(wanted, attached, active), wanted && attached && !active)
+    for (const [returned, waits] of [[false, false], [false, true], [true, false], [true, true]]) {
+      // wanted: bound; attached: Pi knows the tool.
+      assert.equal(core.inFront(wanted, attached, active, returned, waits), !wanted || (!attached || returned ? !waits : active))
+    }
 
     // rtk.
     const command = pick(['git status', 'ls', 'echo hi'])

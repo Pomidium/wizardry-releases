@@ -64,6 +64,10 @@ export class Pi extends Service {
   /** Set in a process that took over from another; applied when its session starts. */
   resumed?: Handoff
   private live?: ExtensionContext
+  /** The actions called in this session: what waits behind one of them (`after`) is in front. */
+  private called = new Set<string>()
+  /** Actions whose plugin was unloaded while a session ran: declared again, they come back. */
+  private gone = new Set<string>()
   private commands = new Map<string, Command>()
   private minds = new Map<string, () => string>()
   private restartWanted = false
@@ -74,6 +78,20 @@ export class Pi extends Service {
     ctx.on('action/registered', (action) => this.expose(action))
     ctx.on('action/changed', (action) => this.expose(action))
     ctx.on('action/unregistered', (action) => this.retract(action))
+    ctx.on('action/after', (action) => this.open(action.name))
+  }
+
+  /** The actions put away until the one each waits behind is called. Which, is decided in Bend. */
+  private waiting() {
+    return core.waiting(this.actions.list(), [...this.called])
+  }
+
+  /** `name` was called: what waited behind it is in front of the agent from the next step. */
+  private open(name: string) {
+    const before = this.waiting()
+    this.called.add(name)
+    const opened = core.without(before, this.waiting())
+    if (opened.length && this.api && this.bound) this.api.setActiveTools(core.focusActive(this.api.getActiveTools(), [], opened))
   }
 
   private get actions() {
@@ -208,6 +226,11 @@ export class Pi extends Service {
         if (resumed.editor && piCtx.mode === 'tui') piCtx.ui.setEditorText(resumed.editor)
         if (resumed.note) piCtx.ui.notify(resumed.note, 'info')
       }
+      // A session starts with nothing called: what waits is put away. One that takes over from
+      // another keeps what that one had in front of it.
+      this.called.clear()
+      const away = resumed ? [] : this.waiting()
+      if (away.length) pi.setActiveTools(core.without(pi.getActiveTools(), away))
       this.ctx.root.emit('pi/session-start', pi, piCtx)
     })
     pi.on('session_shutdown', () => {
@@ -223,15 +246,21 @@ export class Pi extends Service {
 
   private expose(action: RegisteredAction) {
     if (!this.api) return
-    // Re-declaring a tool the agent has put away with `focus` must not bring it back.
-    const away = core.staysAway(this.bound, core.among(this.api.getAllTools().map((tool) => tool.name), action.name),
-      core.among(this.api.getActiveTools(), action.name))
+    const { name } = action
+    if (!this.bound) return void this.api.registerTool(this.toTool(action))
+    // Whether it is in front afterwards is decided in Bend: a tool the agent put away with
+    // `focus` stays away, one whose plugin was loaded again comes back, one that waits waits.
+    const front = core.inFront(true, core.among(this.api.getAllTools().map((tool) => tool.name), name),
+      core.among(this.api.getActiveTools(), name), this.gone.delete(name), core.among(this.waiting(), name))
     this.api.registerTool(this.toTool(action))
-    if (away) this.api.setActiveTools(core.without(this.api.getActiveTools(), [action.name]))
+    // Pi puts a tool it has not seen in front and leaves one it knows where it was.
+    const active = this.api.getActiveTools()
+    if (front !== core.among(active, name)) this.api.setActiveTools(front ? core.focusActive(active, [], [name]) : core.without(active, [name]))
   }
 
   private retract(action: RegisteredAction) {
     if (!this.api || !this.bound) return
+    this.gone.add(action.name)
     this.api.setActiveTools(core.without(this.api.getActiveTools(), [action.name]))
   }
 

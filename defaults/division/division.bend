@@ -610,9 +610,9 @@ def describe_division() -> String:
   String.concat(["A way to deploy agents on a task: cut it into parts that separate agents do at the same time. ",
     "Each part owns its own files, so no two agents write the same one, and what crosses between parts is said beforehand, ",
     "best as Bend laws that each part proves and the others count on. ",
-    "Returns the method and where you stand in the tree. How many parts, how large, and whether to cut at all are yours to judge."])
+    "Returns the method and where you stand in the tree, and puts division_split in front of you from the next step. How many parts, how large, and whether to cut at all are yours to judge."])
 
 def describe_split() -> String:
-  String.concat(["Cut the task you have into parts and run them all now, each as its own agent in this directory. Call `division` first for the method. ",
+  String.concat(["Cut the task you have into parts and run them all now, each as its own agent in this directory. ",
     "Returns when every part is back, with what each said and the result of the check. ",
     "Refused, with the reason, only when two parts would own the same file, a part is handed a file that is not yours, a law is given to two parts, or two parts share a name."])

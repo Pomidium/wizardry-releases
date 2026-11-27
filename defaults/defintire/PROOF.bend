@@ -145,3 +145,9 @@ def Laws.a_tie_changes_nothing(best):
 
 def Laws.kinds_by_word():
   (({==}, {==}), ({==}, {==}))
+
+def Laws.paper_only_is_refused(name, answers, objects, axioms, examples, non_examples, criteria):
+  {==}
+
+def Laws.a_complication_needs_an_outcome(name, answers, objects, axioms, examples, non_examples, criteria, what, others):
+  {==}

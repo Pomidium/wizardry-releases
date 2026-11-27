@@ -1292,3 +1292,27 @@ def minded_step(b: Bool, +base: String, -thought: String) ->
 
 def Laws.a_thought_keeps_the_base(base, thought):
   ({==}, minded_step(String.is_empty(thought), base, thought))
+
+def Laws.never_out_of_reach(behind, names, called, gone):
+  %Equal.sym(Bool, C.has(names, behind), False{}, gone) : {Bool.and(_, Bool.not(C.has(called, behind))) == False{} : Bool}
+  {==}
+
+def and_no(a: Bool) -> {Bool.and(a, False{}) == False{} : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def Laws.calling_opens(behind, names, called, was):
+  %Equal.sym(Bool, C.has(called, behind), True{}, was) : {Bool.and(C.has(names, behind), Bool.not(_)) == False{} : Bool}
+  and_no(C.has(names, behind))
+
+def Laws.loaded_again_is_in_front(bound, known, active):
+  match bound known:
+    case False{} _:
+      {==}
+    case True{} True{}:
+      {==}
+    case True{} False{}:
+      {==}

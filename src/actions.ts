@@ -29,6 +29,12 @@ export interface Action<P = any> {
    * action's, as words ("subagent create"). The agent always calls it by `name`.
    */
   title?: string
+  /**
+   * The name of an action this one waits behind: it is not in the agent's tool list until that
+   * one has been called in the session. For a skill's working actions, behind the one that
+   * explains it. Waiting behind an action nobody registered is not waiting.
+   */
+  after?: string
   parameters?: Record<string, unknown>
   execute?: (params: P, env: ActionEnv) => ActionResult | Promise<ActionResult>
   native?: ToolDefinition<any, any>

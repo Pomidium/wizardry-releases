@@ -784,8 +784,11 @@ def base_prompt(cwd: String, date: String) -> String:
   String.join([
     "You are wizardry, an agent working in a terminal on the user's machine.",
     "",
-    "The user states outcomes. How you reach them is yours to decide.",
+    "The user states outcomes, often loosely, and may never have used a terminal. Act on the likeliest reading and say in a sentence what you took it to mean; ask first only when a wrong guess could not be undone. What only the user knows, leave as a marked blank. Answer in plain words: what now exists and how to use it.",
     "Everything you can do is a tool call. Tools are actions open to you, not procedures you owe anyone: take the ones that serve the outcome and leave the rest. Each comes from a plugin, and you can inspect, load, write and unload plugins while you work. No action waits for approval.",
+    "When nothing you have does what is needed, make it (a script, an install, a plugin you write and load), and remove it afterwards unless it will be needed again. When an approach has failed twice, change the approach, not the wording.",
+    "Independent work runs at the same time: calls in one step, parts given to agents of their own. Work that does not split is not split.",
+    "Done means checked: run what you made, and say what you could not check. Add nothing the outcome does not need.",
     "",
     String.append("Working directory: ", cwd),
     String.append("Date: ", date)], "\n")
@@ -995,9 +998,38 @@ def said_of(messages: List<&2, String>, files: List<&2, String>) -> List<&2, Str
 def restarts_now(wanted: Bool, attached: Bool, tui: Bool, idle: Bool) -> Bool:
   Bool.and(wanted, Bool.and(attached, Bool.and(tui, idle)))
 
-# Whether a tool declared again stays put away: the agent had dropped it with `focus`.
-def stays_away(bound: Bool, known: Bool, active: Bool) -> Bool:
-  Bool.and(bound, Bool.and(known, Bool.not(active)))
+# Actions that wait
+# -----------------
+#
+# An action may name another it waits behind (`after`): it is not in front of the agent until
+# that one has been called. A skill's first action says what the skill is; the ones that do the
+# work, with their long schemas, cost nothing in the sessions that never use the skill.
+type Waits is Data:
+  Waits{name: String, behind: String}
+
+# Whether an action waiting behind `behind` is still put away: the one it waits behind is there
+# to be called, and has not been. One that waits behind nothing, or behind an action nobody
+# registered, is in front: nothing may be out of the agent's reach.
+def waits(+behind: String, names: List<&2, String>, called: List<&2, String>) -> Bool:
+  Bool.and(has(names, behind), Bool.not(has(called, behind)))
+
+# The actions put away, of those registered, given which have been called this session.
+def waiting(ws: List<&2, Waits>, +names: List<&2, String>, +called: List<&2, String>) -> List<&2, String>:
+  match ws:
+    case Nil{}:
+      Nil{}
+    case Con{Waits{name, behind}, t}:
+      keep_if(waits(behind, names, called), name, waiting(t, names, called))
+
+# Whether a tool is in front of the agent once it has been declared (again). One Pi has not
+# seen, or one that comes back after its plugin was unloaded, is in front unless it waits. One
+# Pi knows stays as it was: the agent may have put it away with `focus`, or taken it up.
+def in_front(bound: Bool, known: Bool, active: Bool, returned: Bool, waits: Bool) -> Bool:
+  match bound:
+    case False{}:
+      True{}
+    case True{}:
+      Bool.pick(Bool, Bool.or(Bool.not(known), returned), Bool.not(waits), active)
 
 # The standing instructions a session carries: the last ones the agent wrote on this branch.
 def last_of(xs: List<&2, String>, last: String) -> String:
@@ -1299,6 +1331,7 @@ def shape() -> String:
     "export (dir, wrote): `wizardry export` asks for a copy of what you keep; write <home>/<name>/ into <dir>/<name>/ and call wrote(one line).",
     "Services (ctx.pi, ctx.actions, ctx.plugins) come through a tracing proxy: call their methods, but never patch, subclass or store them.",
     "Everything a plugin registers is removed when it is unloaded.",
+    "An action with `after: \"other\"` stays out of the agent's tool list until `other` has been called: give a skill one short action that explains it, and put the ones with long schemas after it.",
     "The user sees a call named after the plugin, then the action (\"weather forecast\" for weather_forecast); an action can set `title` to name it differently.",
     "Before editing wizardry itself, call cordis_map: the map of the framework you run on."], "\n")
 

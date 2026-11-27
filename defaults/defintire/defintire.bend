@@ -147,12 +147,44 @@ def distinct(xs: List<&2, String>) -> Bool:
     case Con{+h, +t}:
       Bool.and(Bool.not(C.has(t, h)), distinct(t))
 
+# On paper and in reality
+# -----------------------
+#
+# A definition says what holds of a thing. On paper that is under what the definer assumed; in
+# reality the thing meets cases nobody assumed: a file that is not there, a number that is zero,
+# a week that has a holiday in it. A complication is one such case, and its outcome is what the
+# definition says happens then: still an instance, not an instance, or outside what it speaks of.
+# A definition that names none has only been thought about under its own assumptions.
+type Complication is Data:
+  Complication{what: String, outcome: String}
+
+# The outcome is asked for first: a complication that is only named is a worry, not an answer.
+def complication_problems(cs: List<&2, Complication>) -> List<&2, String>:
+  match cs:
+    case Nil{}:
+      Nil{}
+    case Con{Complication{+what, outcome}, t}:
+      List.append(&2, String,
+        List.append(&2, String,
+          say_if(String.is_empty(outcome), String.concat(["complication \"", what, "\" has no outcome: say what happens then (still an instance, not one, or outside the definition)"])),
+          say_if(String.is_empty(what), "a complication does not say what goes otherwise")),
+        complication_problems(t))
+
+# What is missing for a definition to hold off paper, or nothing.
+def reality_problems(cs: List<&2, Complication>) -> List<&2, String>:
+  match cs:
+    case Nil{}:
+      ["name at least one complication: something that goes otherwise in reality than on paper, and what happens then. A definition with none holds only on paper"]
+    case Con{h, t}:
+      complication_problems(h <> t)
+
 # What is missing from a definition, or nothing when it is one. A definition names what it
 # defines and the question it answers, speaks of at least one object, states at least one axiom,
 # shows something that falls under it and something that does not (a definition that excludes
-# nothing defines nothing), and ties at least one number to itself.
-def problems(name: String, answers: String, objects: Nat, axioms: Nat, examples: Nat, non_examples: Nat, +criteria: List<&2, Criterion>) -> List<&2, String>:
-  List.concat(&2, String, [
+# nothing defines nothing), ties at least one number to itself, and says what happens in at
+# least one case that reality brings and paper did not.
+def problems(name: String, answers: String, objects: Nat, axioms: Nat, examples: Nat, non_examples: Nat, +criteria: List<&2, Criterion>, complications: List<&2, Complication>) -> List<&2, String>:
+  List.append(&2, String, reality_problems(complications), List.concat(&2, String, [
     say_if(String.is_empty(name), "name what is being defined"),
     say_if(String.is_empty(answers), "say what question the definition answers: what one could not decide or measure without it"),
     say_if(Nat.is_eq(objects, 0n), "name at least one object the definition speaks of, with its type"),
@@ -161,7 +193,7 @@ def problems(name: String, answers: String, objects: Nat, axioms: Nat, examples:
     say_if(Nat.is_eq(non_examples, 0n), "give at least one non-example: a definition that excludes nothing defines nothing"),
     say_if(List.is_empty(&2, Criterion, criteria), "tie at least one criterion to it, or nothing can be scored against it"),
     say_if(Bool.not(distinct(criterion_names(criteria))), "two criteria have the same name"),
-    criteria_problems(criteria)])
+    criteria_problems(criteria)]))
 
 def not_defined(what: List<&2, String>) -> String:
   String.concat(["Not a definition yet:\n- ", String.join(what, "\n- "), "\nNothing was saved."])
@@ -436,6 +468,13 @@ def axiom_lines(xs: List<&2, Axiom>) -> List<&2, String>:
     case Con{Axiom{name, statement, stipulated}, t}:
       String.concat(["- **(", name, ")** $", statement, "$", Bool.pick(String, stipulated, " *(stipulated: a choice, not a finding)*", "")]) <> axiom_lines(t)
 
+def complication_lines(cs: List<&2, Complication>) -> List<&2, String>:
+  match cs:
+    case Nil{}:
+      Nil{}
+    case Con{Complication{what, outcome}, t}:
+      String.concat(["- **", what, "** → ", outcome]) <> complication_lines(t)
+
 def section(title: String, lines: List<&2, String>) -> List<&2, String>:
   match lines:
     case Nil{}:
@@ -470,7 +509,7 @@ def climbable(+exact: Nat, +proxy: Nat, +judged: Nat) -> String:
 
 # A definition, written out.
 def written(name: String, answers: String, objects: List<&2, Object>, primitives: List<&2, String>, axioms: List<&2, Axiom>,
-  examples: List<&2, String>, non_examples: List<&2, String>, bend: String, criteria: List<&2, Shown>, climb: String) -> String:
+  examples: List<&2, String>, non_examples: List<&2, String>, complications: List<&2, Complication>, bend: String, criteria: List<&2, Shown>, climb: String) -> String:
   String.join(List.concat(&2, String, [
     [String.append("# Definition: ", name), "", String.append("**Answers:** ", answers), ""],
     section("Objects", object_lines(objects)),
@@ -478,6 +517,7 @@ def written(name: String, answers: String, objects: List<&2, Object>, primitives
     section("Axioms", axiom_lines(axioms)),
     section("Examples", C.bulleted(examples)),
     section("Non-examples", C.bulleted(non_examples)),
+    section("In reality (what goes otherwise than on paper, and what happens then)", complication_lines(complications)),
     section("In Bend", code_block(bend)),
     section("Criteria", shown_lines(criteria)),
     [climb, ""]]), "\n")
@@ -632,6 +672,14 @@ def method(hillclimb: String, jacobian: String, home: String, saved: List<&2, St
       "  thing, and for something that plainly is and fails one. Either is a reason to change the definition.",
       "- Where Bend can say it, say it in Bend too (`bend`): a type for the objects, a def or law for an axiom. Then",
       "  whether something is an instance is a check, not an opinion.",
+      "- On paper and in reality (`complications`, required): list the cases reality brings that the definition did",
+      "  not assume (the input that is missing, empty, zero or late; the estimate that is wrong), each with its",
+      "  outcome: still an instance, not one, or outside what the definition speaks of. With none, it is refused.",
+      "- Close the cases with a proof where you can: a Bend type with one constructor per case and one for everything",
+      "  else, the outcome as a def on it, and a law `for c: Case`. The proof must answer every constructor. It cannot",
+      "  show that the type lists every case the world has: hence the catch-all, and the list kept to be added to.",
+      "- Let criteria run on the real thing, and answer for the complications: a missing file reads as the worst",
+      "  score, not as an error nobody sees.",
       "",
       "2. Make it quantitative: criteria",
       "- A criterion ties a number to an axiom or to the definition's purpose: a name, a statement in notation, a",
@@ -665,10 +713,10 @@ def method(hillclimb: String, jacobian: String, home: String, saved: List<&2, St
 def describe() -> String:
   String.concat(["The defintire skill: turn anything, mathematical or not, into an explicit formal definition (objects, axioms, examples and non-examples, in ",
     "mathematical notation and in Bend where Bend can say it), tie numbers to it, and improve things against it. ",
-    "Returns the method, which tools for it are on this machine, and the definitions kept so far. Call it before defining, measuring or climbing."])
+    "Returns the method, which tools for it are on this machine, and the definitions kept so far. Calling it puts defintire_define, defintire_measure, defintire_rank and defintire_climb in front of you, from the next step."])
 
 def describe_define() -> String:
-  "Keep a definition: what is defined, the question it answers, its objects, axioms, examples, non-examples, and the criteria that score things against it. Call `defintire` first for the method. Refused, with what is missing, when it is not yet a definition."
+  "Keep a definition: what is defined, the question it answers, its objects, axioms, examples, non-examples, the complications (what goes otherwise in reality than on paper, and what happens then) and the criteria that score things against it. Refused, with what is missing, when it is not yet a definition."
 
 def describe_measure() -> String:
   "Score a candidate (a file, or text) against a kept definition, out of 100, criterion by criterion. Says whether the score is verified (every criterion exact), estimated or partial."
@@ -785,5 +833,5 @@ def known_part(known: List<&2, Known>) -> List<&2, String>:
 # wizardry lets it in by name and cuts it short; every other plugin reaches the agent by actions.
 def mind(known: List<&2, Known>) -> String:
   String.join(List.append(&2, String, [
-    "A habit you keep (from defintire): when what you are asked to make, judge or improve is vague, say what it is before you work on it — the things it speaks of, the condition that must hold of them, and one thing that fails it. When something is called better, name the number that would show it. Keep this to a line or two unless asked for more; `defintire` holds the full method."],
+    "A habit you keep (from defintire): when what you are asked to make, judge or improve is vague, say what it is before you work on it — the things it speaks of, the condition that must hold of them, and one thing that fails it. Then leave the paper: name what could go otherwise in reality (the missing, the empty, the late, the wrong estimate) and what happens then, so that every case ends in an outcome. When something is called better, name the number that would show it. Keep this to a line or two unless asked for more; `defintire` holds the full method."],
     known_part(known)), "\n")

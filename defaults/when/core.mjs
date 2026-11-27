@@ -1141,7 +1141,7 @@ function $______bend_core_described(_description_0, _notes_0) {
 }
 
 function $______bend_core_base_prompt(_cwd_0, _date_0) {
-  return $String_join({$: "Con", "head": "You are wizardry, an agent working in a terminal on the user's machine.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "The user states outcomes. How you reach them is yours to decide.", "tail": {$: "Con", "head": "Everything you can do is a tool call. Tools are actions open to you, not procedures you owe anyone: take the ones that serve the outcome and leave the rest. Each comes from a plugin, and you can inspect, load, write and unload plugins while you work. No action waits for approval.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("Working directory: " + _cwd_0), "tail": {$: "Con", "head": ("Date: " + _date_0), "tail": {$: "Nil"}}}}}}}}, "\n");
+  return $String_join({$: "Con", "head": "You are wizardry, an agent working in a terminal on the user's machine.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "The user states outcomes, often loosely, and may never have used a terminal. Act on the likeliest reading and say in a sentence what you took it to mean; ask first only when a wrong guess could not be undone. What only the user knows, leave as a marked blank. Answer in plain words: what now exists and how to use it.", "tail": {$: "Con", "head": "Everything you can do is a tool call. Tools are actions open to you, not procedures you owe anyone: take the ones that serve the outcome and leave the rest. Each comes from a plugin, and you can inspect, load, write and unload plugins while you work. No action waits for approval.", "tail": {$: "Con", "head": "When nothing you have does what is needed, make it (a script, an install, a plugin you write and load), and remove it afterwards unless it will be needed again. When an approach has failed twice, change the approach, not the wording.", "tail": {$: "Con", "head": "Independent work runs at the same time: calls in one step, parts given to agents of their own. Work that does not split is not split.", "tail": {$: "Con", "head": "Done means checked: run what you made, and say what you could not check. Add nothing the outcome does not need.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("Working directory: " + _cwd_0), "tail": {$: "Con", "head": ("Date: " + _date_0), "tail": {$: "Nil"}}}}}}}}}}}, "\n");
 }
 
 function $______bend_core_system_prompt(_base_0, _identity_0) {
@@ -1354,8 +1354,29 @@ function $______bend_core_restarts_now(_wanted_0, _attached_0, _tui_0, _idle_0) 
   return $Bool_and(_wanted_0, $$Bool_and(_attached_0, $$Bool_and(_tui_0, _idle_0)));
 }
 
-function $______bend_core_stays_away(_bound_0, _known_0, _active_0) {
-  return $Bool_and(_bound_0, $$Bool_and(_known_0, $$Bool_not(_active_0)));
+function $______bend_core_waits(_behind_0, _names_0, _called_0) {
+  return $Bool_and($$______bend_core_has(_names_0, _behind_0), $$Bool_not($$______bend_core_has(_called_0, _behind_0)));
+}
+
+function $______bend_core_waiting(_ws_0, _names_0, _called_0) {
+  if (_ws_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _ws_0["head"];
+    const _name_0 = _t_0["name"];
+    const _behind_0 = _t_0["behind"];
+    const _t_1 = _ws_0["tail"];
+    return $______bend_core_keep_if($$______bend_core_waits(_behind_0, _names_0, _called_0), _name_0, $$______bend_core_waiting(_t_1, _names_0, _called_0));
+  }
+}
+
+function $______bend_core_in_front(_bound_0, _known_0, _active_0, _returned_0, _waits_0) {
+  if (!_bound_0) {
+    return true;
+  } else {
+    const _x_0 = $$Bool_not(_known_0);
+    return $Bool_pick((_x_0 || _returned_0), $$Bool_not(_waits_0), _active_0);
+  }
 }
 
 function $______bend_core_last_of($0, $1) {
@@ -1699,7 +1720,7 @@ function $______bend_core_indented(_rows_0) {
 }
 
 function $______bend_core_shape() {
-  return $String_join({$: "Con", "head": "A plugin is a .ts or .js file. The smallest one needs no imports:", "tail": {$: "Con", "head": "  export const name = \"weather\"", "tail": {$: "Con", "head": "  export const actions = [{", "tail": {$: "Con", "head": "    name: \"weather\", description: \"Current weather for a city.\",", "tail": {$: "Con", "head": "    parameters: { type: \"object\", properties: { city: { type: \"string\" } }, required: [\"city\"] },", "tail": {$: "Con", "head": "    async execute({ city }, env) { return \"text for the agent\" },   // env: { cwd, signal, update(text), pi (ExtensionContext) }", "tail": {$: "Con", "head": "  }]", "tail": {$: "Con", "head": "For lifecycle or services, export `apply(ctx, config)` (or a default function/class) and use the Cordis context:", "tail": {$: "Con", "head": "ctx.actions.register(action), ctx.on(event, listener), ctx.provide(name, value), `export const inject = [...]`.", "tail": {$: "Con", "head": "ctx.effect(setup) runs setup IMMEDIATELY and keeps its return value as the cleanup on unload; passing the cleanup itself undoes the setup at once.", "tail": {$: "Con", "head": "Events: action/registered, action/changed, action/unregistered, action/before (return a string to refuse the call), action/after, task/end,", "tail": {$: "Con", "head": "pi/ready (Pi's ExtensionAPI is live), pi/session-start (api, piCtx; per-session choices go here: api.setModel, api.setThinkingLevel).", "tail": {$: "Con", "head": "export (dir, wrote): `wizardry export` asks for a copy of what you keep; write <home>/<name>/ into <dir>/<name>/ and call wrote(one line).", "tail": {$: "Con", "head": "Services (ctx.pi, ctx.actions, ctx.plugins) come through a tracing proxy: call their methods, but never patch, subclass or store them.", "tail": {$: "Con", "head": "Everything a plugin registers is removed when it is unloaded.", "tail": {$: "Con", "head": "The user sees a call named after the plugin, then the action (\"weather forecast\" for weather_forecast); an action can set `title` to name it differently.", "tail": {$: "Con", "head": "Before editing wizardry itself, call cordis_map: the map of the framework you run on.", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}, "\n");
+  return $String_join({$: "Con", "head": "A plugin is a .ts or .js file. The smallest one needs no imports:", "tail": {$: "Con", "head": "  export const name = \"weather\"", "tail": {$: "Con", "head": "  export const actions = [{", "tail": {$: "Con", "head": "    name: \"weather\", description: \"Current weather for a city.\",", "tail": {$: "Con", "head": "    parameters: { type: \"object\", properties: { city: { type: \"string\" } }, required: [\"city\"] },", "tail": {$: "Con", "head": "    async execute({ city }, env) { return \"text for the agent\" },   // env: { cwd, signal, update(text), pi (ExtensionContext) }", "tail": {$: "Con", "head": "  }]", "tail": {$: "Con", "head": "For lifecycle or services, export `apply(ctx, config)` (or a default function/class) and use the Cordis context:", "tail": {$: "Con", "head": "ctx.actions.register(action), ctx.on(event, listener), ctx.provide(name, value), `export const inject = [...]`.", "tail": {$: "Con", "head": "ctx.effect(setup) runs setup IMMEDIATELY and keeps its return value as the cleanup on unload; passing the cleanup itself undoes the setup at once.", "tail": {$: "Con", "head": "Events: action/registered, action/changed, action/unregistered, action/before (return a string to refuse the call), action/after, task/end,", "tail": {$: "Con", "head": "pi/ready (Pi's ExtensionAPI is live), pi/session-start (api, piCtx; per-session choices go here: api.setModel, api.setThinkingLevel).", "tail": {$: "Con", "head": "export (dir, wrote): `wizardry export` asks for a copy of what you keep; write <home>/<name>/ into <dir>/<name>/ and call wrote(one line).", "tail": {$: "Con", "head": "Services (ctx.pi, ctx.actions, ctx.plugins) come through a tracing proxy: call their methods, but never patch, subclass or store them.", "tail": {$: "Con", "head": "Everything a plugin registers is removed when it is unloaded.", "tail": {$: "Con", "head": "An action with `after: \"other\"` stays out of the agent's tool list until `other` has been called: give a skill one short action that explains it, and put the ones with long schemas after it.", "tail": {$: "Con", "head": "The user sees a call named after the plugin, then the action (\"weather forecast\" for weather_forecast); an action can set `title` to name it differently.", "tail": {$: "Con", "head": "Before editing wizardry itself, call cordis_map: the map of the framework you run on.", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}}, "\n");
 }
 
 function $______bend_core_inspect_text(_lines_0, _idle_0) {
@@ -3379,6 +3400,8 @@ const $$______bend_core_moved_list = $______bend_core_moved_list;
 const $$______bend_core_listing_actions = $______bend_core_listing_actions;
 const $$______bend_core_at_file = $______bend_core_at_file;
 const $$______bend_core_at_files = $______bend_core_at_files;
+const $$______bend_core_waits = $______bend_core_waits;
+const $$______bend_core_waiting = $______bend_core_waiting;
 const $$______bend_core_completions_go = $______bend_core_completions_go;
 const $$String_trim = $String_trim;
 const $$______bend_core_think_levels = $______bend_core_think_levels;
@@ -3624,7 +3647,9 @@ const $$String_join_go = $String_join_go;export default {
   "../../bend/core:at_files": run_lib((a0) => run_loop($______bend_core_at_files(a0)), 1),
   "../../bend/core:said_of": run_lib((a0,a1) => run_loop($______bend_core_said_of(a0,a1)), 2),
   "../../bend/core:restarts_now": run_lib((a0,a1,a2,a3) => run_loop($______bend_core_restarts_now(a0,a1,a2,a3)), 4),
-  "../../bend/core:stays_away": run_lib((a0,a1,a2) => run_loop($______bend_core_stays_away(a0,a1,a2)), 3),
+  "../../bend/core:waits": run_lib((a0,a1,a2) => run_loop($______bend_core_waits(str_in(a0),a1,a2)), 3),
+  "../../bend/core:waiting": run_lib((a0,a1,a2) => run_loop($______bend_core_waiting(a0,a1,a2)), 3),
+  "../../bend/core:in_front": run_lib((a0,a1,a2,a3,a4) => run_loop($______bend_core_in_front(a0,a1,a2,a3,a4)), 5),
   "../../bend/core:last_of": run_lib((a0,a1) => str_out(run_loop($______bend_core_last_of(a0,str_in(a1)))), 2),
   "../../bend/core:last_identity": run_lib((a0) => str_out(run_loop($______bend_core_last_identity(a0))), 1),
   "../../bend/core:tidy": run_lib((a0) => str_out(run_loop($______bend_core_tidy(str_in(a0)))), 1),

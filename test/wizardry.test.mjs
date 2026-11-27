@@ -892,3 +892,84 @@ test('/default makes this session\'s model, thinking level and plugins what the 
   assert.deepEqual(third.plugins.list().map((plugin) => plugin.name).sort(), ['cordis', 'echo', 'extra', 'fs', 'gate', 'pi', 'shell'])
   await third.root.fiber.dispose()
 })
+
+/** Pi's tool list as wizardry counts on it: a tool it has not seen is in front, one it knows stays where it was. */
+function fakeTools() {
+  const all = new Map()
+  let active = []
+  const handlers = {}
+  return {
+    handlers,
+    front: () => [...active].sort(),
+    api: {
+      registerTool(tool) { if (!all.has(tool.name)) active.push(tool.name); all.set(tool.name, tool) },
+      registerCommand() {}, on: (event, handler) => { handlers[event] = handler },
+      getAllTools: () => [...all.values()], getActiveTools: () => [...active], setActiveTools: (names) => { active = [...new Set(names)] },
+    },
+  }
+}
+
+test('an action that waits behind another is out of the tool list until that one is called', async () => {
+  const { home, cwd } = scratch()
+  const { root, plugins } = await boot({ home, cwd, defaults: ['pi', 'cordis'] })
+  const skill = join(cwd, 'skill.mjs')
+  writeFileSync(skill, `export const name = 'skill'
+export const actions = [
+  { name: 'skill', description: 'What the skill is.', execute: () => 'the method' },
+  { name: 'skill_do', after: 'skill', description: 'Its work.', execute: () => 'done' },
+  { name: 'orphan', after: 'nobody', description: 'Waits behind nothing that is there.', execute: () => 'here' }]`)
+  await plugins.load(skill)
+  const { api, handlers, front } = fakeTools()
+  root.get('pi').attach(api)
+  const session = { cwd, mode: 'json', sessionManager: { getBranch: () => [] } }
+  handlers.session_start({}, session)
+  assert.ok(!front().includes('skill_do'), 'put away at the start')
+  assert.ok(front().includes('skill') && front().includes('orphan'), 'nothing is out of reach')
+
+  // Calling the first brings the rest, and a wrap added to it later does not put it away again.
+  const tool = (name) => api.getAllTools().find((each) => each.name === name)
+  await tool('skill').execute('1', {}, undefined, undefined, session)
+  assert.ok(front().includes('skill_do'))
+  const wrapper = join(cwd, 'wrapper.mjs')
+  writeFileSync(wrapper, `export const name = 'wrapper'\nexport function apply(ctx) { ctx.actions.wrap('skill_do', { note: 'Wrapped.' }) }`)
+  await plugins.load(wrapper)
+  assert.ok(front().includes('skill_do'))
+  assert.match(tool('skill_do').description, /Wrapped\./)
+
+  // A plugin loaded while the session runs waits too; a new session starts with nothing called.
+  const late = join(cwd, 'late.mjs')
+  writeFileSync(late, `export const name = 'late'\nexport const actions = [{ name: 'late_do', after: 'cordis_inspect', description: 'Late.', execute: () => 'late' }]`)
+  await plugins.load(late)
+  assert.ok(!front().includes('late_do'))
+  handlers.session_start({}, session)
+  assert.ok(!front().includes('skill_do') && !front().includes('late_do'))
+  await root.fiber.dispose()
+})
+
+test('a plugin unloaded and loaded again has its actions in front of the agent; one put away with focus stays away', async () => {
+  const { home, cwd } = scratch()
+  const { root, plugins } = await boot({ home, cwd, defaults: ['pi', 'cordis', 'self'] })
+  const file = join(cwd, 'echo.ts')
+  writeFileSync(file, pluginSource('one:'))
+  await plugins.load(file)
+  const { api, handlers, front } = fakeTools()
+  root.get('pi').attach(api)
+  handlers.session_start({}, { cwd, mode: 'json', sessionManager: { getBranch: () => [] } })
+  const actions = root.get('actions')
+  assert.ok(front().includes('echo'))
+
+  await actions.invoke('plugin_unload', { name: 'echo' }, { cwd })
+  assert.ok(!front().includes('echo'))
+  await actions.invoke('plugin_load', { source: file }, { cwd })
+  assert.ok(front().includes('echo'), 'plugin_load says its actions are available on the next step')
+  await actions.invoke('plugin_reload', { name: 'echo' }, { cwd })
+  assert.ok(front().includes('echo'))
+
+  // What the agent put away itself stays away when the action is declared again.
+  await actions.invoke('focus', { drop: ['echo'] }, { cwd })
+  const wrapper = join(cwd, 'wrapper.mjs')
+  writeFileSync(wrapper, `export const name = 'wrapper'\nexport function apply(ctx) { ctx.actions.wrap('echo', { note: 'Wrapped.' }) }`)
+  await plugins.load(wrapper)
+  assert.ok(!front().includes('echo'))
+  await root.fiber.dispose()
+})

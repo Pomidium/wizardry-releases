@@ -36,7 +36,8 @@
 
 import { spawn } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { homedir } from 'node:os'
+import { delimiter, isAbsolute, join, relative, resolve } from 'node:path'
 import bend from './core.mjs'
 
 export const name = 'division'
@@ -151,6 +152,9 @@ export const halfArgs = (cfg, sessionModel, sessionThinking) => core.halfArgs(cf
 // ---- running ---------------------------------------------------------------------------------
 
 /** Run a command and resolve with how it ended and what it printed. Never rejects. */
+/** The environment the check runs in: Bend's installer puts `bend` in ~/.bend/bin and not on PATH. */
+const withBend = () => ({ ...process.env, PATH: `${process.env.PATH ?? ''}${delimiter}${join(process.env.BEND_HOME || join(homedir(), '.bend'), 'bin')}` })
+
 function run(command, args, { cwd, env, timeoutMs, signal, shell }) {
   return new Promise((done) => {
     const started = Date.now()
@@ -318,6 +322,7 @@ export function apply(ctx, config) {
 
   ctx.actions.register({
     name: 'division_split',
+    after: 'division',
     title: 'division split',
     description: core.describeSplit(),
     parameters: {
@@ -388,7 +393,7 @@ export function apply(ctx, config) {
       if (env.signal?.aborted) return core.stoppedEarly()
 
       const checked = command
-        ? await run(command, [], { cwd: root, env: process.env, timeoutMs: 10 * 60_000, signal: env.signal, shell: true })
+        ? await run(command, [], { cwd: root, env: withBend(), timeoutMs: 10 * 60_000, signal: env.signal, shell: true })
         : { code: 0, out: '', err: '', ms: 0 }
       const said = `${checked.out}\n${checked.err}`.trim()
       // Whether the parts fit, and what is said of each, is decided in Bend (division.bend).

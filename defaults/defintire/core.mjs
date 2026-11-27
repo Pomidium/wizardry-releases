@@ -1141,7 +1141,7 @@ function $______bend_core_described(_description_0, _notes_0) {
 }
 
 function $______bend_core_base_prompt(_cwd_0, _date_0) {
-  return $String_join({$: "Con", "head": "You are wizardry, an agent working in a terminal on the user's machine.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "The user states outcomes. How you reach them is yours to decide.", "tail": {$: "Con", "head": "Everything you can do is a tool call. Tools are actions open to you, not procedures you owe anyone: take the ones that serve the outcome and leave the rest. Each comes from a plugin, and you can inspect, load, write and unload plugins while you work. No action waits for approval.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("Working directory: " + _cwd_0), "tail": {$: "Con", "head": ("Date: " + _date_0), "tail": {$: "Nil"}}}}}}}}, "\n");
+  return $String_join({$: "Con", "head": "You are wizardry, an agent working in a terminal on the user's machine.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "The user states outcomes, often loosely, and may never have used a terminal. Act on the likeliest reading and say in a sentence what you took it to mean; ask first only when a wrong guess could not be undone. What only the user knows, leave as a marked blank. Answer in plain words: what now exists and how to use it.", "tail": {$: "Con", "head": "Everything you can do is a tool call. Tools are actions open to you, not procedures you owe anyone: take the ones that serve the outcome and leave the rest. Each comes from a plugin, and you can inspect, load, write and unload plugins while you work. No action waits for approval.", "tail": {$: "Con", "head": "When nothing you have does what is needed, make it (a script, an install, a plugin you write and load), and remove it afterwards unless it will be needed again. When an approach has failed twice, change the approach, not the wording.", "tail": {$: "Con", "head": "Independent work runs at the same time: calls in one step, parts given to agents of their own. Work that does not split is not split.", "tail": {$: "Con", "head": "Done means checked: run what you made, and say what you could not check. Add nothing the outcome does not need.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("Working directory: " + _cwd_0), "tail": {$: "Con", "head": ("Date: " + _date_0), "tail": {$: "Nil"}}}}}}}}}}}, "\n");
 }
 
 function $______bend_core_system_prompt(_base_0, _identity_0) {
@@ -1354,8 +1354,29 @@ function $______bend_core_restarts_now(_wanted_0, _attached_0, _tui_0, _idle_0) 
   return $Bool_and(_wanted_0, $$Bool_and(_attached_0, $$Bool_and(_tui_0, _idle_0)));
 }
 
-function $______bend_core_stays_away(_bound_0, _known_0, _active_0) {
-  return $Bool_and(_bound_0, $$Bool_and(_known_0, $$Bool_not(_active_0)));
+function $______bend_core_waits(_behind_0, _names_0, _called_0) {
+  return $Bool_and($$______bend_core_has(_names_0, _behind_0), $$Bool_not($$______bend_core_has(_called_0, _behind_0)));
+}
+
+function $______bend_core_waiting(_ws_0, _names_0, _called_0) {
+  if (_ws_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _ws_0["head"];
+    const _name_0 = _t_0["name"];
+    const _behind_0 = _t_0["behind"];
+    const _t_1 = _ws_0["tail"];
+    return $______bend_core_keep_if($$______bend_core_waits(_behind_0, _names_0, _called_0), _name_0, $$______bend_core_waiting(_t_1, _names_0, _called_0));
+  }
+}
+
+function $______bend_core_in_front(_bound_0, _known_0, _active_0, _returned_0, _waits_0) {
+  if (!_bound_0) {
+    return true;
+  } else {
+    const _x_0 = $$Bool_not(_known_0);
+    return $Bool_pick((_x_0 || _returned_0), $$Bool_not(_waits_0), _active_0);
+  }
 }
 
 function $______bend_core_last_of($0, $1) {
@@ -1699,7 +1720,7 @@ function $______bend_core_indented(_rows_0) {
 }
 
 function $______bend_core_shape() {
-  return $String_join({$: "Con", "head": "A plugin is a .ts or .js file. The smallest one needs no imports:", "tail": {$: "Con", "head": "  export const name = \"weather\"", "tail": {$: "Con", "head": "  export const actions = [{", "tail": {$: "Con", "head": "    name: \"weather\", description: \"Current weather for a city.\",", "tail": {$: "Con", "head": "    parameters: { type: \"object\", properties: { city: { type: \"string\" } }, required: [\"city\"] },", "tail": {$: "Con", "head": "    async execute({ city }, env) { return \"text for the agent\" },   // env: { cwd, signal, update(text), pi (ExtensionContext) }", "tail": {$: "Con", "head": "  }]", "tail": {$: "Con", "head": "For lifecycle or services, export `apply(ctx, config)` (or a default function/class) and use the Cordis context:", "tail": {$: "Con", "head": "ctx.actions.register(action), ctx.on(event, listener), ctx.provide(name, value), `export const inject = [...]`.", "tail": {$: "Con", "head": "ctx.effect(setup) runs setup IMMEDIATELY and keeps its return value as the cleanup on unload; passing the cleanup itself undoes the setup at once.", "tail": {$: "Con", "head": "Events: action/registered, action/changed, action/unregistered, action/before (return a string to refuse the call), action/after, task/end,", "tail": {$: "Con", "head": "pi/ready (Pi's ExtensionAPI is live), pi/session-start (api, piCtx; per-session choices go here: api.setModel, api.setThinkingLevel).", "tail": {$: "Con", "head": "export (dir, wrote): `wizardry export` asks for a copy of what you keep; write <home>/<name>/ into <dir>/<name>/ and call wrote(one line).", "tail": {$: "Con", "head": "Services (ctx.pi, ctx.actions, ctx.plugins) come through a tracing proxy: call their methods, but never patch, subclass or store them.", "tail": {$: "Con", "head": "Everything a plugin registers is removed when it is unloaded.", "tail": {$: "Con", "head": "The user sees a call named after the plugin, then the action (\"weather forecast\" for weather_forecast); an action can set `title` to name it differently.", "tail": {$: "Con", "head": "Before editing wizardry itself, call cordis_map: the map of the framework you run on.", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}, "\n");
+  return $String_join({$: "Con", "head": "A plugin is a .ts or .js file. The smallest one needs no imports:", "tail": {$: "Con", "head": "  export const name = \"weather\"", "tail": {$: "Con", "head": "  export const actions = [{", "tail": {$: "Con", "head": "    name: \"weather\", description: \"Current weather for a city.\",", "tail": {$: "Con", "head": "    parameters: { type: \"object\", properties: { city: { type: \"string\" } }, required: [\"city\"] },", "tail": {$: "Con", "head": "    async execute({ city }, env) { return \"text for the agent\" },   // env: { cwd, signal, update(text), pi (ExtensionContext) }", "tail": {$: "Con", "head": "  }]", "tail": {$: "Con", "head": "For lifecycle or services, export `apply(ctx, config)` (or a default function/class) and use the Cordis context:", "tail": {$: "Con", "head": "ctx.actions.register(action), ctx.on(event, listener), ctx.provide(name, value), `export const inject = [...]`.", "tail": {$: "Con", "head": "ctx.effect(setup) runs setup IMMEDIATELY and keeps its return value as the cleanup on unload; passing the cleanup itself undoes the setup at once.", "tail": {$: "Con", "head": "Events: action/registered, action/changed, action/unregistered, action/before (return a string to refuse the call), action/after, task/end,", "tail": {$: "Con", "head": "pi/ready (Pi's ExtensionAPI is live), pi/session-start (api, piCtx; per-session choices go here: api.setModel, api.setThinkingLevel).", "tail": {$: "Con", "head": "export (dir, wrote): `wizardry export` asks for a copy of what you keep; write <home>/<name>/ into <dir>/<name>/ and call wrote(one line).", "tail": {$: "Con", "head": "Services (ctx.pi, ctx.actions, ctx.plugins) come through a tracing proxy: call their methods, but never patch, subclass or store them.", "tail": {$: "Con", "head": "Everything a plugin registers is removed when it is unloaded.", "tail": {$: "Con", "head": "An action with `after: \"other\"` stays out of the agent's tool list until `other` has been called: give a skill one short action that explains it, and put the ones with long schemas after it.", "tail": {$: "Con", "head": "The user sees a call named after the plugin, then the action (\"weather forecast\" for weather_forecast); an action can set `title` to name it differently.", "tail": {$: "Con", "head": "Before editing wizardry itself, call cordis_map: the map of the framework you run on.", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}}, "\n");
 }
 
 function $______bend_core_inspect_text(_lines_0, _idle_0) {
@@ -2462,8 +2483,30 @@ function $distinct(_xs_0) {
   }
 }
 
-function $problems(_name_0, _answers_0, _objects_0, _axioms_0, _examples_0, _non_examples_0, _criteria_0) {
-  return $List_concat({$: "Con", "head": $$say_if($$String_is_empty(_name_0), "name what is being defined"), "tail": {$: "Con", "head": $$say_if($$String_is_empty(_answers_0), "say what question the definition answers: what one could not decide or measure without it"), "tail": {$: "Con", "head": $$say_if($$Nat_is_eq(_objects_0, 0), "name at least one object the definition speaks of, with its type"), "tail": {$: "Con", "head": $$say_if($$Nat_is_eq(_axioms_0, 0), "state at least one axiom: a condition that holds of exactly the things defined"), "tail": {$: "Con", "head": $$say_if($$Nat_is_eq(_examples_0, 0), "give at least one example that falls under the definition"), "tail": {$: "Con", "head": $$say_if($$Nat_is_eq(_non_examples_0, 0), "give at least one non-example: a definition that excludes nothing defines nothing"), "tail": {$: "Con", "head": $$say_if($$List_is_empty(_criteria_0), "tie at least one criterion to it, or nothing can be scored against it"), "tail": {$: "Con", "head": $$say_if($$Bool_not($$distinct($$criterion_names(_criteria_0))), "two criteria have the same name"), "tail": {$: "Con", "head": $$criteria_problems(_criteria_0), "tail": {$: "Nil"}}}}}}}}}});
+function $complication_problems(_cs_0) {
+  if (_cs_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _cs_0["head"];
+    const _what_0 = _t_0["what"];
+    const _outcome_0 = _t_0["outcome"];
+    const _t_1 = _cs_0["tail"];
+    return $List_append($$List_append($$say_if($$String_is_empty(_outcome_0), $$String_concat({$: "Con", "head": "complication \"", "tail": {$: "Con", "head": _what_0, "tail": {$: "Con", "head": "\" has no outcome: say what happens then (still an instance, not one, or outside the definition)", "tail": {$: "Nil"}}}})), $$say_if($$String_is_empty(_what_0), "a complication does not say what goes otherwise")), $$complication_problems(_t_1));
+  }
+}
+
+function $reality_problems(_cs_0) {
+  if (_cs_0.$ === "Nil") {
+    return {$: "Con", "head": "name at least one complication: something that goes otherwise in reality than on paper, and what happens then. A definition with none holds only on paper", "tail": {$: "Nil"}};
+  } else {
+    const _h_0 = _cs_0["head"];
+    const _t_0 = _cs_0["tail"];
+    return $complication_problems({$: "Con", "head": _h_0, "tail": _t_0});
+  }
+}
+
+function $problems(_name_0, _answers_0, _objects_0, _axioms_0, _examples_0, _non_examples_0, _criteria_0, _complications_0) {
+  return $List_append($$reality_problems(_complications_0), $$List_concat({$: "Con", "head": $$say_if($$String_is_empty(_name_0), "name what is being defined"), "tail": {$: "Con", "head": $$say_if($$String_is_empty(_answers_0), "say what question the definition answers: what one could not decide or measure without it"), "tail": {$: "Con", "head": $$say_if($$Nat_is_eq(_objects_0, 0), "name at least one object the definition speaks of, with its type"), "tail": {$: "Con", "head": $$say_if($$Nat_is_eq(_axioms_0, 0), "state at least one axiom: a condition that holds of exactly the things defined"), "tail": {$: "Con", "head": $$say_if($$Nat_is_eq(_examples_0, 0), "give at least one example that falls under the definition"), "tail": {$: "Con", "head": $$say_if($$Nat_is_eq(_non_examples_0, 0), "give at least one non-example: a definition that excludes nothing defines nothing"), "tail": {$: "Con", "head": $$say_if($$List_is_empty(_criteria_0), "tie at least one criterion to it, or nothing can be scored against it"), "tail": {$: "Con", "head": $$say_if($$Bool_not($$distinct($$criterion_names(_criteria_0))), "two criteria have the same name"), "tail": {$: "Con", "head": $$criteria_problems(_criteria_0), "tail": {$: "Nil"}}}}}}}}}}));
 }
 
 function $not_defined(_what_0) {
@@ -2817,6 +2860,18 @@ function $axiom_lines(_xs_0) {
   }
 }
 
+function $complication_lines(_cs_0) {
+  if (_cs_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _t_0 = _cs_0["head"];
+    const _what_0 = _t_0["what"];
+    const _outcome_0 = _t_0["outcome"];
+    const _t_1 = _cs_0["tail"];
+    return {$: "Con", "head": $$String_concat({$: "Con", "head": "- **", "tail": {$: "Con", "head": _what_0, "tail": {$: "Con", "head": "** → ", "tail": {$: "Con", "head": _outcome_0, "tail": {$: "Nil"}}}}}), "tail": $$complication_lines(_t_1)};
+  }
+}
+
 function $section(_title_0, _lines_0) {
   if (_lines_0.$ === "Nil") {
     return {$: "Nil"};
@@ -2860,8 +2915,8 @@ function $climbable(_exact_0, _proxy_0, _judged_0) {
   return $String_concat({$: "Con", "head": "Hill-climbable: ", "tail": {$: "Con", "head": $$share(_exact_0, _all_0), "tail": {$: "Con", "head": " of the weight is exact, ", "tail": {$: "Con", "head": $$share(_proxy_0, _all_0), "tail": {$: "Con", "head": " proxy, ", "tail": {$: "Con", "head": $$share(_judged_0, _all_0), "tail": {$: "Con", "head": " judged. Only a score with every criterion exact is called verified.", "tail": {$: "Nil"}}}}}}}});
 }
 
-function $written(_name_0, _answers_0, _objects_0, _primitives_0, _axioms_0, _examples_0, _non_examples_0, _bend_0, _criteria_0, _climb_0) {
-  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": ("# Definition: " + _name_0), "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("**Answers:** " + _answers_0), "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}}, "tail": {$: "Con", "head": $$section("Objects", $$object_lines(_objects_0)), "tail": {$: "Con", "head": $$section("Primitives (left undefined)", $$______bend_core_bulleted(_primitives_0)), "tail": {$: "Con", "head": $$section("Axioms", $$axiom_lines(_axioms_0)), "tail": {$: "Con", "head": $$section("Examples", $$______bend_core_bulleted(_examples_0)), "tail": {$: "Con", "head": $$section("Non-examples", $$______bend_core_bulleted(_non_examples_0)), "tail": {$: "Con", "head": $$section("In Bend", $$code_block(_bend_0)), "tail": {$: "Con", "head": $$section("Criteria", $$shown_lines(_criteria_0)), "tail": {$: "Con", "head": {$: "Con", "head": _climb_0, "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}, "tail": {$: "Nil"}}}}}}}}}}), "\n");
+function $written(_name_0, _answers_0, _objects_0, _primitives_0, _axioms_0, _examples_0, _non_examples_0, _complications_0, _bend_0, _criteria_0, _climb_0) {
+  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": ("# Definition: " + _name_0), "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": ("**Answers:** " + _answers_0), "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}}, "tail": {$: "Con", "head": $$section("Objects", $$object_lines(_objects_0)), "tail": {$: "Con", "head": $$section("Primitives (left undefined)", $$______bend_core_bulleted(_primitives_0)), "tail": {$: "Con", "head": $$section("Axioms", $$axiom_lines(_axioms_0)), "tail": {$: "Con", "head": $$section("Examples", $$______bend_core_bulleted(_examples_0)), "tail": {$: "Con", "head": $$section("Non-examples", $$______bend_core_bulleted(_non_examples_0)), "tail": {$: "Con", "head": $$section("In reality (what goes otherwise than on paper, and what happens then)", $$complication_lines(_complications_0)), "tail": {$: "Con", "head": $$section("In Bend", $$code_block(_bend_0)), "tail": {$: "Con", "head": $$section("Criteria", $$shown_lines(_criteria_0)), "tail": {$: "Con", "head": {$: "Con", "head": _climb_0, "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}, "tail": {$: "Nil"}}}}}}}}}}}), "\n");
 }
 
 function $defined(_name_0, _folder_0, _text_0) {
@@ -2977,15 +3032,15 @@ function $saved_lines(_saved_0) {
 }
 
 function $method(_hillclimb_0, _jacobian_0, _home_0, _saved_0) {
-  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": "DEFINTIRE: say what a thing is, in mathematical form, so that it can be measured and then improved.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "It works for anything: a mathematical object, a good commit message, a fair schedule, a fast parser.", "tail": {$: "Con", "head": "A definition turns the word into objects and axioms; criteria turn the axioms into numbers; a number can be climbed.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "1. Define (`defintire_define`)", "tail": {$: "Con", "head": "- Start from the question the definition answers: what could nobody decide or measure without it? A definition", "tail": {$: "Con", "head": "  that answers no question is a description.", "tail": {$: "Con", "head": "- Objects: the things it speaks of, each with a symbol and a type ($m$ : String, $G = (V, E)$ : Graph, $f : X \\to \\mathbb{R}$).", "tail": {$: "Con", "head": "- Primitives: what is left undefined on purpose. Every definition stops somewhere; say where.", "tail": {$: "Con", "head": "- Axioms: conditions in notation, each holding of exactly the things defined ($|s(m)| \\le 72$, $\\forall x \\in X.\\ f(x) \\ge 0$).", "tail": {$: "Con", "head": "  Outside mathematics most axioms are choices: mark those `stipulated`, so that a choice is not read as a finding.", "tail": {$: "Con", "head": "- Examples and non-examples, and near misses above all: the thing that fails one axiom and no other is what", "tail": {$: "Con", "head": "  shows that axiom is needed. If no non-example can be found for an axiom, drop the axiom.", "tail": {$: "Con", "head": "- Try to break it before you keep it: look for something that satisfies every axiom and plainly is not the", "tail": {$: "Con", "head": "  thing, and for something that plainly is and fails one. Either is a reason to change the definition.", "tail": {$: "Con", "head": "- Where Bend can say it, say it in Bend too (`bend`): a type for the objects, a def or law for an axiom. Then", "tail": {$: "Con", "head": "  whether something is an instance is a check, not an opinion.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "2. Make it quantitative: criteria", "tail": {$: "Con", "head": "- A criterion ties a number to an axiom or to the definition's purpose: a name, a statement in notation, a", "tail": {$: "Con", "head": "  weight, the readings that count as worst and best, and how the reading is taken.", "tail": {$: "Con", "head": "- exact: a command computes the very quantity (a count, a test passing, a proof checking). Prefer these.", "tail": {$: "Con", "head": "- proxy: a command computes a stand-in (a readability formula for clarity). Say what it stands in for.", "tail": {$: "Con", "head": "- judged: a model reads the candidate against a rubric and gives 0 to 100. Use it for what no script reaches,", "tail": {$: "Con", "head": "  and write the rubric so that two judges would agree: what 0 looks like, what 100 looks like.", "tail": {$: "Con", "head": "- gate: true on a criterion makes it stand for an axiom: the score can never be higher than where the", "tail": {$: "Con", "head": "  candidate stands on a gate, so what fails an axiom cannot score well by doing well elsewhere. Give a gate a", "tail": {$: "Con", "head": "  reading that still falls as the failure gets worse, or a climb has nothing to follow.", "tail": {$: "Con", "head": "- A command runs in the directory the definition was made in, with the candidate's path in $DEFINTIRE_CANDIDATE", "tail": {$: "Con", "head": "  and as its last argument, and prints the reading first on the last line of its output. Tools installed", "tail": {$: "Con", "head": "  for wizardry (below) are on its PATH.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "3. Measure and compare", "tail": {$: "Con", "head": "- `defintire_measure` scores one candidate out of 100, criterion by criterion, and says what the score rests on:", "tail": {$: "Con", "head": "  verified (all exact), estimated (a proxy or a judgment is in it), or partial.", "tail": {$: "Con", "head": "- `defintire_rank` compares candidates two at a time and keeps a rating for each, as in chess: where no absolute", "tail": {$: "Con", "head": "  number can be trusted, which of two is better usually can.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "4. Climb (`defintire_climb`)", "tail": {$: "Con", "head": "- Agents take turns improving a file; every attempt is measured, and only one that scores strictly higher", "tail": {$: "Con", "head": "  replaces the best. The score never goes down, and the file is only changed for something better.", "tail": {$: "Con", "head": "- A climb is as good as its criteria. If the score rises and the thing gets worse, the definition is wrong:", "tail": {$: "Con", "head": "  fix the definition, not the candidate.", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, "tail": {$: "Con", "head": $$tool_lines(_hillclimb_0, _jacobian_0, _home_0), "tail": {$: "Con", "head": $$saved_lines(_saved_0), "tail": {$: "Nil"}}}}), "\n");
+  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": "DEFINTIRE: say what a thing is, in mathematical form, so that it can be measured and then improved.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "It works for anything: a mathematical object, a good commit message, a fair schedule, a fast parser.", "tail": {$: "Con", "head": "A definition turns the word into objects and axioms; criteria turn the axioms into numbers; a number can be climbed.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "1. Define (`defintire_define`)", "tail": {$: "Con", "head": "- Start from the question the definition answers: what could nobody decide or measure without it? A definition", "tail": {$: "Con", "head": "  that answers no question is a description.", "tail": {$: "Con", "head": "- Objects: the things it speaks of, each with a symbol and a type ($m$ : String, $G = (V, E)$ : Graph, $f : X \\to \\mathbb{R}$).", "tail": {$: "Con", "head": "- Primitives: what is left undefined on purpose. Every definition stops somewhere; say where.", "tail": {$: "Con", "head": "- Axioms: conditions in notation, each holding of exactly the things defined ($|s(m)| \\le 72$, $\\forall x \\in X.\\ f(x) \\ge 0$).", "tail": {$: "Con", "head": "  Outside mathematics most axioms are choices: mark those `stipulated`, so that a choice is not read as a finding.", "tail": {$: "Con", "head": "- Examples and non-examples, and near misses above all: the thing that fails one axiom and no other is what", "tail": {$: "Con", "head": "  shows that axiom is needed. If no non-example can be found for an axiom, drop the axiom.", "tail": {$: "Con", "head": "- Try to break it before you keep it: look for something that satisfies every axiom and plainly is not the", "tail": {$: "Con", "head": "  thing, and for something that plainly is and fails one. Either is a reason to change the definition.", "tail": {$: "Con", "head": "- Where Bend can say it, say it in Bend too (`bend`): a type for the objects, a def or law for an axiom. Then", "tail": {$: "Con", "head": "  whether something is an instance is a check, not an opinion.", "tail": {$: "Con", "head": "- On paper and in reality (`complications`, required): list the cases reality brings that the definition did", "tail": {$: "Con", "head": "  not assume (the input that is missing, empty, zero or late; the estimate that is wrong), each with its", "tail": {$: "Con", "head": "  outcome: still an instance, not one, or outside what the definition speaks of. With none, it is refused.", "tail": {$: "Con", "head": "- Close the cases with a proof where you can: a Bend type with one constructor per case and one for everything", "tail": {$: "Con", "head": "  else, the outcome as a def on it, and a law `for c: Case`. The proof must answer every constructor. It cannot", "tail": {$: "Con", "head": "  show that the type lists every case the world has: hence the catch-all, and the list kept to be added to.", "tail": {$: "Con", "head": "- Let criteria run on the real thing, and answer for the complications: a missing file reads as the worst", "tail": {$: "Con", "head": "  score, not as an error nobody sees.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "2. Make it quantitative: criteria", "tail": {$: "Con", "head": "- A criterion ties a number to an axiom or to the definition's purpose: a name, a statement in notation, a", "tail": {$: "Con", "head": "  weight, the readings that count as worst and best, and how the reading is taken.", "tail": {$: "Con", "head": "- exact: a command computes the very quantity (a count, a test passing, a proof checking). Prefer these.", "tail": {$: "Con", "head": "- proxy: a command computes a stand-in (a readability formula for clarity). Say what it stands in for.", "tail": {$: "Con", "head": "- judged: a model reads the candidate against a rubric and gives 0 to 100. Use it for what no script reaches,", "tail": {$: "Con", "head": "  and write the rubric so that two judges would agree: what 0 looks like, what 100 looks like.", "tail": {$: "Con", "head": "- gate: true on a criterion makes it stand for an axiom: the score can never be higher than where the", "tail": {$: "Con", "head": "  candidate stands on a gate, so what fails an axiom cannot score well by doing well elsewhere. Give a gate a", "tail": {$: "Con", "head": "  reading that still falls as the failure gets worse, or a climb has nothing to follow.", "tail": {$: "Con", "head": "- A command runs in the directory the definition was made in, with the candidate's path in $DEFINTIRE_CANDIDATE", "tail": {$: "Con", "head": "  and as its last argument, and prints the reading first on the last line of its output. Tools installed", "tail": {$: "Con", "head": "  for wizardry (below) are on its PATH.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "3. Measure and compare", "tail": {$: "Con", "head": "- `defintire_measure` scores one candidate out of 100, criterion by criterion, and says what the score rests on:", "tail": {$: "Con", "head": "  verified (all exact), estimated (a proxy or a judgment is in it), or partial.", "tail": {$: "Con", "head": "- `defintire_rank` compares candidates two at a time and keeps a rating for each, as in chess: where no absolute", "tail": {$: "Con", "head": "  number can be trusted, which of two is better usually can.", "tail": {$: "Con", "head": "", "tail": {$: "Con", "head": "4. Climb (`defintire_climb`)", "tail": {$: "Con", "head": "- Agents take turns improving a file; every attempt is measured, and only one that scores strictly higher", "tail": {$: "Con", "head": "  replaces the best. The score never goes down, and the file is only changed for something better.", "tail": {$: "Con", "head": "- A climb is as good as its criteria. If the score rises and the thing gets worse, the definition is wrong:", "tail": {$: "Con", "head": "  fix the definition, not the candidate.", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, "tail": {$: "Con", "head": $$tool_lines(_hillclimb_0, _jacobian_0, _home_0), "tail": {$: "Con", "head": $$saved_lines(_saved_0), "tail": {$: "Nil"}}}}), "\n");
 }
 
 function $describe() {
-  return $String_concat({$: "Con", "head": "The defintire skill: turn anything, mathematical or not, into an explicit formal definition (objects, axioms, examples and non-examples, in ", "tail": {$: "Con", "head": "mathematical notation and in Bend where Bend can say it), tie numbers to it, and improve things against it. ", "tail": {$: "Con", "head": "Returns the method, which tools for it are on this machine, and the definitions kept so far. Call it before defining, measuring or climbing.", "tail": {$: "Nil"}}}});
+  return $String_concat({$: "Con", "head": "The defintire skill: turn anything, mathematical or not, into an explicit formal definition (objects, axioms, examples and non-examples, in ", "tail": {$: "Con", "head": "mathematical notation and in Bend where Bend can say it), tie numbers to it, and improve things against it. ", "tail": {$: "Con", "head": "Returns the method, which tools for it are on this machine, and the definitions kept so far. Calling it puts defintire_define, defintire_measure, defintire_rank and defintire_climb in front of you, from the next step.", "tail": {$: "Nil"}}}});
 }
 
 function $describe_define() {
-  return "Keep a definition: what is defined, the question it answers, its objects, axioms, examples, non-examples, and the criteria that score things against it. Call `defintire` first for the method. Refused, with what is missing, when it is not yet a definition.";
+  return "Keep a definition: what is defined, the question it answers, its objects, axioms, examples, non-examples, the complications (what goes otherwise in reality than on paper, and what happens then) and the criteria that score things against it. Refused, with what is missing, when it is not yet a definition.";
 }
 
 function $describe_measure() {
@@ -3127,7 +3182,7 @@ function $known_part(_known_0) {
 }
 
 function $mind(_known_0) {
-  return $String_join($$List_append({$: "Con", "head": "A habit you keep (from defintire): when what you are asked to make, judge or improve is vague, say what it is before you work on it — the things it speaks of, the condition that must hold of them, and one thing that fails it. When something is called better, name the number that would show it. Keep this to a line or two unless asked for more; `defintire` holds the full method.", "tail": {$: "Nil"}}, $$known_part(_known_0)), "\n");
+  return $String_join($$List_append({$: "Con", "head": "A habit you keep (from defintire): when what you are asked to make, judge or improve is vague, say what it is before you work on it — the things it speaks of, the condition that must hold of them, and one thing that fails it. Then leave the paper: name what could go otherwise in reality (the missing, the empty, the late, the wrong estimate) and what happens then, so that every case ends in an outcome. When something is called better, name the number that would show it. Keep this to a line or two unless asked for more; `defintire` holds the full method.", "tail": {$: "Nil"}}, $$known_part(_known_0)), "\n");
 }
 
 function $String_eq(_a_0, _b_0) {
@@ -4075,6 +4130,8 @@ const $$______bend_core_moved_list = $______bend_core_moved_list;
 const $$______bend_core_listing_actions = $______bend_core_listing_actions;
 const $$______bend_core_at_file = $______bend_core_at_file;
 const $$______bend_core_at_files = $______bend_core_at_files;
+const $$______bend_core_waits = $______bend_core_waits;
+const $$______bend_core_waiting = $______bend_core_waiting;
 const $$______bend_core_completions_go = $______bend_core_completions_go;
 const $$String_trim = $String_trim;
 const $$______bend_core_think_levels = $______bend_core_think_levels;
@@ -4161,6 +4218,8 @@ const $$criterion_problems = $criterion_problems;
 const $$criteria_problems = $criteria_problems;
 const $$criterion_names = $criterion_names;
 const $$distinct = $distinct;
+const $$complication_problems = $complication_problems;
+const $$reality_problems = $reality_problems;
 const $$F32_clamp = $F32_clamp;
 const $$real = $real;
 const $$along = $along;
@@ -4185,6 +4244,7 @@ const $$Char_to_lower = $Char_to_lower;
 const $$slug_put = $slug_put;
 const $$object_lines = $object_lines;
 const $$axiom_lines = $axiom_lines;
+const $$complication_lines = $complication_lines;
 const $$shown_lines = $shown_lines;
 const $$share = $share;
 const $$section = $section;
@@ -4363,7 +4423,9 @@ const $$String_is_le = $String_is_le;export default {
   "../../bend/core:at_files": run_lib((a0) => run_loop($______bend_core_at_files(a0)), 1),
   "../../bend/core:said_of": run_lib((a0,a1) => run_loop($______bend_core_said_of(a0,a1)), 2),
   "../../bend/core:restarts_now": run_lib((a0,a1,a2,a3) => run_loop($______bend_core_restarts_now(a0,a1,a2,a3)), 4),
-  "../../bend/core:stays_away": run_lib((a0,a1,a2) => run_loop($______bend_core_stays_away(a0,a1,a2)), 3),
+  "../../bend/core:waits": run_lib((a0,a1,a2) => run_loop($______bend_core_waits(str_in(a0),a1,a2)), 3),
+  "../../bend/core:waiting": run_lib((a0,a1,a2) => run_loop($______bend_core_waiting(a0,a1,a2)), 3),
+  "../../bend/core:in_front": run_lib((a0,a1,a2,a3,a4) => run_loop($______bend_core_in_front(a0,a1,a2,a3,a4)), 5),
   "../../bend/core:last_of": run_lib((a0,a1) => str_out(run_loop($______bend_core_last_of(a0,str_in(a1)))), 2),
   "../../bend/core:last_identity": run_lib((a0) => str_out(run_loop($______bend_core_last_identity(a0))), 1),
   "../../bend/core:tidy": run_lib((a0) => str_out(run_loop($______bend_core_tidy(str_in(a0)))), 1),
@@ -4524,7 +4586,9 @@ const $$String_is_le = $String_is_le;export default {
   "criteria_problems": run_lib((a0) => run_loop($criteria_problems(a0)), 1),
   "criterion_names": run_lib((a0) => run_loop($criterion_names(a0)), 1),
   "distinct": run_lib((a0) => run_loop($distinct(a0)), 1),
-  "problems": run_lib((a0,a1,a2,a3,a4,a5,a6) => run_loop($problems(str_in(a0),str_in(a1),nat_in(a2),nat_in(a3),nat_in(a4),nat_in(a5),a6)), 7),
+  "complication_problems": run_lib((a0) => run_loop($complication_problems(a0)), 1),
+  "reality_problems": run_lib((a0) => run_loop($reality_problems(a0)), 1),
+  "problems": run_lib((a0,a1,a2,a3,a4,a5,a6,a7) => run_loop($problems(str_in(a0),str_in(a1),nat_in(a2),nat_in(a3),nat_in(a4),nat_in(a5),a6,a7)), 8),
   "not_defined": run_lib((a0) => str_out(run_loop($not_defined(a0))), 1),
   "unit": run_lib((a0) => run_loop($unit(Math.fround(a0))), 1),
   "along": run_lib((a0,a1,a2) => run_loop($along(Math.fround(a0),Math.fround(a1),Math.fround(a2))), 3),
@@ -4563,12 +4627,13 @@ const $$String_is_le = $String_is_le;export default {
   "thousandths": run_lib((a0) => str_out(run_loop($thousandths(nat_in(a0)))), 1),
   "object_lines": run_lib((a0) => run_loop($object_lines(a0)), 1),
   "axiom_lines": run_lib((a0) => run_loop($axiom_lines(a0)), 1),
+  "complication_lines": run_lib((a0) => run_loop($complication_lines(a0)), 1),
   "section": run_lib((a0,a1) => run_loop($section(str_in(a0),a1)), 2),
   "code_block": run_lib((a0) => run_loop($code_block(str_in(a0))), 1),
   "shown_lines": run_lib((a0) => run_loop($shown_lines(a0)), 1),
   "share": run_lib((a0,a1) => str_out(run_loop($share(nat_in(a0),nat_in(a1)))), 2),
   "climbable": run_lib((a0,a1,a2) => str_out(run_loop($climbable(nat_in(a0),nat_in(a1),nat_in(a2)))), 3),
-  "written": run_lib((a0,a1,a2,a3,a4,a5,a6,a7,a8,a9) => str_out(run_loop($written(str_in(a0),str_in(a1),a2,a3,a4,a5,a6,str_in(a7),a8,str_in(a9)))), 10),
+  "written": run_lib((a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) => str_out(run_loop($written(str_in(a0),str_in(a1),a2,a3,a4,a5,a6,a7,str_in(a8),a9,str_in(a10)))), 11),
   "defined": run_lib((a0,a1,a2) => str_out(run_loop($defined(str_in(a0),str_in(a1),str_in(a2)))), 3),
   "no_definition": run_lib((a0,a1) => str_out(run_loop($no_definition(str_in(a0),a1))), 2),
   "row": run_lib((a0,a1,a2,a3,a4,a5) => str_out(run_loop($row(str_in(a0),str_in(a1),nat_in(a2),a3,nat_in(a4),str_in(a5)))), 6),

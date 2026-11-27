@@ -161,7 +161,11 @@ export const core = {
   /** Whether a session starts again on new code now. */
   restartsNow: (wanted: boolean, attached: boolean, tui: boolean, idle: boolean): boolean => bend.restarts_now(wanted, attached, tui, idle),
   /** Whether a tool declared again stays put away. */
-  staysAway: (bound: boolean, known: boolean, active: boolean): boolean => bend.stays_away(bound, known, active),
+  /** Whether a tool is in front of the agent once it has been declared (again). */
+  inFront: (bound: boolean, known: boolean, active: boolean, returned: boolean, waits: boolean): boolean => bend.in_front(bound, known, active, returned, waits),
+  /** The actions put away because the one each waits behind (`after`) has not been called. */
+  waiting: (actions: readonly { name: string; after?: string }[], called: readonly string[]): string[] =>
+    array(bend.waiting(list(actions.map((action) => ({ $: 'Waits', name: action.name, behind: action.after ?? '' }))), list(actions.map((action) => action.name)), list(called))),
   /** The standing instructions a session carries: the last the agent wrote on this branch. */
   lastIdentity: (written: readonly string[]): string => bend.last_identity(list(written)),
   /** What `become` keeps of what it was given. */

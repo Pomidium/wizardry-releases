@@ -78,3 +78,29 @@ law a_tie_changes_nothing:
 # The three ways a criterion is measured go by their words, and no other word is one.
 law kinds_by_word:
   ({D.kind_of("exact") == D.Exact{} : D.How} & {D.kind_of("proxy") == D.Proxy{} : D.How}) & ({D.kind_of("judged") == D.Judged{} : D.How} & {D.kind_of("") == D.Unknown{} : D.How})
+
+# A definition that names no complication is refused, whatever else it says and however well:
+# what was only thought about under its own assumptions is not kept as a definition.
+law paper_only_is_refused:
+  for name: String
+  for answers: String
+  for objects: Nat
+  for axioms: Nat
+  for examples: Nat
+  for non_examples: Nat
+  for +criteria: List<&2, D.Criterion>
+  {List.is_empty(&2, String, D.problems(name, answers, objects, axioms, examples, non_examples, criteria, Nil{})) == False{} : Bool}
+
+# Naming a complication is not enough: one without an outcome is refused too, whatever it is
+# called and whatever comes after it. Every case named must end somewhere.
+law a_complication_needs_an_outcome:
+  for name: String
+  for answers: String
+  for objects: Nat
+  for axioms: Nat
+  for examples: Nat
+  for non_examples: Nat
+  for +criteria: List<&2, D.Criterion>
+  for +what: String
+  for others: List<&2, D.Complication>
+  {List.is_empty(&2, String, D.problems(name, answers, objects, axioms, examples, non_examples, criteria, D.Complication{what, ""} <> others)) == False{} : Bool}

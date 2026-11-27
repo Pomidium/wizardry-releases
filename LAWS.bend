@@ -522,3 +522,28 @@ law a_thought_keeps_the_base:
   for +base: String
   for +thought: String
   {C.minded(base, "") == base : String} & {String.starts_with(C.minded(base, thought), base) == True{} : Bool}
+
+# Nothing is out of the agent's reach: an action that waits behind one nobody registered (a
+# plugin that is not loaded, a name misspelled, no name at all) is not put away.
+law never_out_of_reach:
+  for +behind: String
+  for names: List<&2, String>
+  for called: List<&2, String>
+  for gone: {C.has(names, behind) == False{} : Bool}
+  {C.waits(behind, names, called) == False{} : Bool}
+
+# Calling an action brings what waited behind it in front, whatever else is registered.
+law calling_opens:
+  for +behind: String
+  for names: List<&2, String>
+  for called: List<&2, String>
+  for was: {C.has(called, behind) == True{} : Bool}
+  {C.waits(behind, names, called) == False{} : Bool}
+
+# A plugin loaded again has its actions in front of the agent, as `plugin_load` says: whether
+# Pi knew the tool, and wherever it stood before, one that comes back and does not wait is there.
+law loaded_again_is_in_front:
+  for bound: Bool
+  for known: Bool
+  for active: Bool
+  {C.in_front(bound, known, active, True{}, False{}) == True{} : Bool}
