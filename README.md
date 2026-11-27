@@ -272,6 +272,17 @@ A few default plugins ship in [`defaults/`](defaults) and are on for everyone:
   proven ([`defaults/when/LAWS.bend`](defaults/when/LAWS.bend)) that when nothing fires nothing
   is said, and that a rule fires once.
 
+- `queue`, tasks that wait their turn: when the agent is completely done with a task, the first
+  one waiting is handed to it as the next message, at once, and so on until nothing waits.
+  `/queue <task>` puts one on the list while the agent works (or say "after this, do X" and the
+  agent queues it with the `queue` action); `/queue` shows the list, `/queue drop <n>` removes
+  one, `/queue clear` empties it, `/queue pause` holds it and `/queue go` carries on. A task you
+  stopped with Escape, or one that ended in an error, does not lead into the next: the queue is
+  held with what waits in it until `/queue go`, and so is a queue found in a session you open
+  again. The queue is kept in the conversation, so it survives a restart and is exported with it.
+  It is proven ([`defaults/queue/LAWS.bend`](defaults/queue/LAWS.bend)) that nothing starts while
+  the agent works, while the queue is held or when it is empty, and that tasks go first in, first out.
+
 - `division`, a way for the agent to deploy agents: it cuts a task into parts, as many as the
   task has, and hands each to its own agent; all work at the same time in the same directory,
   and a part may cut again. Each part owns its own files, and what crosses between parts is said

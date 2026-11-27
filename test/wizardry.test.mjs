@@ -645,7 +645,8 @@ test('the memory default observes a session, keeps it under the home, recalls it
   assert.equal(compacted.compaction.firstKeptEntryId, `e${keep + 1}`)
 
   await actions.invoke('plugin_unload', { name: 'memory' })
-  await actions.invoke('plugin_unload', { name: 'when' }) // the other default that listens to Pi
+  await actions.invoke('plugin_unload', { name: 'when' }) // the other defaults that listen to Pi
+  await actions.invoke('plugin_unload', { name: 'queue' })
   assert.equal(actions.get('mem_search'), undefined)
   assert.deepEqual(Object.keys(handlers), [], 'its hooks into Pi go with it')
   delete process.env.CLAUDE_MEM_DATA_DIR

@@ -14,8 +14,9 @@ to the running install. The short manual for writing plugins in-session is the `
 the fs/shell tools and Pi itself are plugins on it. A plugin's only route to the agent is
 `ctx.actions.register(...)`: plugins add nothing to the system prompt (one exception, by name:
 see "The defintire default") and get no hooks into the
-agent's turn (two exceptions, by name: memory at compaction, and `when`, whose rules are said to
-the agent at the moment one applies; see "The when default"). Actions that change the agent (`become`, `focus`, `think`) exist but are never
+agent's turn (three exceptions, by name: memory at compaction, `when`, whose rules are said to
+the agent at the moment one applies, and `queue`, which hands the agent the next task when it is
+done with one; see "The when default" and "The queue default"). Actions that change the agent (`become`, `focus`, `think`) exist but are never
 applied for it. Nothing asks for approval; `gate` is an optional plugin.
 
 ## Which copy runs
@@ -109,6 +110,7 @@ Read in this order:
 | `defaults/division/` | The division default: `division.bend` (who may write what, whether a cut is made, what each agent is told, whether the parts fit), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which starts the agents |
 | `defaults/defintire/` | The defintire default: `defintire.bend` (what counts as a definition, how a reading becomes a score, when a score is verified, how ratings move, which attempt a climb keeps, and the method), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which runs the commands, asks the judge and starts the agents |
 | `defaults/when/` | The when default: `when.bend` (what a cue hits, which rules fire, what is said and how a rule is written), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which listens to Pi, reads the rules and runs their commands |
+| `defaults/queue/` | The queue default: `queue.bend` (what a task is, their order, whether the next starts now, when the queue is held, how `/queue` reads and what is said), its `LAWS.bend` and `PROOF.bend`, the compiled `core.mjs`, and `index.js`, which listens to Pi, keeps the list in the session and hands the next task over |
 | `defaults/memory/` | The memory plugin, copied in whole from its own repository (see below). Never edit it here |
 | `src/plugins/*.ts` | The builtins; `rtk.ts` is the example of wrapping another plugin's action, `update.ts` of `task/end` and slash commands |
 
@@ -174,7 +176,7 @@ Two classes, and which one a plugin belongs to decides where it lives:
   updated with this repo.
 - **Default**: not intrinsic. A choice that comes switched on and can be changed or removed without
   touching wizardry. Defaults live in two places:
-  - `defaults/` in this repo: shipped to every install (the `bend` skill, `memory`, `division`, `defintire`, `when`). Loaded at boot by
+  - `defaults/` in this repo: shipped to every install (the `bend` skill, `memory`, `division`, `defintire`, `when`, `queue`). Loaded at boot by
     `Plugins.boot`; a file of the same name in a plugin directory is loaded instead, and
     `plugin_unload <name>` with `persist: true` switches one off.
   - `$WIZARDRY_HOME/plugins/`: this machine only (a default model). Edit the
@@ -266,6 +268,29 @@ commit `core.mjs` with it. Its proofs import wizardry's own (`../../PROOF.bend`)
   "from now on". An agent deployed on a part (`WIZARDRY_DIVISION`) is not taught.
 - Texts are cut to 50000 characters before they are read for cues, and of an action's arguments
   only the first line of each is read (`doing`).
+
+### The queue default
+
+`defaults/queue/` is built here like division: edit `queue.bend`, run `npm run core`, commit
+`core.mjs` with it.
+
+- **It sends the agent a user message, by the owner's request**: when a task is done, the first
+  one waiting is sent with `api.sendUserMessage`. It listens to Pi's `agent_settled` (not
+  `agent_end`, and not `task/end`): that event comes after retries, compaction and the messages
+  the user typed meanwhile, and says whether the run was aborted. A message sent from that
+  handler is run by Pi as soon as the handler returns, in `-p` mode too.
+- **A task that was not done does not run on.** Aborted (`agent_settled.aborted`), ended in an
+  error (the last assistant message's `stopReason`), or found in a session opened again: the
+  queue is held until `/queue go`. `stopped_does_not_run_on` and `failed_does_not_run_on` are the
+  laws; do not make a held queue start by another route.
+- The queue is `queue:state` entries in the session (`{items, paused}`, the last one on the
+  branch counts), so there is no folder of the home and nothing to export. `session_start` and
+  `session_tree` read it back.
+- A task is handed over as it was written, with nothing added, and is removed from the queue
+  before it is sent; if sending throws it goes back to the front and the queue is held.
+- An agent deployed on a part (`WIZARDRY_DIVISION`) has no queue: no action, no hooks.
+- Because a running queue keeps the agent busy, an update restarts the session only once the
+  queue is empty or held (`restart_waits`).
 
 ### The memory default
 
