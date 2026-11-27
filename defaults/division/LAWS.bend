@@ -121,3 +121,18 @@ law a_failed_check_never_fits:
   for why: String
   for +said: String
   {D.fits(D.Ended{1n+code, ""}, said) == False{} : Bool} & {D.fits(D.Ended{0n, SCon{c, why}}, said) == False{} : Bool}
+
+# A file some part owns is never reported as a stray, wherever that part stands among the others:
+# what is reported is only what nobody was handed.
+law owned_is_never_stray:
+  for a: List<&2, List<&2, String>>
+  for +mine: List<&2, String>
+  for +b: List<&2, List<&2, String>>
+  for +path: String
+  for own: {D.may_write(mine, path) == True{} : Bool}
+  {D.stray(List.append(&2, List<&2, String>, a, mine <> b), path) == False{} : Bool}
+
+# And a file no part may write is one, however many parts there are: nothing changed slips past.
+law unowned_is_stray:
+  for +path: String
+  {D.strays([path], Nil{}) == [path] : List<&2, String>}

@@ -434,12 +434,47 @@ def check_lines(none: Bool, check: String, fit: Bool, stopped: String, +said: St
       [String.append("## The check: ", check), check_said(fit, stopped),
         clip(Bool.pick(String, String.is_empty(said), "(no output)", said), 4000n)]
 
+# Strays
+# ------
+#
+# The write tools refuse a part a file that is not its own; a command it runs is not fenced. So
+# when the parts are back, every file changed since the cut is looked at: one that no part owns
+# is a stray, and the agent that cut is told, since nobody answers for it.
+def stray(owns: List<&2, List<&2, String>>, +path: String) -> Bool:
+  Nat.is_eq(writers(owns, path), 0n)
+
+def stray_put(yes: Bool, path: String, rest: List<&2, String>) -> List<&2, String>:
+  match yes:
+    case True{}:
+      path <> rest
+    case False{}:
+      rest
+
+def strays(changed: List<&2, String>, +owns: List<&2, List<&2, String>>) -> List<&2, String>:
+  match changed:
+    case Nil{}:
+      Nil{}
+    case Con{+h, t}:
+      stray_put(stray(owns, h), h, strays(t, owns))
+
+# `looked` is false when the folder was too large to look through: that is said, not passed over.
+def stray_lines(looked: Bool, found: List<&2, String>) -> List<&2, String>:
+  match looked found:
+    case False{} _:
+      ["Not looked at: whether a part changed a file outside its own (the folder is too large to look through).", ""]
+    case True{} Nil{}:
+      Nil{}
+    case True{} Con{h, t}:
+      [String.concat(["CHANGED OUTSIDE EVERY PART'S FILES (by a command, not the write tools): ", String.join(h <> t, ", "),
+        ". No part owned these: look at each before you count on it."]), ""]
+
 # What the agent that cut is told when every part is back.
-def joined(ms: Nat, reports: List<&2, String>, +check: String, fit: Bool, stopped: String, said: String) -> String:
+def joined(ms: Nat, reports: List<&2, String>, looked: Bool, strayed: List<&2, String>, +check: String, fit: Bool, stopped: String, said: String) -> String:
   String.join(List.concat(&2, String, [
     [String.concat(["Every part is back after ", minutes(ms), ". Every file is yours again."]), ""],
     reports,
     [""],
+    stray_lines(looked, strayed),
     check_lines(String.is_empty(check), check, fit, stopped, said)]), "\n")
 
 def stopped_early() -> String:

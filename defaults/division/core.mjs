@@ -1693,8 +1693,44 @@ function $check_lines(_none_0, _check_0, _fit_0, _stopped_0, _said_0) {
   }
 }
 
-function $joined(_ms_0, _reports_0, _check_0, _fit_0, _stopped_0, _said_0) {
-  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": $$String_concat({$: "Con", "head": "Every part is back after ", "tail": {$: "Con", "head": $$minutes(_ms_0), "tail": {$: "Con", "head": ". Every file is yours again.", "tail": {$: "Nil"}}}}), "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}, "tail": {$: "Con", "head": _reports_0, "tail": {$: "Con", "head": {$: "Con", "head": "", "tail": {$: "Nil"}}, "tail": {$: "Con", "head": $$check_lines($$String_is_empty(_check_0), _check_0, _fit_0, _stopped_0, _said_0), "tail": {$: "Nil"}}}}}), "\n");
+function $stray(_owns_0, _path_0) {
+  return $Nat_is_eq($$writers(_owns_0, _path_0), 0);
+}
+
+function $stray_put(_yes_0, _path_0, _rest_0) {
+  if (_yes_0) {
+    return {$: "Con", "head": _path_0, "tail": _rest_0};
+  } else {
+    return _rest_0;
+  }
+}
+
+function $strays(_changed_0, _owns_0) {
+  if (_changed_0.$ === "Nil") {
+    return {$: "Nil"};
+  } else {
+    const _h_0 = _changed_0["head"];
+    const _t_0 = _changed_0["tail"];
+    return $stray_put($$stray(_owns_0, _h_0), _h_0, $$strays(_t_0, _owns_0));
+  }
+}
+
+function $stray_lines(_looked_0, _found_0) {
+  if (!_looked_0) {
+    return {$: "Con", "head": "Not looked at: whether a part changed a file outside its own (the folder is too large to look through).", "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}};
+  } else {
+    if (_found_0.$ === "Nil") {
+      return {$: "Nil"};
+    } else {
+      const _h_0 = _found_0["head"];
+      const _t_0 = _found_0["tail"];
+      return {$: "Con", "head": $$String_concat({$: "Con", "head": "CHANGED OUTSIDE EVERY PART'S FILES (by a command, not the write tools): ", "tail": {$: "Con", "head": $$String_join({$: "Con", "head": _h_0, "tail": _t_0}, ", "), "tail": {$: "Con", "head": ". No part owned these: look at each before you count on it.", "tail": {$: "Nil"}}}}), "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}};
+    }
+  }
+}
+
+function $joined(_ms_0, _reports_0, _looked_0, _strayed_0, _check_0, _fit_0, _stopped_0, _said_0) {
+  return $String_join($$List_concat({$: "Con", "head": {$: "Con", "head": $$String_concat({$: "Con", "head": "Every part is back after ", "tail": {$: "Con", "head": $$minutes(_ms_0), "tail": {$: "Con", "head": ". Every file is yours again.", "tail": {$: "Nil"}}}}), "tail": {$: "Con", "head": "", "tail": {$: "Nil"}}}, "tail": {$: "Con", "head": _reports_0, "tail": {$: "Con", "head": {$: "Con", "head": "", "tail": {$: "Nil"}}, "tail": {$: "Con", "head": $$stray_lines(_looked_0, _strayed_0), "tail": {$: "Con", "head": $$check_lines($$String_is_empty(_check_0), _check_0, _fit_0, _stopped_0, _said_0), "tail": {$: "Nil"}}}}}}), "\n");
 }
 
 function $stopped_early() {
@@ -2557,6 +2593,9 @@ const $$or_none = $or_none;
 const $$first_said = $first_said;
 const $$clip = $clip;
 const $$check_said = $check_said;
+const $$stray = $stray;
+const $$strays = $strays;
+const $$stray_lines = $stray_lines;
 const $$check_lines = $check_lines;
 const $$runs_on = $runs_on;
 const $$option = $option;
@@ -2790,7 +2829,11 @@ const $$String_join_go = $String_join_go;export default {
   "fits": run_lib((a0,a1) => run_loop($fits(a0,str_in(a1))), 2),
   "check_said": run_lib((a0,a1) => str_out(run_loop($check_said(a0,str_in(a1)))), 2),
   "check_lines": run_lib((a0,a1,a2,a3,a4) => run_loop($check_lines(a0,str_in(a1),a2,str_in(a3),str_in(a4))), 5),
-  "joined": run_lib((a0,a1,a2,a3,a4,a5) => str_out(run_loop($joined(nat_in(a0),a1,str_in(a2),a3,str_in(a4),str_in(a5)))), 6),
+  "stray": run_lib((a0,a1) => run_loop($stray(a0,str_in(a1))), 2),
+  "stray_put": run_lib((a0,a1,a2) => run_loop($stray_put(a0,str_in(a1),a2)), 3),
+  "strays": run_lib((a0,a1) => run_loop($strays(a0,a1)), 2),
+  "stray_lines": run_lib((a0,a1) => run_loop($stray_lines(a0,a1)), 2),
+  "joined": run_lib((a0,a1,a2,a3,a4,a5,a6,a7) => str_out(run_loop($joined(nat_in(a0),a1,a2,a3,str_in(a4),a5,str_in(a6),str_in(a7)))), 8),
   "stopped_early": run_lib(() => str_out(run_loop($stopped_early())), 0),
   "not_yours": run_lib((a0,a1,a2) => str_out(run_loop($not_yours(str_in(a0),str_in(a1),a2))), 3),
   "option": run_lib((a0,a1) => run_loop($option(str_in(a0),str_in(a1))), 2),

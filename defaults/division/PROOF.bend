@@ -481,3 +481,21 @@ def Laws.default_agent_words():
 
 def Laws.a_failed_check_never_fits(code, c, why, said):
   ({==}, {==})
+
+def add_not_zero(x: Nat, -y: Nat, e: {Nat.is_eq(y, 0n) == False{} : Bool}) -> {Nat.is_eq(Nat.add(x, y), 0n) == False{} : Bool}:
+  match x:
+    case 0n:
+      e
+    case 1n+p:
+      {==}
+
+def Laws.owned_is_never_stray(a, mine, b, path, own):
+  match a:
+    case Nil{}:
+      %Equal.sym(Bool, D.may_write(mine, path), True{}, own) : {Nat.is_eq(Nat.add(D.one_if(_), D.writers(b, path)), 0n) == False{} : Bool}
+      {==}
+    case Con{h, t}:
+      add_not_zero(D.one_if(D.may_write(h, path)), D.writers(List.append(&2, List<&2, String>, t, mine <> b), path), Laws.owned_is_never_stray(t, mine, b, path, own))
+
+def Laws.unowned_is_stray(path):
+  {==}

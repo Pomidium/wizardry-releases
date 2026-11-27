@@ -94,7 +94,9 @@ export const core = {
   halfReport: (half, result) => bend.half_report(half.name, list(half.owns), list(half.laws), ended(result), Math.max(0, Math.round(result.ms)), result.out, result.err),
   /** Whether the halves fit, by how the check ended and what it printed. */
   fits: (result, said) => bend.fits(ended(result), said),
-  joined: (ms, reports, check, fit, result, said) => bend.joined(Math.max(0, Math.round(ms)), list(reports), check, fit, result.failed ?? '', said),
+  joined: (ms, reports, looked, strays, check, fit, result, said) => bend.joined(Math.max(0, Math.round(ms)), list(reports), looked, list(strays), check, fit, result.failed ?? '', said),
+  /** The changed files that no part owns. */
+  strays: (changed, owns) => array(bend.strays(list(changed), list(owns.map(list)))),
   stoppedEarly: () => bend.stopped_early(),
   notYours: (path, name, entries) => bend.not_yours(path, name, list(entries)),
   method: (place) => bend.method(standing(place)),
@@ -154,6 +156,31 @@ export const halfArgs = (cfg, sessionModel, sessionThinking) => core.halfArgs(cf
 /** Run a command and resolve with how it ended and what it printed. Never rejects. */
 /** The environment the check runs in: Bend's installer puts `bend` in ~/.bend/bin and not on PATH. */
 const withBend = () => ({ ...process.env, PATH: `${process.env.PATH ?? ''}${delimiter}${join(process.env.BEND_HOME || join(homedir(), '.bend'), 'bin')}` })
+
+/**
+ * The files under `root` changed at or after `since`, as paths from it. Hidden folders and
+ * node_modules are not looked into. Undefined when there is more than can be looked through.
+ */
+function changedSince(root, since, most = 50_000) {
+  const changed = []
+  const waiting = ['']
+  let seen = 0
+  while (waiting.length) {
+    const dir = waiting.pop()
+    let entries = []
+    try { entries = readdirSync(join(root, dir), { withFileTypes: true }) } catch {}
+    for (const entry of entries) {
+      if (++seen > most) return undefined
+      const path = dir ? `${dir}/${entry.name}` : entry.name
+      if (entry.isDirectory()) {
+        if (!entry.name.startsWith('.') && entry.name !== 'node_modules') waiting.push(path)
+      } else {
+        try { if (statSync(join(root, path)).mtimeMs >= since) changed.push(path) } catch {}
+      }
+    }
+  }
+  return changed.sort()
+}
 
 function run(command, args, { cwd, env, timeoutMs, signal, shell }) {
   return new Promise((done) => {
@@ -392,14 +419,18 @@ export function apply(ctx, config) {
       const results = await Promise.all(parts.map(start))
       if (env.signal?.aborted) return core.stoppedEarly()
 
+      // A command a part ran is not fenced: what changed since the cut and is nobody's is said.
+      const changed = changedSince(root, started)
+      const strays = core.strays(changed ?? [], parts.map((each) => each.owns))
+
       const checked = command
         ? await run(command, [], { cwd: root, env: withBend(), timeoutMs: 10 * 60_000, signal: env.signal, shell: true })
         : { code: 0, out: '', err: '', ms: 0 }
       const said = `${checked.out}\n${checked.err}`.trim()
       // Whether the parts fit, and what is said of each, is decided in Bend (division.bend).
       const fits = core.fits(checked, said)
-      log(root, { event: 'joined', depth, fits, ms: Date.now() - started, parts: parts.map((each, i) => ({ name: each.name, code: results[i].code, failed: results[i].failed, ms: results[i].ms })) })
-      return core.joined(Date.now() - started, parts.map((each, i) => core.halfReport(each, results[i])), command, fits, checked, said)
+      log(root, { event: 'joined', depth, fits, strays, ms: Date.now() - started, parts: parts.map((each, i) => ({ name: each.name, code: results[i].code, failed: results[i].failed, ms: results[i].ms })) })
+      return core.joined(Date.now() - started, parts.map((each, i) => core.halfReport(each, results[i])), changed !== undefined, strays, command, fits, checked, said)
     },
   })
 }

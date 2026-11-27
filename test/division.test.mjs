@@ -44,7 +44,7 @@ test('division: the proofs check, and the compiled Bend in the repo is what the 
   const laws = [...readFileSync(join(DIVISION, 'LAWS.bend'), 'utf8').matchAll(/^law (\w+):/gm)].map((match) => match[1])
   const proofs = [...readFileSync(join(DIVISION, 'PROOF.bend'), 'utf8').matchAll(/^def Laws\.(\w+)\(/gm)].map((match) => match[1])
   assert.deepEqual([...proofs].sort(), [...laws].sort())
-  assert.equal(laws.length, 14)
+  assert.equal(laws.length, 16)
   const out = join(mkdtempSync(join(tmpdir(), 'wizardry-division-core-')), 'core.mjs')
   execFileSync(BEND, ['division.bend', '-o', out], { cwd: DIVISION, env })
   assert.equal(readFileSync(join(DIVISION, 'core.mjs'), 'utf8'), readFileSync(out, 'utf8'), 'defaults/division/core.mjs is stale: run `npm run core`')
@@ -324,4 +324,38 @@ test('division: /default-agent and /division choose what deployed agents run on,
   assert.match(said.at(-1)[1], /model: radius\/claude-opus-5-5 \(the same as this session\)\n  thinking: high \(the same as this session\)/)
   assert.deepEqual(third.agent.getArgumentCompletions(''), [{ value: 'same', label: 'same' }])
   await third.root.fiber.dispose()
+})
+
+test('division: a file changed outside every part\'s files is named when the parts are back, and one that hangs is ended', async () => {
+  const { home, cwd } = scratch()
+  // An agent that writes as a command would, past the write tools: its own file, and for one part a file nobody owns.
+  writeFileSync(join(cwd, 'agent.mjs'), `import { writeFileSync, mkdirSync } from 'node:fs'
+const place = JSON.parse(process.env.WIZARDRY_DIVISION)
+writeFileSync(place.owns[0], place.name)
+if (place.name === 'careless') { mkdirSync('shared', { recursive: true }); writeFileSync('shared/config.txt', 'changed'); mkdirSync('.cache', { recursive: true }); writeFileSync('.cache/x', 'x'); writeFileSync('.env', 'x') }
+if (place.name === 'stuck') setTimeout(() => {}, 60000)
+console.log(place.name + ' done')`)
+  writeFileSync(join(cwd, 'untouched.txt'), 'as it was')
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  const { root, plugins } = await boot({ home, cwd, defaults: ['cordis'] })
+  await plugins.load(DIVISION, { agent: [process.execPath, join(cwd, 'agent.mjs')], timeoutMinutes: 0.02 }, { cwd })
+  const split = (parts) => root.get('actions').invoke('division_split', { parts, check: 'true' }, { cwd })
+
+  const tidy = await split([{ name: 'one', task: 'One.', owns: ['a.txt'] }, { name: 'two', task: 'Two.', owns: ['lib/'] }].map((part) => ({ ...part, owns: part.owns[0] === 'lib/' ? ['b.txt'] : part.owns })))
+  assert.doesNotMatch(tidy, /OUTSIDE|Not looked at/, 'nothing strayed, nothing said')
+
+  const said = await split([{ name: 'careful', task: 'C.', owns: ['c.txt'] }, { name: 'careless', task: 'D.', owns: ['d.txt'] }])
+  assert.match(said, /CHANGED OUTSIDE EVERY PART'S FILES \(by a command, not the write tools\): \.env, shared\/config\.txt\. No part owned these/)
+  assert.doesNotMatch(said, /untouched|agent\.mjs|c\.txt,|\.cache/, 'hidden folders are not looked into')
+  const runs = readFileSync(join(home, 'division', 'runs.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line)).filter((run) => run.event === 'joined')
+  assert.deepEqual(runs.map((run) => run.strays), [[], ['.env', 'shared/config.txt']])
+
+  // One part hangs: it is ended at the limit, said to have timed out, and the other's work stands.
+  const started = Date.now()
+  const hung = await split([{ name: 'quick', task: 'Q.', owns: ['q.txt'] }, { name: 'stuck', task: 'S.', owns: ['s.txt'] }])
+  assert.ok(Date.now() - started < 10_000, 'not the minute the part would have taken')
+  assert.match(hung, /## quick: done in/)
+  assert.match(hung, /## stuck: [^\n]*timed out/)
+  assert.equal(readFileSync(join(cwd, 'q.txt'), 'utf8'), 'quick')
+  await root.fiber.dispose()
 })

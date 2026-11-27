@@ -201,3 +201,18 @@ test('pi: a bash tool can be given the environment its commands see (shell.ts)',
   const result = await bash.execute('t1', { command: 'printf "%s" "$WIZARDRY_SEEN"' }, undefined, undefined, undefined)
   assert.match(result.content.map((part) => part.text).join(''), /as it was/)
 })
+
+test('pi runs the tool calls of one step at the same time, and no tool of wizardry\'s asks to run alone', async () => {
+  // "Calls in one step" is how the standing prompt says independent work is done at once: it
+  // counts on Pi's agent executing them concurrently, and on no tool being marked sequential.
+  const { Agent } = await import('@earendil-works/pi-agent-core')
+  assert.equal(new Agent({}).toolExecution, 'parallel')
+  const { boot } = await import('../dist/index.js')
+  const dir = mkdtempSync(join(tmpdir(), 'wizardry-libraries-'))
+  const { root } = await boot({ home: join(dir, 'home'), cwd: dir, defaults: ['pi', 'fs', 'shell', 'cordis', 'self'] })
+  const tools = []
+  root.get('pi').attach({ registerTool: (tool) => tools.push(tool), registerCommand() {}, on() {} })
+  assert.ok(tools.length > 10)
+  assert.deepEqual(tools.filter((tool) => tool.executionMode === 'sequential').map((tool) => tool.name), [])
+  await root.fiber.dispose()
+})

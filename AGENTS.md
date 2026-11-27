@@ -211,6 +211,10 @@ so a lemma renamed there is renamed here too.
 - A part learns its place from `WIZARDRY_DIVISION` (root, depth, name, owned files, laws, check).
   In a part, an `action/before` listener refuses `write` and `edit` outside the owned files. `bash`
   is not fenced: the ownership is a rule the agent is told and the write tools enforce, not a sandbox.
+- **Strays are named, not prevented.** When the parts are back, `changedSince` walks the folder
+  (not hidden folders, not `node_modules`, at most 50,000 entries) and `strays` in Bend picks the
+  files changed since the cut that no part owns; `joined` says them, or says that the folder was
+  too large to look through. Do not turn this into a refusal: a command may write build output.
 - A part unloads `memory`: what it is told is not something the user said.
 - `division_split` blocks until every part exits, then runs the check if there is one, with
   `~/.bend/bin` added to its PATH: Bend's installer does not put `bend` on PATH. Parts are
