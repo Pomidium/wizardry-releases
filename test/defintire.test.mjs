@@ -335,10 +335,11 @@ test('defintire: by exception it puts a little in the standing prompt, and no ot
 
   // What is defined is named there, read again at every turn.
   await root.get('actions').invoke('defintire_define', COMMIT, { cwd })
-  assert.match(pi.systemPrompt(cwd), /Defined already [^\n]*:\n- Good commit message: Given a message m for a change, can a reader tell from the subject alone what the change does\?$/)
+  assert.match(pi.systemPrompt(cwd), /Defined already [^\n]*: Good commit message\.$/)
   for (let n = 0; n < 9; n++) await root.get('actions').invoke('defintire_define', { ...COMMIT, name: `Thing ${n}`, answers: 'x'.repeat(5000) }, { cwd })
   const full = pi.systemPrompt(cwd).slice(plain.length)
-  assert.ok(full.length <= 1202, `a little: ${full.length} characters`)
+  assert.match(full, /Good commit message, Thing 0, .*, more\.$/)
+  assert.ok(full.length <= 700, `a little: ${full.length} characters`)
 
   // Another plugin asking for the same gets nothing in, and the agent's own words still come last.
   const other = join(cwd, 'loud.mjs')

@@ -228,9 +228,17 @@ export class Pi extends Service {
       }
       // A session starts with nothing called: what waits is put away. One that takes over from
       // another keeps what that one had in front of it.
+      // What this conversation already called (a session opened again, a branch) is called.
       this.called.clear()
-      const away = resumed ? [] : this.waiting()
-      if (away.length) pi.setActiveTools(core.without(pi.getActiveTools(), away))
+      for (const entry of piCtx.sessionManager.getBranch() as any[]) {
+        if (entry.type !== 'message' || entry.message?.role !== 'assistant' || !Array.isArray(entry.message.content)) continue
+        for (const part of entry.message.content) if (part?.type === 'toolCall' && typeof part.name === 'string') this.called.add(part.name)
+      }
+      const waitable = this.actions.list().filter((action) => action.after).map((action) => action.name)
+      if (!resumed && waitable.length) {
+        const away = this.waiting()
+        pi.setActiveTools(core.without(core.focusActive(pi.getActiveTools(), [], core.without(waitable, away)), away))
+      }
       this.ctx.root.emit('pi/session-start', pi, piCtx)
     })
     pi.on('session_shutdown', () => {

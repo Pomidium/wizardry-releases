@@ -1,4 +1,7 @@
 import bend from '../core/core.mjs'
+import args from '../core/args.mjs'
+import keep from '../core/keep.mjs'
+import look from '../core/look.mjs'
 
 /**
  * wizardry's decisions, which are written in Bend (bend/core.bend) and proven against LAWS.bend.
@@ -146,21 +149,26 @@ export const core = {
   },
 
   /** The usage text. */
-  help: (): string => bend.help(),
+  help: (): string => args.help(),
   /** What is said of a Pi command wizardry does not take. */
-  piOnlyText: (first: string, argv: readonly string[]): string => bend.pi_only_text(first, list(argv)),
+  piOnlyText: (first: string, argv: readonly string[]): string => args.pi_only_text(first, list(argv)),
   /** Whether the arguments ask for the list of plugins. */
-  listsPlugins: (rest: readonly string[]): boolean => bend.lists_plugins(list(rest)),
+  listsPlugins: (rest: readonly string[]): boolean => args.lists_plugins(list(rest)),
   /** A plugin as `wizardry plugins` lists it. */
-  listing: (name: string, state: string, source: string, actions: readonly string[]): string => bend.listing(name, state, source, list(actions)),
+  listing: (name: string, state: string, source: string, actions: readonly string[]): string => args.listing(name, state, source, list(actions)),
   /** What the switch for automatic updates says it is now. */
-  switchSaid: (on: boolean): string => bend.switch_said(on),
+  switchSaid: (on: boolean): string => args.switch_said(on),
   /** What was already said to a session that restarts: its messages, and its files as `@file`. */
-  saidOf: (messages: readonly string[], files: readonly string[]): string[] => array(bend.said_of(list(messages), list(files))),
+  saidOf: (messages: readonly string[], files: readonly string[]): string[] => array(args.said_of(list(messages), list(files))),
 
   /** Whether a session starts again on new code now. */
   restartsNow: (wanted: boolean, attached: boolean, tui: boolean, idle: boolean): boolean => bend.restarts_now(wanted, attached, tui, idle),
   /** Whether a tool declared again stays put away. */
+  /** How many times in a row a call has failed, after this outcome. */
+  failsAfter: (failed: boolean, before: number): number => bend.fails_after(failed, before),
+  /** A failure as the agent reads it: from the second in a row, with a word to change the approach. */
+  walled: (fails: number, said: string): string => bend.walled(fails, said),
+  fsDescribe: (name: string, pi: string): string => bend.fs_describe(name, pi),
   /** Whether a tool is in front of the agent once it has been declared (again). */
   inFront: (bound: boolean, known: boolean, active: boolean, returned: boolean, waits: boolean): boolean => bend.in_front(bound, known, active, returned, waits),
   /** The actions put away because the one each waits behind (`after`) has not been called. */
@@ -196,27 +204,27 @@ export const core = {
   gateSummary: (params: string): string => bend.gate_summary(params),
 
   /** Items of these widths on as few lines as `width` allows: how many go on each line. */
-  pack: (widths: readonly number[], sep: number, width: number): number[] => array(bend.pack(list(widths), sep, Math.max(0, width))),
+  pack: (widths: readonly number[], sep: number, width: number): number[] => array(look.pack(list(widths), sep, Math.max(0, width))),
   /** Where the header's text goes at this width. */
   layout(width: number, hatWidth: number): Layout {
-    const at: { $: 'Beside' | 'Under'; room: number } = bend.layout(Math.max(0, width), hatWidth)
+    const at: { $: 'Beside' | 'Under'; room: number } = look.layout(Math.max(0, width), hatWidth)
     return { where: at.$, room: at.room }
   },
   /** The header's rows with its text beside the cap. */
-  headerBeside: (hat: readonly string[], lines: readonly string[], hatWidth: number): string[] => array(bend.header_beside(list(hat), list(lines), hatWidth)),
+  headerBeside: (hat: readonly string[], lines: readonly string[], hatWidth: number): string[] => array(look.header_beside(list(hat), list(lines), hatWidth)),
   /** The header's rows with its text under the cap. */
-  headerUnder: (hat: readonly string[], lines: readonly string[]): string[] => array(bend.header_under(list(hat), list(lines))),
+  headerUnder: (hat: readonly string[], lines: readonly string[]): string[] => array(look.header_under(list(hat), list(lines))),
   /** Whether the cap moves on this tick. */
-  capMoves: (viewport: boolean, atTop: boolean): boolean => bend.cap_moves(viewport, atTop),
-  nextFrame: (frame: number): number => bend.next_frame(frame),
+  capMoves: (viewport: boolean, atTop: boolean): boolean => look.cap_moves(viewport, atTop),
+  nextFrame: (frame: number): number => look.next_frame(frame),
   /** Whether a result has nothing to show. */
-  blankView: (shown: readonly string[], more: number): boolean => bend.blank_view(list(shown), more),
-  moreHint: (more: number): string => bend.more_hint(more),
+  blankView: (shown: readonly string[], more: number): boolean => look.blank_view(list(shown), more),
+  moreHint: (more: number): string => look.more_hint(more),
   /** The plugins, one to a row with where each comes from. */
-  pluginRows: (plugins: readonly Loaded[]): string[] => array(bend.plugin_rows(loaded(plugins))),
+  pluginRows: (plugins: readonly Loaded[]): string[] => array(look.plugin_rows(loaded(plugins))),
   /** The plugins on one line, to be wrapped to the width. */
-  pluginLine: (plugins: readonly Loaded[]): string => bend.plugin_line(loaded(plugins)),
-  indented: (rows: readonly string[]): string[] => array(bend.indented(list(rows))),
+  pluginLine: (plugins: readonly Loaded[]): string => look.plugin_line(loaded(plugins)),
+  indented: (rows: readonly string[]): string[] => array(look.indented(list(rows))),
   /** What `cordis_inspect` answers. */
   inspectText: (lines: readonly string[], idle: readonly string[]): string => bend.inspect_text(list(lines), list(idle)),
 
@@ -250,35 +258,35 @@ export const core = {
   pickName: (candidates: readonly unknown[]): string => bend.pick_name(list(candidates.map((value) => (typeof value === 'string' ? value : '')))),
 
   /** What the first command-line argument asks for. */
-  commandOf: (first: string | undefined): Command => bend.command_of(first ?? '').$,
+  commandOf: (first: string | undefined): Command => args.command_of(first ?? '').$,
   /** wizardry's own options apart from Pi's; undefined when a --plugin has no value. */
   splitArgs(argv: readonly string[]): { extra: string[]; rest: string[] } | undefined {
-    const split: Maybe<{ extra: List<string>; rest: List<string> }> = bend.split_args(list(argv))
+    const split: Maybe<{ extra: List<string>; rest: List<string> }> = args.split_args(list(argv))
     return split.$ === 'Some' ? { extra: array(split.value.extra), rest: array(split.value.rest) } : undefined
   },
   /** Pi arguments that put wizardry's colors on, unless the user asked for a theme of their own. */
-  themeArgs: (rest: readonly string[], themes: string, pair: string): string[] => array(bend.theme_args(list(rest), themes, pair)),
+  themeArgs: (rest: readonly string[], themes: string, pair: string): string[] => array(args.theme_args(list(rest), themes, pair)),
   /** The arguments Pi starts with. */
   piArgs: (rest: readonly string[], sessions: string, themes: string, pair: string): string[] =>
-    array(bend.pi_args(list(rest), sessions, themes, pair)),
+    array(args.pi_args(list(rest), sessions, themes, pair)),
   /** The Pi arguments for a process taking over from this one. `said` are the messages already sent. */
   restartArgs: (rest: readonly string[], said: readonly string[], session?: string): string[] =>
     array(bend.restart_args(list(rest), list(said), maybe(session))),
 
   /** A name as words: "plugin_load" is "plugin load". */
-  words: (text: string): string => bend.words(text),
+  words: (text: string): string => look.words(text),
   /** Whether a title already starts with the plugin's name. */
-  mine: (title: string, owner: string): boolean => bend.mine(title, owner),
+  mine: (title: string, owner: string): boolean => look.mine(title, owner),
   /** What the user sees a call named as. */
   actionTitle: (title: string | undefined, native: boolean, name: string, owner: string): string =>
-    bend.action_title(title ?? '', native, name, owner),
+    look.action_title(title ?? '', native, name, owner),
   /** One argument value on the title line: on one line, and cut short. */
   brief: (text: string): string => bend.brief(text),
   /** Text as the terminal shows it, with `pad` after each newline. */
-  expand: (text: string, pad: string): string => bend.expand(text, pad),
+  expand: (text: string, pad: string): string => look.expand(text, pad),
   /** The lines of a result the user is shown, and how many more there are. */
   resultView(output: string, expanded: boolean): { shown: string[]; more: number } {
-    const view: { shown: List<string>; more: number } = bend.result_view(output, expanded)
+    const view: { shown: List<string>; more: number } = look.result_view(output, expanded)
     return { shown: array(view.shown), more: view.more }
   },
 
@@ -297,13 +305,13 @@ export const core = {
   updated: (line: string): boolean => bend.updated(line),
 
   /** The logo: a wizard's cap, row by row. */
-  hat: (): string[] => array(bend.hat()),
+  hat: (): string[] => array(look.hat()),
   /** The cap's rows on one frame of its twinkle. */
-  hatFrame: (frame: number): string[] => array(bend.hat_frame(frame)),
+  hatFrame: (frame: number): string[] => array(look.hat_frame(frame)),
   /** The frames of the small cap that stands where Pi's spinner did. */
-  smallHat: (): string[] => array(bend.small_hat()),
+  smallHat: (): string[] => array(look.small_hat()),
   /** The theme color a piece of a cap is drawn in, by its first character. */
-  ink: (part: string): string => bend.ink(part),
+  ink: (part: string): string => look.ink(part),
 
   /** A plugin in the header. */
   label: (name: string, state: string): string => bend.label(name, state),
@@ -340,65 +348,65 @@ export const core = {
   broughtSaid: (files: readonly string[], own: string, old: string): string => bend.brought_said(list(files), own, old),
 
   /** Where conversations are kept. */
-  sessionsDir: (home: string): string => bend.sessions_dir(home),
+  sessionsDir: (home: string): string => keep.sessions_dir(home),
   /** Where an export goes: where the user said, else a folder named for the day. */
-  exportDir: (chosen: string, userhome: string, day: string, again: number): string => bend.export_dir(chosen, userhome, day, again),
+  exportDir: (chosen: string, userhome: string, day: string, again: number): string => keep.export_dir(chosen, userhome, day, again),
   /** The setups whose conversations an export copies. */
-  origins: (home: string, old: string): Origin[] => array<Origin>(bend.origins(home, old)).map(({ name, dir }) => ({ name, dir })),
+  origins: (home: string, old: string): Origin[] => array<Origin>(keep.origins(home, old)).map(({ name, dir }) => ({ name, dir })),
   /** Whether an export may be written to `dir`. */
-  exportFits: (dir: string, home: string, old: string): boolean => bend.export_fits(dir, home, old),
-  isConversation: (name: string): boolean => bend.is_conversation(name),
+  exportFits: (dir: string, home: string, old: string): boolean => keep.export_fits(dir, home, old),
+  isConversation: (name: string): boolean => keep.is_conversation(name),
   /** Where a conversation goes in an export. */
-  conversationTo: (dir: string, origin: string, rel: string): string => bend.conversation_to(dir, origin, rel),
+  conversationTo: (dir: string, origin: string, rel: string): string => keep.conversation_to(dir, origin, rel),
   /** The file beside a conversation that holds it as text to read. */
-  readable: (path: string): string => bend.readable(path),
-  transcriptHead: (file: string, cwd: string, started: string): string => bend.transcript_head(file, cwd, started),
+  readable: (path: string): string => keep.readable(path),
+  transcriptHead: (file: string, cwd: string, started: string): string => keep.transcript_head(file, cwd, started),
   /** One piece of a conversation as text to read; empty for what is not written down. */
-  piece: (kind: string, name: string, at: string, text: string): string => bend.piece(kind, name, at, text),
+  piece: (kind: string, name: string, at: string, text: string): string => keep.piece(kind, name, at, text),
   /** The folders of wizardry's directory that are copied as they are when no plugin exported them. */
-  leftOver: (folders: readonly string[], written: readonly string[]): string[] => array(bend.left_over(list(folders), list(written))),
-  leftOverLine: (name: string): string => bend.left_over_line(name),
+  leftOver: (folders: readonly string[], written: readonly string[]): string[] => array(keep.left_over(list(folders), list(written))),
+  leftOverLine: (name: string): string => keep.left_over_line(name),
   /** What an export holds, line by line. */
   exportLines: (tallies: readonly Tally[], wrote: readonly string[]): string[] =>
-    array(bend.export_lines(list(tallies.map(({ name, from, count }) => ({ $: 'Tally', name, from, count }))), list(wrote))),
-  exportReadme: (day: string, lines: readonly string[]): string => bend.export_readme(day, list(lines)),
-  exportSaid: (dir: string, lines: readonly string[]): string => bend.export_said(dir, list(lines)),
-  exportInside: (dir: string): string => bend.export_inside(dir),
-  exportTaken: (dir: string): string => bend.export_taken(dir),
-  exportBroke: (why: string): string => bend.export_broke(why),
-  exportUsage: (): string => bend.export_usage(),
+    array(keep.export_lines(list(tallies.map(({ name, from, count }) => ({ $: 'Tally', name, from, count }))), list(wrote))),
+  exportReadme: (day: string, lines: readonly string[]): string => keep.export_readme(day, list(lines)),
+  exportSaid: (dir: string, lines: readonly string[]): string => keep.export_said(dir, list(lines)),
+  exportInside: (dir: string): string => keep.export_inside(dir),
+  exportTaken: (dir: string): string => keep.export_taken(dir),
+  exportBroke: (why: string): string => keep.export_broke(why),
+  exportUsage: (): string => keep.export_usage(),
   /** `wizardry export [folder]`: the folder asked for (empty for none); undefined when unclear. */
-  exportAsked: (argv: readonly string[]): string | undefined => some<string>(bend.export_asked(list(argv))),
+  exportAsked: (argv: readonly string[]): string | undefined => some<string>(keep.export_asked(list(argv))),
 
   /** What `wizardry delete` was asked. */
   deleteAsked(argv: readonly string[]): Removal {
-    const { what, yes, waived, to, clear }: Removal = bend.delete_asked(list(argv))
+    const { what, yes, waived, to, clear }: Removal = keep.delete_asked(list(argv))
     return { what, yes, waived, to, clear }
   },
   /** What `wizardry delete <what>` removes; nothing when it may not. */
   doomed: (what: string, home: string, old: string, userhome: string, to: string): string[] =>
-    array(bend.doomed(bend.what_of(what), home, old, userhome, to)),
+    array(keep.doomed(keep.what_of(what), home, old, userhome, to)),
   /** Why it removes nothing, or empty when it would remove something. */
   whyNot: (what: string, home: string, old: string, userhome: string, to: string): string =>
-    bend.why_not(bend.what_of(what), home, old, userhome, to),
+    keep.why_not(keep.what_of(what), home, old, userhome, to),
   /** Of what would be removed, what is, given --yes and how the export ended. */
-  goes: (paths: readonly string[], yes: boolean, exported: Exported): string[] => array(bend.goes(list(paths), yes, { $: exported })),
+  goes: (paths: readonly string[], yes: boolean, exported: Exported): string[] => array(keep.goes(list(paths), yes, { $: exported })),
   /** The folders left empty by a deletion, removed only if they are. */
   emptied: (what: string, doomed: readonly string[], userhome: string): string[] =>
-    array(bend.emptied(bend.what_of(what), list(doomed), userhome)),
+    array(keep.emptied(keep.what_of(what), list(doomed), userhome)),
   /** The links that would point at nothing once `doomed` is deleted. */
   dangling: (links: readonly Link[], doomed: readonly string[]): string[] =>
-    array(bend.dangling(list(links.map(({ path, target }) => ({ $: 'Link', path, target }))), list(doomed))),
+    array(keep.dangling(list(links.map(({ path, target }) => ({ $: 'Link', path, target }))), list(doomed))),
   /** Where commands that are links are looked for. */
-  linkDirs: (invoked: string, named: string, userhome: string): string[] => array(bend.link_dirs(invoked, named, userhome)),
-  oldHomeLink: (userhome: string): string => bend.old_home_link(userhome),
-  deleteUsage: (): string => bend.delete_usage(),
+  linkDirs: (invoked: string, named: string, userhome: string): string[] => array(keep.link_dirs(invoked, named, userhome)),
+  oldHomeLink: (userhome: string): string => keep.old_home_link(userhome),
+  deleteUsage: (): string => keep.delete_usage(),
   deletePreview: (word: string, rows: readonly Row[], links: readonly string[], to: string, waived: boolean): string =>
-    bend.delete_preview(word, rows_(rows), list(links), to, waived),
+    keep.delete_preview(word, rows_(rows), list(links), to, waived),
   deletedSaid: (rows: readonly Row[], links: readonly string[], to: string, waived: boolean): string =>
-    bend.deleted_said(rows_(rows), list(links), to, waived),
-  nothingThere: (what: string): string => bend.nothing_there(bend.what_of(what)),
-  exportFirstFailed: (why: string): string => bend.export_first_failed(why),
+    keep.deleted_said(rows_(rows), list(links), to, waived),
+  nothingThere: (what: string): string => keep.nothing_there(keep.what_of(what)),
+  exportFirstFailed: (why: string): string => keep.export_first_failed(why),
 
   /** What /default writes to Pi's settings: this session's model and thinking level. */
   defaultSettings: (provider: string, model: string, thinking: string): Var[] =>

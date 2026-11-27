@@ -37,7 +37,7 @@ test('builtin plugins register their actions, owned by the plugin', async () => 
   const { root, plugins, failures } = await boot({ home, cwd, defaults: DEFAULTS })
   assert.deepEqual(failures, [])
   const byName = Object.fromEntries(plugins.list().map((plugin) => [plugin.name, plugin]))
-  assert.deepEqual(byName.fs.actions, ['read', 'write', 'edit', 'grep', 'find', 'ls'])
+  assert.deepEqual(byName.fs.actions, ['read', 'write', 'edit'], 'searching and listing are bash\'s')
   assert.deepEqual(byName.shell.actions, ['bash'])
   assert.deepEqual(byName.cordis.actions, ['cordis_inspect', 'cordis_map', 'plugin_load', 'plugin_unload', 'plugin_reload'])
   assert.equal(root.get('actions').get('bash').owner, 'shell')
@@ -556,8 +556,8 @@ test('the bend default puts its rules in the action description and returns the 
   const actions = root.get('actions')
   assert.ok(actions.get('bend').description.includes(rules))
   // Bend is what the agent writes in unless there is a reason not to, said where every session sees it.
-  assert.match(actions.get('bend').description, /Bend is your default language\. When you write code, write in Bend everything Bend can express/)
-  assert.match(actions.get('bend').description, /Use another language only for those calls, for a codebase that is already in one .*or when the user asks for one/)
+  assert.match(actions.get('bend').description, /Bend is your default language: write in it everything it can express/)
+  assert.match(actions.get('bend').description, /Use another only for calls into a library or platform outside Bend, for a codebase already in one .*or when the user asks/)
 
   await actions.invoke('plugin_unload', { name: 'bend' })
   await plugins.load(join(DEFAULTS_DIR, 'bend.js'), { bin: fake })
@@ -847,7 +847,8 @@ test('delete says what would go and removes nothing until --yes; then it exports
   mkdirSync(join(home, 'app'))
   writeFileSync(join(home, 'app', 'bin.js'), '')
   symlinkSync(join(home, 'app', 'bin.js'), join(user, '.local', 'bin', 'wizardry'))
-  const none = run(['delete', 'all', '--yes', '--no-export'])
+  // The same folder of commands, named a second way: its links are found twice and go once.
+  const none = run(['delete', 'all', '--yes', '--no-export'], { WIZARDRY_BIN_DIR: `${user}/.local/./bin` })
   assert.equal(none.status, 0, none.stderr)
   assert.match(none.stdout, /Nothing is exported first: you said --no-export\./)
   assert.ok(!existsSync(home))
@@ -971,5 +972,37 @@ test('a plugin unloaded and loaded again has its actions in front of the agent; 
   writeFileSync(wrapper, `export const name = 'wrapper'\nexport function apply(ctx) { ctx.actions.wrap('echo', { note: 'Wrapped.' }) }`)
   await plugins.load(wrapper)
   assert.ok(!front().includes('echo'))
+  await root.fiber.dispose()
+})
+
+test('a call that fails again unchanged comes back with a word to change the approach, and only then', async () => {
+  const { home, cwd } = scratch()
+  const { root, plugins } = await boot({ home, cwd, defaults: ['cordis'] })
+  const file = join(cwd, 'door.mjs')
+  writeFileSync(file, `export const name = 'door'\nlet open = false\nexport const actions = [
+  { name: 'push', description: 'Push.', execute: ({ how }) => { if (!open) throw new Error('it does not move: ' + how); return 'through' } },
+  { name: 'unlock', description: 'Unlock.', execute: () => { open = true; return 'unlocked' } }]`)
+  await plugins.load(file)
+  const actions = root.get('actions')
+  const said = (how) => actions.invoke('push', { how }, { cwd }).then(() => '', (error) => error.message)
+  assert.equal(await said('hard'), 'it does not move: hard', 'the first failure is told as it is')
+  assert.match(await said('hard'), /^it does not move: hard\n\nThis same call has now failed 2 times\. Do not make it again unchanged: change the approach/)
+  assert.match(await said('hard'), /failed 3 times/)
+  assert.equal(await said('harder'), 'it does not move: harder', 'another call is another call')
+  await actions.invoke('unlock', {}, { cwd })
+  assert.equal(await actions.invoke('push', { how: 'hard' }, { cwd }), 'through')
+  await root.fiber.dispose()
+})
+
+test('a session opened again has in front what it had already called for', async () => {
+  const { home, cwd } = scratch()
+  const { root } = await boot({ home, cwd, defaults: ['pi', 'cordis'] })
+  const { api, handlers, front } = fakeTools()
+  root.get('pi').attach(api)
+  const said = (name) => ({ type: 'message', message: { role: 'assistant', content: [{ type: 'text', text: 'Looking.' }, { type: 'toolCall', name, arguments: {} }] } })
+  handlers.session_start({}, { cwd, mode: 'json', sessionManager: { getBranch: () => [] } })
+  assert.deepEqual(front(), ['cordis_inspect'], 'a new session carries one action of cordis')
+  handlers.session_start({}, { cwd, mode: 'json', sessionManager: { getBranch: () => [{ type: 'message', message: { role: 'user', content: 'hi' } }, said('cordis_inspect')] } })
+  assert.deepEqual(front(), ['cordis_inspect', 'cordis_map', 'plugin_load', 'plugin_reload', 'plugin_unload'])
   await root.fiber.dispose()
 })

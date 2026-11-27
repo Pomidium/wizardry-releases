@@ -30,7 +30,8 @@ The same repo exists in up to three places, and confusing them wastes real time:
   rebuilt in place by the updater.
 - **`~/.wizardry` (`$WIZARDRY_HOME`)** is data, not code: `plugins/`, `plugins.json`, `sessions/`,
   `memory/`, `pi/` (the logins and settings of the Pi wizardry runs), `update.log` — plus the
-  installer's `app/` clone.
+  installer's `app/` clone, and `node/` on a machine that had no Node.js (linked from
+  `~/.local/bin` as `node`, `npm` and `npx`; `delete all` takes the links along).
 
 **Pushing to `origin/main` is deploying.** The `update` plugin checks on every start, on every
 `task/end`, and periodically while open; it rebuilds the installed copy and an open session
@@ -93,9 +94,12 @@ Read in this order:
 
 | File | Owns |
 |---|---|
-| `bend/core.bend` | Everything wizardry decides, computes or says, in Bend: which plugins load and what switching one off or on writes down, how the command line splits, what a restart carries over and when it happens, how calls and results read, the header's layout and the cap's frames and colors, what `focus` leaves active, what `update` and rtk lead to, where wizardry's directory is, where Pi is pointed and what comes over from its own setup, what an export holds and how a conversation reads in it, what `delete` may remove and when, and every message and help text |
-| `LAWS.bend`, `PROOF.bend` | What must hold of those decisions for every input, and the proofs |
-| `core/core.mjs` | The compiled Bend, committed. Never edit it; `npm run core` writes it |
+| `bend/core.bend` | What wizardry decides, computes or says, in Bend: which plugins load and what switching one off or on writes down, what a restart carries over and when it happens, text helpers (`clip`, `squash`, `lines`), what `focus` leaves active, which actions wait and what a repeated failure says, what `update` and rtk lead to, the standing prompt, where wizardry's directory is, where Pi is pointed and what comes over from its own setup, and the messages |
+| `LAWS.bend`, `PROOF.bend` | What must hold of those decisions for every input, and the proofs. The lemmas every proof leans on (`same`, `alike`, `add_zero`) are here |
+| `bend/look/` | `look.bend`: how calls and results read, the header's layout and the cap's frames and colors. With its `LAWS.bend` and `PROOF.bend` |
+| `bend/args/` | `args.bend`: how the command line splits between wizardry and Pi, and what is said of it. With its `LAWS.bend` and `PROOF.bend` |
+| `bend/keep/` | `keep.bend`: what an export holds and how a conversation reads in it, what `delete` may remove and when. With its `LAWS.bend` and `PROOF.bend` |
+| `core/*.mjs` | The compiled Bend, committed: `core.mjs`, `look.mjs`, `args.mjs`, `keep.mjs`. Never edit them; `npm run core` writes them |
 | `src/core.ts` | The only importer of the compiled Bend: arrays in, arrays out, no decisions |
 | `src/*.ts` below | The host: calls into Pi, Cordis and Node, acting on what Bend answered. Nothing here decides or computes |
 | `src/boot.ts` | Building the Cordis root: `Actions`, `Plugins`, the builtin set, plugin directories |
@@ -147,8 +151,11 @@ What stays TypeScript or JavaScript, and why, so that nobody has to work it out 
 
 If you find TypeScript that decides or computes and is not on this list, it is a leftover: move it.
 
-- **A new decision goes in `bend/core.bend`**, with a one-line crossing in `src/core.ts`. If a
-  rule must hold for every input, state it in `LAWS.bend` and prove it in `PROOF.bend`.
+- **A new decision goes in `bend/core.bend`**, or in the part it belongs to (`bend/look/`,
+  `bend/args/`, `bend/keep/`), with a one-line crossing in `src/core.ts`. If a rule must hold for
+  every input, state it in the `LAWS.bend` beside it and prove it in that `PROOF.bend`. A part
+  imports the core as `C` and never the other way round; no file here is to pass 1000 lines:
+  when one would, give the concern a folder of its own.
 - **`npm run core`** runs `bend PROOF.bend` and recompiles `core/core.mjs`. Run it after every edit
   to a `.bend` file and commit the result: `npm run build` does not need Bend, so installs without
   it keep updating. `npm test` fails when `core/core.mjs` is stale or a proof is open.

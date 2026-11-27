@@ -26,8 +26,11 @@ history) to the public [Pomidium/wizardry-releases](https://github.com/Pomidium/
 by `.github/workflows/mirror.yml`, and the installer and the updater fetch from there. The
 workflow pushes with a deploy key held in this repo's `RELEASES_DEPLOY_KEY` secret.
 
-It needs git and Node 22.19 or newer. It clones into `~/.wizardry/app`, builds, links `wizardry` into
-`~/.local/bin`, and installs [rtk](https://github.com/rtk-ai/rtk) if it is missing
+It needs git. A machine with no Node.js gets one (22.x, from nodejs.org, checked against its
+checksum) inside `~/.wizardry/node`; one with a Node older than 22.19 is told to update it. It
+clones into `~/.wizardry/app`, builds, links `wizardry` into `~/.local/bin`, adds that folder to
+your PATH in your shell's profile if it is not there (`WIZARDRY_NO_PROFILE=1` to be told the line
+and add it yourself), and installs [rtk](https://github.com/rtk-ai/rtk) if it is missing
 (`WIZARDRY_SKIP_RTK=1` to skip). Run it again to update. `WIZARDRY_HOME`, `WIZARDRY_BIN_DIR`,
 `WIZARDRY_REPO` and `WIZARDRY_REF` change where things go and what is installed.
 
@@ -153,9 +156,9 @@ touches wizardry.
 | Plugin | Actions |
 |---|---|
 | `pi` | none. Hosts Pi and declares every registered action to the model as a tool |
-| `fs` | `read`, `write`, `edit`, `grep`, `find`, `ls` (Pi's implementations) |
+| `fs` | `read`, `write`, `edit` (Pi's implementations). Searching and listing are `bash`'s: one way to do a thing |
 | `shell` | `bash` |
-| `cordis` | `cordis_inspect`, `plugin_load`, `plugin_unload`, `plugin_reload` |
+| `cordis` | `cordis_inspect`, and behind it `plugin_load`, `plugin_unload`, `plugin_reload`, `cordis_map` |
 | `self` | `become` (rewrite its own standing instructions), `focus` (choose which actions are in view), `think` (reasoning level) |
 | `rtk` | none. Wraps `bash` so commands [rtk](https://github.com/rtk-ai/rtk) knows run through it and return condensed output |
 | `update` | none. Keeps wizardry current in the background when a task finishes (see Updates) |
@@ -168,6 +171,12 @@ not installed the plugin fails to load with a one-line notice and `bash` is unch
 `plugin_unload rtk` with `persist: true` turns it off for good.
 
 The agent can write a plugin file, `plugin_load` it, and use the new action in the same session.
+
+**What the agent carries every turn is kept small.** An action can wait behind another
+(`after: 'cordis_inspect'`): it is out of the tool list until that one has been called in the
+session, so a skill costs one short action until it is used. It is proven that nothing waits
+behind an action that is not there. And a call made again unchanged that fails again comes back
+with a word to change the approach; the first failure is told as it is.
 
 ## Writing a plugin
 
@@ -207,6 +216,9 @@ arguments as `key: value` beside it and the first lines of the result below (ctr
 full). Pi's own tools keep their names (`read`, `write`, `edit`, `$` for bash). To name a call after
 a workflow instead, give the action a `title`, for example `title: 'code review'`. The title is only
 what the user sees; the agent always calls the action by `name`.
+
+Give a skill one short action that says what it is, and put `after: '<that action>'` on the ones
+with long schemas: they reach the agent when the skill is called, and cost nothing before.
 
 A plugin that injects `pi` can also give the user a slash command with
 `ctx.pi.command('name', { description, words, run(args, piCtx) })`. Commands are the user's: the

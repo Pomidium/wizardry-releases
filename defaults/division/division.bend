@@ -607,10 +607,9 @@ def brief(name: String, task: String, owns: List<&2, String>, laws: List<&2, Str
       "When you are done, reply with what you did, what is proven or checked, and anything the agent that cut the task needs to know. That reply is all it will see of your work besides the files."]]), "\n")
 
 def describe_division() -> String:
-  String.concat(["A way to deploy agents on a task: cut it into parts that separate agents do at the same time. ",
-    "Each part owns its own files, so no two agents write the same one, and what crosses between parts is said beforehand, ",
-    "best as Bend laws that each part proves and the others count on. ",
-    "Returns the method and where you stand in the tree, and puts division_split in front of you from the next step. How many parts, how large, and whether to cut at all are yours to judge."])
+  String.concat(["A way to deploy agents on a task: cut it into parts that separate agents do at the same time, each owning its own files, ",
+    "with what crosses between parts said beforehand, best as Bend laws. ",
+    "Returns the method and puts division_split in front of you from the next step. Whether to cut at all is yours to judge."])
 
 def describe_split() -> String:
   String.concat(["Cut the task you have into parts and run them all now, each as its own agent in this directory. ",

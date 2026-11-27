@@ -30,17 +30,25 @@ const text = (alphabet, max) => some(alphabet, max).join('')
 const LEAN = [...(process.env.PATH ?? '').split(':'), join(homedir(), '.elan', 'bin')]
   .map((dir) => join(dir, 'lean')).find((file) => existsSync(file))
 
+// The Bend core and its parts: where each is, its source, and the name it compiles to.
+const PARTS = [['.', 'bend/core.bend', 'core'], ['bend/look', 'look.bend', 'look'], ['bend/args', 'args.bend', 'args'], ['bend/keep', 'keep.bend', 'keep']]
+
 test('the proofs check, and the compiled core in the repo is what the Bend source compiles to', { skip: !BEND && 'bend is not installed' }, () => {
-  const proof = spawnSync(BEND, ['PROOF.bend'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, BEND_NO_TELEMETRY: '1' } })
-  assert.match(proof.stdout + proof.stderr, /ALL PROOFS CHECK/)
-  // Every law has a proof: a law left open, or a proof of none, would both slip past a count.
-  const laws = [...readFileSync(join(ROOT, 'LAWS.bend'), 'utf8').matchAll(/^law (\w+):/gm)].map((match) => match[1])
-  const proofs = [...readFileSync(join(ROOT, 'PROOF.bend'), 'utf8').matchAll(/^def Laws\.(\w+)\(/gm)].map((match) => match[1])
-  assert.deepEqual([...proofs].sort(), [...laws].sort())
-  assert.ok(laws.length >= 48, `${laws.length} laws`)
-  const out = join(mkdtempSync(join(tmpdir(), 'wizardry-core-')), 'core.mjs')
-  execFileSync(BEND, ['bend/core.bend', '-o', out], { cwd: ROOT, env: { ...process.env, BEND_NO_TELEMETRY: '1' } })
-  assert.equal(readFileSync(join(ROOT, 'core', 'core.mjs'), 'utf8'), readFileSync(out, 'utf8'), 'core/core.mjs is stale: run `npm run core`')
+  const env = { ...process.env, BEND_NO_TELEMETRY: '1' }
+  let count = 0
+  for (const [dir, source, name] of PARTS) {
+    const proof = spawnSync(BEND, ['PROOF.bend'], { cwd: join(ROOT, dir), encoding: 'utf8', env })
+    assert.match(proof.stdout + proof.stderr, /ALL PROOFS CHECK/, dir)
+    // Every law has a proof: a law left open, or a proof of none, would both slip past a count.
+    const laws = [...readFileSync(join(ROOT, dir, 'LAWS.bend'), 'utf8').matchAll(/^law (\w+):/gm)].map((match) => match[1])
+    const proofs = [...readFileSync(join(ROOT, dir, 'PROOF.bend'), 'utf8').matchAll(/^def Laws\.(\w+)\(/gm)].map((match) => match[1])
+    assert.deepEqual([...proofs].sort(), [...laws].sort(), dir)
+    count += laws.length
+    const out = join(mkdtempSync(join(tmpdir(), 'wizardry-core-')), `${name}.mjs`)
+    execFileSync(BEND, [source, '-o', out], { cwd: join(ROOT, dir), env })
+    assert.equal(readFileSync(join(ROOT, 'core', `${name}.mjs`), 'utf8'), readFileSync(out, 'utf8'), `core/${name}.mjs is stale: run \`npm run core\``)
+  }
+  assert.ok(count >= 70, `${count} laws`)
 })
 
 test('boot loads what the old rules loaded: shipped defaults step aside, switched-off plugins stay off', () => {
@@ -222,9 +230,11 @@ test('focus, rtk, the updater and the words about plugins answer as before', () 
 
 test('the proofs pass the kernel that is itself proven in Lean, with nothing unsafe or foreign under them', { skip: (!BEND || !LEAN) && 'bend --verdict needs Lean' }, () => {
   const env = { ...process.env, BEND_NO_TELEMETRY: '1', PATH: `${join(LEAN, '..')}:${process.env.PATH}` }
-  const verdict = spawnSync(BEND, ['PROOF.bend', '--verdict'], { cwd: ROOT, encoding: 'utf8', env })
-  assert.match(verdict.stdout + verdict.stderr, /ALL PROOFS CHECK/)
-  assert.doesNotMatch(verdict.stdout + verdict.stderr, /SOME PROOFS FAIL|unsafe/)
+  for (const [dir] of PARTS) {
+    const verdict = spawnSync(BEND, ['PROOF.bend', '--verdict'], { cwd: join(ROOT, dir), encoding: 'utf8', env })
+    assert.match(verdict.stdout + verdict.stderr, /ALL PROOFS CHECK/, dir)
+    assert.doesNotMatch(verdict.stdout + verdict.stderr, /SOME PROOFS FAIL|unsafe/, dir)
+  }
 })
 
 test('switching plugins, the update words and the caps answer as the TypeScript they replaced did', () => {

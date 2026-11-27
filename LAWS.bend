@@ -30,11 +30,6 @@ law focus_stays:
   for drop: List<&2, String>
   {C.overlaps(C.droppable(drop), ["focus"]) == False{} : Bool}
 
-# Everything from `--` on is Pi's, unread: no option after it is taken for wizardry's.
-law dashes_pass:
-  for +rest: List<&2, String>
-  {C.split_args("--" <> rest) == Some{C.Args{Nil{}, "--" <> rest}} : Maybe<&2, C.Args>}
-
 # A session that restarts onto new code never carries -c, --continue, -r or --resume along: the
 # session to open is named outright.
 law restart_forgets_resume:
@@ -47,15 +42,6 @@ law clip_fits:
   for +s: String
   for +p: Nat
   {C.fits(C.clip(s, 1n+p), 1n+p) == True{} : Bool}
-
-# A collapsed result accounts for every line: the ones shown plus the ones counted as hidden.
-law view_counts_all:
-  for +lines: List<&2, String>
-  for +limit: Nat
-  {Nat.add(List.length(&2, String, C.first(lines, limit)), C.beyond(lines, limit)) == List.length(&2, String, lines) : Nat}
-
-# Plugins: a default comes switched on, and is easy to change or remove
-# ---------------------------------------------------------------------
 
 # With nothing in the plugin directories and nothing switched off, every shipped default loads,
 # in order.
@@ -165,86 +151,10 @@ law plugin_is_named:
 # Calls: named after the plugin, readable on one line
 # ---------------------------------------------------
 
-# A title an action sets for itself is shown as it is.
-law title_wins:
-  for c: Char
-  for rest: String
-  for native: Bool
-  for +name: String
-  for +owner: String
-  {C.action_title(SCon{c, rest}, native, name, owner) == SCon{c, rest} : String}
-
-# Pi's own tools keep their names: read, write, edit, bash.
-law native_keeps_name:
-  for +name: String
-  for +owner: String
-  {C.action_title("", True{}, name, owner) == name : String}
-
-# Every other call is shown under the name of the plugin it comes from.
-law named_by_plugin:
-  for +name: String
-  for +owner: String
-  {C.mine(C.action_title("", False{}, name, owner), C.words(owner)) == True{} : Bool}
-
-# `subagent_create` from `subagent` reads "subagent create", `plugin_load` from `cordis`
-# "cordis plugin load".
-law title_examples:
-  {C.action_title("", False{}, "subagent_create", "subagent") == "subagent create" : String} & {C.action_title("", False{}, "plugin_load", "cordis") == "cordis plugin load" : String}
-
 # An argument on the title line never runs past 72 characters.
 law brief_fits:
   for text: String
   {C.fits(C.brief(text), 72n) == True{} : Bool}
-
-# An expanded result is shown whole.
-law expanded_shows_all:
-  for +lines: List<&2, String>
-  for +limit: Nat
-  {C.view_of(True{}, lines, limit) == C.View{lines, 0n} : C.View}
-
-# When no line is counted as hidden, none is: the result is shown whole.
-law nothing_hidden_unsaid:
-  for lines: List<&2, String>
-  for limit: Nat
-  for none: {C.beyond(lines, limit) == 0n : Nat}
-  {C.first(lines, limit) == lines : List<&2, String>}
-
-# The command line: Pi gets what is Pi's, and adds nothing to the agent by itself
-# ------------------------------------------------------------------------------
-
-# Arguments with no --plugin and no --gate among them all go to Pi, unchanged.
-law plain_args_pass:
-  for +argv: List<&2, String>
-  for +plugin: {C.has(argv, "--plugin") == False{} : Bool}
-  for +gate: {C.has(argv, "--gate") == False{} : Bool}
-  {C.split_args(argv) == Some{C.Args{Nil{}, argv}} : Maybe<&2, C.Args>}
-
-# Pi always starts with its own tools, extensions, skills, prompt templates and context files
-# off: what the agent can do comes only from plugins.
-law pi_adds_nothing:
-  for +rest: List<&2, String>
-  for sessions: String
-  for themes: String
-  for pair: String
-  {C.covers(C.pi_args(rest, sessions, themes, pair),
-    ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files"]) == True{} : Bool}
-
-# Everything the user passed for Pi reaches it, in order, after what wizardry puts in front.
-law user_args_reach_pi:
-  for +rest: List<&2, String>
-  for +sessions: String
-  for +themes: String
-  for +pair: String
-  exs before: List<&2, String>
-  {C.pi_args(rest, sessions, themes, pair) == List.append(&2, String, before, rest) : List<&2, String>}
-
-# A theme the user asked for is not overridden by wizardry's.
-law own_theme_wins:
-  for rest: List<&2, String>
-  for themes: String
-  for pair: String
-  for asked: {C.has(rest, "--use-theme") == True{} : Bool}
-  {C.theme_args(rest, themes, pair) == ["--theme", themes] : List<&2, String>}
 
 # A session that restarts onto new code carries no --session, --fork or --session-id along
 # either: the one session it opens is the one it was in.
@@ -298,28 +208,6 @@ law prompt_keeps_base:
 # The caps: they twinkle in place, in blues and greys
 # ---------------------------------------------------
 
-# Every frame of the cap has the plain cap's shape, so nothing beside or below it moves.
-law cap_keeps_its_shape:
-  for frame: Nat
-  {C.widths(C.hat_frame(frame)) == C.widths(C.hat()) : List<&2, Nat>}
-
-# Still, the cap is the plain logo.
-law cap_starts_plain:
-  {C.hat_frame(0n) == C.hat() : List<&2, String>}
-
-# Every frame of the small cap is seven wide, so the message beside it stays put.
-law small_cap_stays_put:
-  {C.widths(C.small_hat()) == [7n, 7n, 7n, 7n, 7n, 7n] : List<&2, Nat>}
-
-# Every piece of a cap is drawn in one of four theme colors. That those four are blues and greys
-# in both themes is a test (test/wizardry.test.mjs): no proof reaches the theme files.
-law caps_are_blue_and_grey:
-  for part: String
-  {C.has(C.inks(), C.ink(part)) == True{} : Bool}
-
-# The session, the header and the rest of what moved from TypeScript
-# ------------------------------------------------------------------
-
 # A session never starts again on new code while the agent is working, and only an interactive
 # one ever does.
 law restart_waits:
@@ -328,21 +216,6 @@ law restart_waits:
   for tui: Bool
   for idle: Bool
   {C.restarts_now(wanted, attached, tui, False{}) == False{} : Bool} & {C.restarts_now(wanted, attached, False{}, idle) == False{} : Bool}
-
-# How many there are on all the lines together.
-def total(counts: List<&2, Nat>) -> Nat:
-  match counts:
-    case Nil{}:
-      0n
-    case Con{h, t}:
-      Nat.add(h, total(t))
-
-# Packing the header's hints onto lines places every one of them, whatever the width.
-law pack_places_all:
-  for widths: List<&2, Nat>
-  for +sep: Nat
-  for +width: Nat
-  {total(C.pack(widths, sep, width)) == List.length(&2, Nat, widths) : Nat}
 
 # rtk changes a command only when `rtk rewrite` ended with 0 or 3.
 law rtk_needs_a_rewrite:
@@ -373,13 +246,6 @@ law adopting_overwrites_nothing:
   for link: Bool
   {C.adopts_home(named, True{}, has_old, link) == False{} : Bool} & {C.adopts_home(True{}, has_home, has_old, link) == False{} : Bool}
 
-# The cap stays still once it has scrolled away on the main screen.
-law cap_rests_off_screen:
-  {C.cap_moves(False{}, False{}) == False{} : Bool}
-
-# Kept apart: wizardry's logins, settings, conversations and memories are its own
-# -------------------------------------------------------------------------------
-
 # Pi's directory, when wizardry runs it, is inside wizardry's own, wherever that is.
 law pi_dir_is_wizardrys:
   for +home: String
@@ -397,15 +263,6 @@ def set_to(vars: List<&2, C.Var>, +name: String) -> Maybe<&2, String>:
 law pi_is_pointed_home:
   for home: String
   {set_to(C.pi_env(home), "PI_CODING_AGENT_DIR") == Some{C.own_pi(home)} : Maybe<&2, String>}
-
-# Pi always starts with theme discovery, MCP servers and project-local files off: nothing lying
-# around a project, and nothing another setup installed, is read.
-law pi_reads_nothing_around:
-  for +rest: List<&2, String>
-  for sessions: String
-  for themes: String
-  for pair: String
-  {C.covers(C.pi_args(rest, sessions, themes, pair), ["--no-themes", "--no-mcp", "--no-approve"]) == True{} : Bool}
 
 # Nothing that adds to a session comes over from Pi's own settings: no packages, extensions,
 # skills, prompt templates or themes, and no place to keep sessions other than wizardry's.
@@ -429,68 +286,6 @@ law logins_overwrite_nothing:
 
 # Export and delete: easy to ask for, and nothing is lost by asking
 # -----------------------------------------------------------------
-
-# `export` and `delete` are wizardry's own commands.
-law words_of_keeping:
-  {C.command_of("export") == C.Export{} : C.Command} & {C.command_of("delete") == C.Delete{} : C.Command}
-
-# Every conversation an export copies is written inside the export's folder.
-law export_stays_in_its_folder:
-  for +dir: String
-  for origin: String
-  for rel: String
-  {String.starts_with(C.conversation_to(dir, origin, rel), dir) == True{} : Bool}
-
-# Without --yes, nothing is deleted.
-law delete_asks_first:
-  for paths: List<&2, String>
-  for exported: C.Exported
-  {C.goes(paths, False{}, exported) == Nil{} : List<&2, String>}
-
-# When the export that comes first did not finish, nothing is deleted.
-law delete_waits_for_export:
-  for paths: List<&2, String>
-  for yes: Bool
-  {C.goes(paths, yes, C.Failed{}) == Nil{} : List<&2, String>}
-
-# The export is never among what is deleted: no deleted path is its folder or holds it.
-law delete_keeps_the_export:
-  for what: C.What
-  for +home: String
-  for +old: String
-  for +userhome: String
-  for +to: String
-  {C.takes(C.doomed(what, home, old, userhome, to), to) == False{} : Bool}
-
-# Whatever wizardry's directory was set to, deleting never takes the user's home directory, nor
-# anything that holds it.
-law delete_spares_your_home:
-  for +what: C.What
-  for +home: String
-  for +old: String
-  for +userhome: String
-  for +to: String
-  {C.takes(C.doomed(what, home, old, userhome, to), userhome) == False{} : Bool}
-
-# Whether any of `paths` is `root` or inside it.
-def any_inside(paths: List<&2, String>, +root: String) -> Bool:
-  match paths:
-    case Nil{}:
-      False{}
-    case Con{h, t}:
-      Bool.or(C.inside(h, root), any_inside(t, root))
-
-# Deleting the old setup leaves wizardry whole: nothing deleted is wizardry's directory, holds
-# it, or is inside it.
-law old_spares_wizardry:
-  for +home: String
-  for +old: String
-  for +userhome: String
-  for +to: String
-  {C.takes(C.doomed(C.Old{}, home, old, userhome, to), home) == False{} : Bool} & {any_inside(C.doomed(C.Old{}, home, old, userhome, to), home) == False{} : Bool}
-
-# /default
-# --------
 
 # Making what is loaded now the default switches off nothing that is loaded now.
 law default_keeps_what_is_loaded:
@@ -547,3 +342,9 @@ law loaded_again_is_in_front:
   for known: Bool
   for active: Bool
   {C.in_front(bound, known, active, True{}, False{}) == True{} : Bool}
+
+# A failure is told as it is the first time: only one made again unchanged, and failing again,
+# comes with a word to change the approach. And a call that succeeds starts the count again.
+law a_first_failure_says_nothing:
+  for +said: String
+  ({C.walled(0n, said) == said : String} & {C.walled(1n, said) == said : String}) & {C.walled(C.fails_after(False{}, 7n), said) == said : String}

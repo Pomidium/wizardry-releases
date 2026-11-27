@@ -155,18 +155,15 @@ def listed(+items: List<&2, String>, paused: Bool) -> String:
 # The action, as the agent reads it in its tool list.
 def about() -> String:
   String.concat([
-    "The queue: tasks to do after the one you are on. When you are completely done with the current task and have answered, ",
-    "the first task waiting is handed to you as the next message, and then the next, with no one having to ask. ",
-    "Use it when the user gives work for later (\"after this, do X\", \"then Y\", a list of things to get through): add each as one task, ",
-    "worded so that it stands by itself. Not for the steps of the task you are on. ",
-    "A task that was stopped or ended in an error holds the queue until the user types /queue go. ",
-    "With no arguments it returns what waits."])
+    "The queue: tasks for after the one you are on. When you have answered, the first one waiting is handed to you as the next message, ",
+    "and so on. Use it when the user gives work for later (\"after this, do X\", a list to get through): one task each, worded to stand ",
+    "by itself. Not for the steps of the task you are on. With no arguments it returns what waits."])
 
 def about_add() -> String:
-  "Tasks to put at the end of the queue, in the order they are to be done."
+  "Tasks to put at the end, in order."
 
 def about_drop() -> String:
-  "Remove the task at this position (1 is the next one)."
+  "Remove the task at this position (1 is next)."
 
 def about_clear() -> String:
   "Remove every task that waits."

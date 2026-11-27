@@ -10,7 +10,7 @@
   "engines": { "node": ">=22.19.0" },
   "scripts": {
     "build": "tsc -p tsconfig.json && chmod +x dist/bin.js",
-    "core": "bend PROOF.bend && bend bend/core.bend -o core/core.mjs && cd defaults/division && bend PROOF.bend && bend division.bend -o core.mjs && cd ../defintire && bend PROOF.bend && bend defintire.bend -o core.mjs && cd ../when && bend PROOF.bend && bend when.bend -o core.mjs && cd ../queue && bend PROOF.bend && bend queue.bend -o core.mjs",
+    "core": "bend PROOF.bend && bend bend/core.bend -o core/core.mjs && for m in look args keep; do (cd bend/$m && bend PROOF.bend && bend $m.bend -o ../../core/$m.mjs) || exit 1; done && cd defaults/division && bend PROOF.bend && bend division.bend -o core.mjs && cd ../defintire && bend PROOF.bend && bend defintire.bend -o core.mjs && cd ../when && bend PROOF.bend && bend when.bend -o core.mjs && cd ../queue && bend PROOF.bend && bend queue.bend -o core.mjs",
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {

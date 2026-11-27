@@ -54,9 +54,6 @@ def clean(xs: List<&2, String>, +bad: List<&2, String>) -> {C.overlaps(C.without
 def Laws.focus_stays(drop):
   clean(drop, ["focus"])
 
-def Laws.dashes_pass(rest):
-  {==}
-
 # An argument that is kept is not one that resumes a session.
 def strip_step(
   s: Bool, r: Bool, c: Bool, -h: String, -rest: List<&2, String>,
@@ -121,32 +118,6 @@ def add_succ(n: Nat, -m: Nat) -> {Nat.add(n, 1n+m) == 1n+Nat.add(n, m) : Nat}:
     case 1n+p:
       %add_succ(p, m) : {1n+Nat.add(p, 1n+m) == 1n+_ : Nat}
       {==}
-
-# Counting on top of `acc` is the length plus `acc`.
-def count_len(xs: List<&2, String>, -acc: Nat) -> {C.count(xs, acc) == Nat.add(List.length(&2, String, xs), acc) : Nat}:
-  match xs:
-    case Nil{}:
-      {==}
-    case Con{h, +t}:
-      Equal.trans(Nat, C.count(t, 1n+acc), Nat.add(List.length(&2, String, t), 1n+acc),
-        1n+Nat.add(List.length(&2, String, t), acc),
-        count_len(t, 1n+acc), add_succ(List.length(&2, String, t), acc))
-
-def Laws.view_counts_all(lines, limit):
-  match lines limit:
-    case Nil{} _:
-      {==}
-    case Con{h, +t} 0n:
-      %add_zero(List.length(&2, String, t)) : {C.count(t, 1n) == 1n+_ : Nat}
-      Equal.trans(Nat, C.count(t, 1n), Nat.add(List.length(&2, String, t), 1n),
-        1n+Nat.add(List.length(&2, String, t), 0n),
-        count_len(t, 1n), add_succ(List.length(&2, String, t), 0n))
-    case Con{h, +t} 1n+p:
-      %Laws.view_counts_all(t, p) : {1n+Nat.add(List.length(&2, String, C.first(t, p)), C.beyond(t, p)) == 1n+_ : Nat}
-      {==}
-
-# Names are themselves, and names that compare equal are the same name
-# -------------------------------------------------------------------
 
 def CmpIsEq(c: Cmp) -> Type:
   match c:
@@ -318,32 +289,11 @@ def alike(+a: String, +b: String, e: {String.eq(a, b) == True{} : Bool}) -> {a =
 # Laws that hold by running the code
 # ----------------------------------
 
-def Laws.cap_starts_plain():
-  {==}
-
-def Laws.small_cap_stays_put():
-  {==}
-
-def Laws.title_examples():
-  ({==}, {==})
-
 def Laws.update_words():
   (({==}, {==}), {==})
 
 def Laws.hidden_files_skip(rest, folder, entry):
   ({==}, {==})
-
-def Laws.title_wins(c, rest, native, name, owner):
-  {==}
-
-def Laws.native_keeps_name(name, owner):
-  {==}
-
-def Laws.expanded_shows_all(lines, limit):
-  {==}
-
-def Laws.pi_adds_nothing(rest, sessions, themes, pair):
-  {==}
 
 def Laws.raw_runs_as_written(command):
   {==}
@@ -746,15 +696,6 @@ def starts(p: String, -rest: String) -> {String.starts_with.go(p, String.append(
       %Equal.sym(Bool, Char.is_eq(h, h), True{}, char_same(h)) : {String.starts_with.go.if(t, String.append(t, rest), _) == True{} : Bool}
       starts(t, rest)
 
-# A text, a space and more begins with the text and a space.
-def starts_spaced(p: String, -rest: String) -> {String.starts_with.go(String.append(p, " "), String.append(p, SCon{' ', rest})) == True{} : Bool}:
-  match p:
-    case SNil{}:
-      {==}
-    case SCon{+h, t}:
-      %Equal.sym(Bool, Char.is_eq(h, h), True{}, char_same(h)) : {String.starts_with.go.if(String.append(t, " "), String.append(t, SCon{' ', rest}), _) == True{} : Bool}
-      starts_spaced(t, rest)
-
 def label_step(b: Bool, +name: String, -state: String) ->
   {String.starts_with(Bool.pick(String, b, name, String.concat([name, " (", state, ")"])), name) == True{} : Bool}:
   match b:
@@ -777,80 +718,6 @@ def prompt_step(b: Bool, +base: String, -identity: String) ->
 def Laws.prompt_keeps_base(base, identity):
   prompt_step(String.is_empty(identity), base, identity)
 
-def by_plugin_step(m: Bool, -name: String, +said: String, +owner: String, em: {C.mine(said, owner) == m : Bool}) ->
-  {C.mine(C.title_pick(False{}, False{}, m, "", name, said, owner), owner) == True{} : Bool}:
-  match m:
-    case True{}:
-      em
-    case False{}:
-      %Equal.sym(Bool, String.starts_with.go(String.append(owner, " "), String.append(owner, SCon{' ', said})), True{}, starts_spaced(owner, said)) : {Bool.or(String.eq(String.append(owner, SCon{' ', said}), owner), _) == True{} : Bool}
-      or_true(String.eq(String.append(owner, SCon{' ', said}), owner))
-
-def Laws.named_by_plugin(name, owner):
-  by_plugin_step(C.mine(C.words(name), C.words(owner)), name, C.words(name), C.words(owner), {==})
-
-# The caps
-# --------
-
-def ink_in(plus: Bool, star: Bool, dot: Bool) -> {C.has(C.inks(), C.ink_pick(plus, star, dot)) == True{} : Bool}:
-  match plus star dot:
-    case True{} _ _:
-      {==}
-    case False{} True{} _:
-      {==}
-    case False{} False{} True{}:
-      {==}
-    case False{} False{} False{}:
-      {==}
-
-def Laws.caps_are_blue_and_grey(part):
-  match part:
-    case SNil{}:
-      {==}
-    case SCon{+h, t}:
-      ink_in(Char.is_eq(h, '+'), Char.is_eq(h, '*'), Char.is_eq(h, '.'))
-
-# Putting a character in place of another leaves a text as long as it was.
-def put_length(s: String, col: Nat, -c: Char) -> {String.length(C.put(s, col, c)) == String.length(s) : Nat}:
-  match s col:
-    case SNil{} _:
-      {==}
-    case SCon{h, t} 0n:
-      {==}
-    case SCon{h, t} 1n+p:
-      %put_length(t, p, c) : {1n+String.length(C.put(t, p, c)) == 1n+_ : Nat}
-      {==}
-
-def row_widths(rows: List<&2, String>, row: Nat, col: Nat, -c: Char) -> {C.widths(C.put_row(rows, row, col, c)) == C.widths(rows) : List<&2, Nat>}:
-  match rows row:
-    case Nil{} _:
-      {==}
-    case Con{h, t} 0n:
-      %put_length(h, col, c) : {String.length(C.put(h, col, c)) <> C.widths(t) == _ <> C.widths(t) : List<&2, Nat>}
-      {==}
-    case Con{h, t} 1n+p:
-      %row_widths(t, p, col, c) : {String.length(h) <> C.widths(C.put_row(t, p, col, c)) == String.length(h) <> _ : List<&2, Nat>}
-      {==}
-
-# However many sparks show whatever they show, every row is as wide as it was.
-def twinkle_widths(sparks: List<&2, C.Spark>, +rows: List<&2, String>, +at: Nat) -> {C.widths(C.twinkle(sparks, rows, at)) == C.widths(rows) : List<&2, Nat>}:
-  match sparks:
-    case Nil{}:
-      {==}
-    case Con{C.Spark{+row, +col, +frames}, t}:
-      Equal.trans(List<&2, Nat>,
-        C.widths(C.twinkle(t, C.put_row(rows, row, col, C.glyph(String.get(frames, at))), at)),
-        C.widths(C.put_row(rows, row, col, C.glyph(String.get(frames, at)))),
-        C.widths(rows),
-        twinkle_widths(t, C.put_row(rows, row, col, C.glyph(String.get(frames, at))), at),
-        row_widths(rows, row, col, C.glyph(String.get(frames, at))))
-
-def Laws.cap_keeps_its_shape(frame):
-  twinkle_widths(C.sparks(), C.hat(), Nat.mod(frame, 8n))
-
-# What the user sees
-# ------------------
-
 def brief_step(line: String) -> {C.fits(Bool.pick(String, String.is_empty(line), "\"\"", C.clip(line, 72n)), 72n) == True{} : Bool}:
   match line:
     case SNil{}:
@@ -860,42 +727,6 @@ def brief_step(line: String) -> {C.fits(Bool.pick(String, String.is_empty(line),
 
 def Laws.brief_fits(text):
   brief_step(C.squash(text, False{}))
-
-def NatIsZero(n: Nat) -> Type:
-  match n:
-    case 0n:
-      Unit
-    case 1n+p:
-      Empty
-
-def zero_is(-n: Nat, e: {0n == n : Nat}) -> NatIsZero(n):
-  %e : NatIsZero(_)
-  Unit{}
-
-# A count that starts at one is not zero.
-def counted(-A: Type, +t: List<&2, String>, none: {C.count(t, 1n) == 0n : Nat}) -> A:
-  Empty.absurd(A, zero_is(1n+Nat.add(List.length(&2, String, t), 0n),
-    Equal.trans(Nat, 0n, C.count(t, 1n), 1n+Nat.add(List.length(&2, String, t), 0n),
-      Equal.sym(Nat, C.count(t, 1n), 0n, none),
-      Equal.trans(Nat, C.count(t, 1n), Nat.add(List.length(&2, String, t), 1n), 1n+Nat.add(List.length(&2, String, t), 0n),
-        count_len(t, 1n), add_succ(List.length(&2, String, t), 0n)))))
-
-def Laws.nothing_hidden_unsaid(lines, limit, none):
-  match lines limit:
-    case Nil{} _:
-      {==}
-    case Con{h, +t} 0n:
-      counted({Nil{} == h <> t : List<&2, String>}, t, none)
-    case Con{h, t} 1n+p:
-      %Laws.nothing_hidden_unsaid(t, p, none) : {h <> C.first(t, p) == h <> _ : List<&2, String>}
-      {==}
-
-# The command line
-# ----------------
-
-def Laws.own_theme_wins(rest, themes, pair, asked):
-  %Equal.sym(Bool, C.has(rest, "--use-theme"), True{}, asked) : {"--theme" <> themes <> C.unless(_, ["--use-theme", pair]) == ["--theme", themes] : List<&2, String>}
-  {==}
 
 # An argument that is kept is not one that names a session.
 def chooses_step(
@@ -922,112 +753,6 @@ def Laws.restart_names_one_session(xs, skip):
       chooses_step(skip, C.resumes(h), C.chooses(h), h, C.strip(t, Bool.and(Bool.not(skip), C.chooses(h))), {==},
         Laws.restart_names_one_session(t, Bool.and(Bool.not(skip), C.chooses(h))))
 
-def names_append_none(xs: List<&2, String>) -> {List.append(&2, String, xs, Nil{}) == xs : List<&2, String>}:
-  match xs:
-    case Nil{}:
-      {==}
-    case Con{h, t}:
-      %names_append_none(t) : {h <> List.append(&2, String, t, Nil{}) == h <> _ : List<&2, String>}
-      {==}
-
-def append_assoc(a: List<&2, String>, -b: List<&2, String>, -c: List<&2, String>) ->
-  {List.append(&2, String, a, List.append(&2, String, b, c)) == List.append(&2, String, List.append(&2, String, a, b), c) : List<&2, String>}:
-  match a:
-    case Nil{}:
-      {==}
-    case Con{h, t}:
-      %append_assoc(t, b, c) : {h <> List.append(&2, String, t, List.append(&2, String, b, c)) == h <> _ : List<&2, String>}
-      {==}
-
-# Three lists joined one way are the same three joined the other way.
-def regroup(+u: List<&2, String>, +t: List<&2, String>, +rest: List<&2, String>) ->
-  {List.append(&2, String, u, List.append(&2, String, t, List.append(&2, String, rest, Nil{}))) == List.append(&2, String, List.append(&2, String, u, t), rest) : List<&2, String>}:
-  %Equal.sym(List<&2, String>, List.append(&2, String, rest, Nil{}), rest, names_append_none(rest)) : {List.append(&2, String, u, List.append(&2, String, t, _)) == List.append(&2, String, List.append(&2, String, u, t), rest) : List<&2, String>}
-  append_assoc(u, t, rest)
-
-def user_args_proof(+rest: List<&2, String>, +sessions: String, +themes: String, +pair: String) ->
-  {C.pi_args(rest, sessions, themes, pair) == List.append(&2, String,
-    List.append(&2, String, ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-themes", "--no-mcp", "--no-approve"],
-      List.append(&2, String,
-        C.unless(Bool.or(C.has(rest, "--session-dir"), C.has(rest, "--no-session")), ["--session-dir", sessions]),
-        C.theme_args(rest, themes, pair))), rest) : List<&2, String>}:
-  %regroup(C.unless(Bool.or(C.has(rest, "--session-dir"), C.has(rest, "--no-session")), ["--session-dir", sessions]), C.theme_args(rest, themes, pair), rest) : {C.pi_args(rest, sessions, themes, pair) == List.append(&2, String, ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-themes", "--no-mcp", "--no-approve"], _) : List<&2, String>}
-  {==}
-
-def Laws.user_args_reach_pi(rest, sessions, themes, pair):
-  (List.append(&2, String, ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-themes", "--no-mcp", "--no-approve"],
-    List.append(&2, String,
-      C.unless(Bool.or(C.has(rest, "--session-dir"), C.has(rest, "--no-session")), ["--session-dir", sessions]),
-      C.theme_args(rest, themes, pair))),
-   user_args_proof(rest, sessions, themes, pair))
-
-def extras_dash(d: Bool, -h: String, -next: List<&2, String>, ih: {next == Nil{} : List<&2, String>}) ->
-  {C.extras_pick(False{}, d, False{}, h, next) == Nil{} : List<&2, String>}:
-  match d:
-    case True{}:
-      {==}
-    case False{}:
-      ih
-
-# With no --plugin and no --gate, wizardry takes no argument for itself.
-def no_extras(argv: List<&2, String>, +plugin: {C.has(argv, "--plugin") == False{} : Bool}, +gate: {C.has(argv, "--gate") == False{} : Bool}) ->
-  {C.extras(argv, False{}) == Nil{} : List<&2, String>}:
-  match argv:
-    case Nil{}:
-      {==}
-    case Con{+h, +t}:
-      %Equal.sym(Bool, String.eq(h, "--gate"), False{}, or_left(String.eq(h, "--gate"), C.has(t, "--gate"), gate)) : {C.extras_pick(False{}, String.eq(h, "--"), _, h, C.extras(t, String.eq(h, "--plugin"))) == Nil{} : List<&2, String>}
-      %Equal.sym(Bool, String.eq(h, "--plugin"), False{}, or_left(String.eq(h, "--plugin"), C.has(t, "--plugin"), plugin)) : {C.extras_pick(False{}, String.eq(h, "--"), False{}, h, C.extras(t, _)) == Nil{} : List<&2, String>}
-      extras_dash(String.eq(h, "--"), h, C.extras(t, False{}),
-        no_extras(t, or_right(String.eq(h, "--plugin"), C.has(t, "--plugin"), plugin), or_right(String.eq(h, "--gate"), C.has(t, "--gate"), gate)))
-
-def passes_dash(d: Bool, -h: String, -t: List<&2, String>, -next: List<&2, String>, ih: {next == t : List<&2, String>}) ->
-  {C.passes_pick(False{}, d, False{}, False{}, h, t, next) == h <> t : List<&2, String>}:
-  match d:
-    case True{}:
-      {==}
-    case False{}:
-      %ih : {h <> next == h <> _ : List<&2, String>}
-      {==}
-
-# With no --plugin and no --gate, every argument is left for Pi.
-def all_pass(argv: List<&2, String>, +plugin: {C.has(argv, "--plugin") == False{} : Bool}, +gate: {C.has(argv, "--gate") == False{} : Bool}) ->
-  {C.passes(argv, False{}) == argv : List<&2, String>}:
-  match argv:
-    case Nil{}:
-      {==}
-    case Con{+h, +t}:
-      %Equal.sym(Bool, String.eq(h, "--gate"), False{}, or_left(String.eq(h, "--gate"), C.has(t, "--gate"), gate)) : {C.passes_pick(False{}, String.eq(h, "--"), _, String.eq(h, "--plugin"), h, t, C.passes(t, String.eq(h, "--plugin"))) == h <> t : List<&2, String>}
-      %Equal.sym(Bool, String.eq(h, "--plugin"), False{}, or_left(String.eq(h, "--plugin"), C.has(t, "--plugin"), plugin)) : {C.passes_pick(False{}, String.eq(h, "--"), False{}, _, h, t, C.passes(t, _)) == h <> t : List<&2, String>}
-      passes_dash(String.eq(h, "--"), h, t, C.passes(t, False{}),
-        all_pass(t, or_right(String.eq(h, "--plugin"), C.has(t, "--plugin"), plugin), or_right(String.eq(h, "--gate"), C.has(t, "--gate"), gate)))
-
-def complete_dash(d: Bool, -empty: Bool, -next: Bool, ih: {next == True{} : Bool}) -> {C.complete_pick(False{}, d, empty, next) == True{} : Bool}:
-  match d:
-    case True{}:
-      {==}
-    case False{}:
-      ih
-
-# With no --plugin, none is left without a value.
-def is_complete(argv: List<&2, String>, +plugin: {C.has(argv, "--plugin") == False{} : Bool}) -> {C.complete(argv, False{}) == True{} : Bool}:
-  match argv:
-    case Nil{}:
-      {==}
-    case Con{+h, +t}:
-      %Equal.sym(Bool, String.eq(h, "--plugin"), False{}, or_left(String.eq(h, "--plugin"), C.has(t, "--plugin"), plugin)) : {C.complete_pick(False{}, String.eq(h, "--"), String.is_empty(h), C.complete(t, _)) == True{} : Bool}
-      complete_dash(String.eq(h, "--"), String.is_empty(h), C.complete(t, False{}),
-        is_complete(t, or_right(String.eq(h, "--plugin"), C.has(t, "--plugin"), plugin)))
-
-def Laws.plain_args_pass(argv, plugin, gate):
-  %Equal.sym(List<&2, String>, C.extras(argv, False{}), Nil{}, no_extras(argv, plugin, gate)) : {Bool.pick(Maybe<&2, C.Args>, C.complete(argv, False{}), Some{C.Args{_, C.passes(argv, False{})}}, None{}) == Some{C.Args{Nil{}, argv}} : Maybe<&2, C.Args>}
-  %Equal.sym(List<&2, String>, C.passes(argv, False{}), argv, all_pass(argv, plugin, gate)) : {Bool.pick(Maybe<&2, C.Args>, C.complete(argv, False{}), Some{C.Args{Nil{}, _}}, None{}) == Some{C.Args{Nil{}, argv}} : Maybe<&2, C.Args>}
-  %Equal.sym(Bool, C.complete(argv, False{}), True{}, is_complete(argv, plugin)) : {Bool.pick(Maybe<&2, C.Args>, _, Some{C.Args{Nil{}, argv}}, None{}) == Some{C.Args{Nil{}, argv}} : Maybe<&2, C.Args>}
-  {==}
-
-# The session, the header and the rest
-# ------------------------------------
-
 def Laws.restart_waits(wanted, attached, tui, idle):
   match wanted attached tui:
     case False{} _ _:
@@ -1038,47 +763,6 @@ def Laws.restart_waits(wanted, attached, tui, idle):
       ({==}, {==})
     case True{} True{} True{}:
       ({==}, {==})
-
-def emit_total(count: Nat, -rest: List<&2, Nat>) -> {Laws.total(C.emit(count, rest)) == Nat.add(count, Laws.total(rest)) : Nat}:
-  match count:
-    case 0n:
-      {==}
-    case 1n+p:
-      {==}
-
-def pack_step(
-  f: Bool, +count: Nat, -used: Nat, -w: Nat, -t: List<&2, Nat>, -sep: Nat, -width: Nat,
-  ih: {Laws.total(C.pack_go(t, Bool.pick(Nat, f, 1n+count, 1n), Bool.pick(Nat, f, Nat.add(used, Nat.add(sep, w)), w), sep, width))
-    == Nat.add(Bool.pick(Nat, f, 1n+count, 1n), List.length(&2, Nat, t)) : Nat}
-) -> {Laws.total(C.emit(Bool.pick(Nat, f, 0n, count), C.pack_go(t, Bool.pick(Nat, f, 1n+count, 1n), Bool.pick(Nat, f, Nat.add(used, Nat.add(sep, w)), w), sep, width)))
-    == Nat.add(count, 1n+List.length(&2, Nat, t)) : Nat}:
-  match f:
-    case True{}:
-      Equal.trans(Nat,
-        Laws.total(C.pack_go(t, 1n+count, Nat.add(used, Nat.add(sep, w)), sep, width)),
-        1n+Nat.add(count, List.length(&2, Nat, t)),
-        Nat.add(count, 1n+List.length(&2, Nat, t)),
-        ih,
-        Equal.sym(Nat, Nat.add(count, 1n+List.length(&2, Nat, t)), 1n+Nat.add(count, List.length(&2, Nat, t)), add_succ(count, List.length(&2, Nat, t))))
-    case False{}:
-      %ih : {Laws.total(C.emit(count, C.pack_go(t, 1n, w, sep, width))) == Nat.add(count, _) : Nat}
-      emit_total(count, C.pack_go(t, 1n, w, sep, width))
-
-# The lines hold the items of the line being filled and all that are still to come.
-def pack_total(widths: List<&2, Nat>, +count: Nat, +used: Nat, +sep: Nat, +width: Nat) ->
-  {Laws.total(C.pack_go(widths, count, used, sep, width)) == Nat.add(count, List.length(&2, Nat, widths)) : Nat}:
-  match widths:
-    case Nil{}:
-      emit_total(count, Nil{})
-    case Con{+w, t}:
-      pack_step(Bool.and(Nat.is_gt(count, 0n), Nat.is_le(Nat.add(used, Nat.add(sep, w)), width)), count, used, w, t, sep, width,
-        pack_total(t,
-          Bool.pick(Nat, Bool.and(Nat.is_gt(count, 0n), Nat.is_le(Nat.add(used, Nat.add(sep, w)), width)), 1n+count, 1n),
-          Bool.pick(Nat, Bool.and(Nat.is_gt(count, 0n), Nat.is_le(Nat.add(used, Nat.add(sep, w)), width)), Nat.add(used, Nat.add(sep, w)), w),
-          sep, width))
-
-def Laws.pack_places_all(widths, sep, width):
-  pack_total(widths, 0n, 0n, sep, width)
 
 def Laws.rtk_needs_a_rewrite(code, out, command, zero, three):
   %Equal.sym(Bool, Nat.is_eq(code, 0n), False{}, zero) : {C.rtk_pick(Bool.or(_, Nat.is_eq(code, 3n)), String.trim(out), command) == None{} : Maybe<&2, String>}
@@ -1095,19 +779,10 @@ def Laws.adopting_overwrites_nothing(named, has_home, has_old, link):
     case True{}:
       ({==}, {==})
 
-def Laws.cap_rests_off_screen():
-  {==}
-
-# Kept apart, export and delete
-# -----------------------------
-
 def Laws.pi_dir_is_wizardrys(home):
   starts(home, "/pi")
 
 def Laws.pi_is_pointed_home(home):
-  {==}
-
-def Laws.pi_reads_nothing_around(rest, sessions, themes, pair):
   {==}
 
 def Laws.addons_stay_behind():
@@ -1148,126 +823,6 @@ def never_onto_itself(has_own: Bool, has_old: Bool, +dir: String) -> {C.brings(h
 
 def Laws.logins_overwrite_nothing(has_own, has_old, old, own, dir):
   ({==}, never_onto_itself(has_own, has_old, dir))
-
-def Laws.words_of_keeping():
-  ({==}, {==})
-
-def Laws.export_stays_in_its_folder(dir, origin, rel):
-  starts(dir, String.concat(["/conversations/", origin, "/", rel]))
-
-def Laws.delete_asks_first(paths, exported):
-  {==}
-
-def Laws.delete_waits_for_export(paths, yes):
-  match yes:
-    case True{}:
-      {==}
-    case False{}:
-      {==}
-
-# What is spared for `keep` does not take `keep` along.
-def spared_step(b: Bool, -paths: List<&2, String>, -keep: String, e: {C.takes(paths, keep) == b : Bool}) ->
-  {C.takes(Bool.pick(List<&2, String>, b, Nil{}, paths), keep) == False{} : Bool}:
-  match b:
-    case True{}:
-      {==}
-    case False{}:
-      e
-
-def spared(+paths: List<&2, String>, +keep: String) -> {C.takes(C.sparing(paths, keep), keep) == False{} : Bool}:
-  spared_step(C.takes(paths, keep), paths, keep, {==})
-
-# Paths that take nothing along still take nothing when they are all dropped.
-def still(b: Bool, -paths: List<&2, String>, -keep: String, e: {C.takes(paths, keep) == False{} : Bool}) ->
-  {C.takes(Bool.pick(List<&2, String>, b, Nil{}, paths), keep) == False{} : Bool}:
-  match b:
-    case True{}:
-      {==}
-    case False{}:
-      e
-
-def still_rooted(b: Bool, -paths: List<&2, String>, -keep: String, e: {C.takes(paths, keep) == False{} : Bool}) ->
-  {C.takes(Bool.pick(List<&2, String>, b, paths, Nil{}), keep) == False{} : Bool}:
-  match b:
-    case True{}:
-      e
-    case False{}:
-      {==}
-
-def Laws.delete_keeps_the_export(what, home, old, userhome, to):
-  spared(C.sparing(C.rooted(C.wanted(what, home, old)), userhome), to)
-
-def Laws.delete_spares_your_home(what, home, old, userhome, to):
-  still(C.takes(C.sparing(C.rooted(C.wanted(what, home, old)), userhome), to),
-    C.sparing(C.rooted(C.wanted(what, home, old)), userhome), userhome,
-    spared(C.rooted(C.wanted(what, home, old)), userhome))
-
-# The same two steps for paths none of which is inside `root`.
-def out_still(b: Bool, -paths: List<&2, String>, -root: String, e: {Laws.any_inside(paths, root) == False{} : Bool}) ->
-  {Laws.any_inside(Bool.pick(List<&2, String>, b, Nil{}, paths), root) == False{} : Bool}:
-  match b:
-    case True{}:
-      {==}
-    case False{}:
-      e
-
-def out_rooted(b: Bool, -paths: List<&2, String>, -root: String, e: {Laws.any_inside(paths, root) == False{} : Bool}) ->
-  {Laws.any_inside(Bool.pick(List<&2, String>, b, paths, Nil{}), root) == False{} : Bool}:
-  match b:
-    case True{}:
-      e
-    case False{}:
-      {==}
-
-# Pi's own setup is asked for only when it is not inside wizardry's directory.
-def old_out_step(b: Bool, -old: String, -home: String, e: {C.inside(old, home) == b : Bool}) ->
-  {Laws.any_inside(Bool.pick(List<&2, String>, b, Nil{}, [old]), home) == False{} : Bool}:
-  match b:
-    case True{}:
-      {==}
-    case False{}:
-      %Equal.sym(Bool, C.inside(old, home), False{}, e) : {Bool.or(_, False{}) == False{} : Bool}
-      {==}
-
-# Dropping all of them unless a condition holds changes neither.
-def unless_takes(b: Bool, -paths: List<&2, String>, -keep: String, e: {C.takes(paths, keep) == False{} : Bool}) ->
-  {C.takes(C.unless(b, paths), keep) == False{} : Bool}:
-  match b:
-    case True{}:
-      {==}
-    case False{}:
-      e
-
-def unless_out(b: Bool, -paths: List<&2, String>, -root: String, e: {Laws.any_inside(paths, root) == False{} : Bool}) ->
-  {Laws.any_inside(C.unless(b, paths), root) == False{} : Bool}:
-  match b:
-    case True{}:
-      {==}
-    case False{}:
-      e
-
-def old_takes(+home: String, +old: String, +userhome: String, +to: String) ->
-  {C.takes(C.doomed(C.Old{}, home, old, userhome, to), home) == False{} : Bool}:
-  still(C.takes(C.sparing(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), to),
-    C.sparing(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), home,
-    still(C.takes(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), C.rooted(C.based(home, C.old_wanted(old, home))), home,
-      still_rooted(C.all_rooted(C.based(home, C.old_wanted(old, home))), C.based(home, C.old_wanted(old, home)), home,
-        unless_takes(Bool.not(String.starts_with(home, "/")), C.old_wanted(old, home), home,
-          spared(Bool.pick(List<&2, String>, C.inside(old, home), Nil{}, [old]), home)))))
-
-def old_inside(+home: String, +old: String, +userhome: String, +to: String) ->
-  {Laws.any_inside(C.doomed(C.Old{}, home, old, userhome, to), home) == False{} : Bool}:
-  out_still(C.takes(C.sparing(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), to),
-    C.sparing(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), home,
-    out_still(C.takes(C.rooted(C.based(home, C.old_wanted(old, home))), userhome), C.rooted(C.based(home, C.old_wanted(old, home))), home,
-      out_rooted(C.all_rooted(C.based(home, C.old_wanted(old, home))), C.based(home, C.old_wanted(old, home)), home,
-        unless_out(Bool.not(String.starts_with(home, "/")), C.old_wanted(old, home), home,
-          out_still(C.takes(Bool.pick(List<&2, String>, C.inside(old, home), Nil{}, [old]), home),
-            Bool.pick(List<&2, String>, C.inside(old, home), Nil{}, [old]), home,
-            old_out_step(C.inside(old, home), old, home, {==}))))))
-
-def Laws.old_spares_wizardry(home, old, userhome, to):
-  (old_takes(home, old, userhome, to), old_inside(home, old, userhome, to))
 
 def Laws.default_keeps_what_is_loaded(would_load, loaded):
   clean(would_load, loaded)
@@ -1316,3 +871,6 @@ def Laws.loaded_again_is_in_front(bound, known, active):
       {==}
     case True{} False{}:
       {==}
+
+def Laws.a_first_failure_says_nothing(said):
+  (({==}, {==}), {==})

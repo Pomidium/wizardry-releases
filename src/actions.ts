@@ -80,6 +80,8 @@ declare module '@deepseek-ai/cordis' {
 export class Actions extends Service {
   private store = new Map<string, RegisteredAction>()
   private wraps = new Map<string, ActionWrap[]>()
+  /** How many times in a row each call (an action with its arguments) has failed. */
+  private fails = new Map<string, number>()
 
   constructor(ctx: Context) {
     super(ctx, 'actions')
@@ -171,13 +173,24 @@ export class Actions extends Service {
       (next, wrap) => (params) => wrap.around!(params, env, next),
       async (params) => body(params),
     )
+    let key = action.name
+    try {
+      key += JSON.stringify(params)
+    } catch {}
     try {
       const result = await call(params)
+      this.fails.delete(key)
       this.ctx.root.emit('action/after', action, params, { result })
       return result
-    } catch (error) {
+    } catch (error: any) {
       this.ctx.root.emit('action/after', action, params, { error })
-      throw error
+      // What a repeated failure says is decided in Bend: nothing more the first time (LAWS.bend, a_first_failure_says_nothing).
+      const fails = core.failsAfter(true, this.fails.get(key) ?? 0)
+      if (this.fails.size > 500) this.fails.clear()
+      this.fails.set(key, fails)
+      const said = String(error?.message ?? error)
+      const walled = core.walled(fails, said)
+      throw walled === said ? error : new Error(walled, { cause: error })
     }
   }
 }

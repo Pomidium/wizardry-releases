@@ -2,7 +2,9 @@
 #
 # Everything here is pure: lists and strings in, lists and strings out. The host (src/*.ts) asks
 # these defs what to do and then does it with Pi, Cordis and the file system, which Bend cannot
-# reach. `npm run core` compiles this file to core/core.mjs; src/core.ts is the only importer.
+# reach. Three parts are files of their own, each with its laws and proofs beside it: look/ (how
+# calls, results and the header read), args/ (the command line) and keep/ (export and delete).
+# `npm run core` compiles each to core/<name>.mjs; src/core.ts is the only importer.
 #
 # LAWS.bend states what must hold of these defs and PROOF.bend proves it: `bend PROOF.bend`.
 
@@ -186,145 +188,12 @@ def pick_name(candidates: List<&2, String>) -> String:
     case Con{+h, t}:
       Bool.pick(String, has(["", "apply", "default"], h), pick_name(t), h)
 
-# The command line
-# ----------------
-
-# What the first argument asks for.
-type Command is Data:
-  Help{}
-  Version{}
-  PiOnly{}
-  Auth{}
-  Update{}
-  Export{}
-  Delete{}
-  Run{}
-
-def command_pick(help: Bool, version: Bool, pi: Bool, auth: Bool, update: Bool, export: Bool, delete: Bool) -> Command:
-  match help version pi auth update export delete:
-    case True{} _ _ _ _ _ _:
-      Help{}
-    case False{} True{} _ _ _ _ _:
-      Version{}
-    case False{} False{} True{} _ _ _ _:
-      PiOnly{}
-    case False{} False{} False{} True{} _ _ _:
-      Auth{}
-    case False{} False{} False{} False{} True{} _ _:
-      Update{}
-    case False{} False{} False{} False{} False{} True{} _:
-      Export{}
-    case False{} False{} False{} False{} False{} False{} True{}:
-      Delete{}
-    case False{} False{} False{} False{} False{} False{} False{}:
-      Run{}
-
-def command_of(+first: String) -> Command:
-  command_pick(has(["--help", "-h"], first), has(["--version", "-v"], first),
-    has(["install", "remove", "uninstall", "list", "config", "mcp"], first),
-    String.eq(first, "auth"), String.eq(first, "update"), String.eq(first, "export"), String.eq(first, "delete"))
-
-# wizardry's own options, taken out of the arguments; the rest are Pi's.
-type Args is Data:
-  Args{extra: List<&2, String>, rest: List<&2, String>}
-
-def extras_pick(value: Bool, dashes: Bool, gate: Bool, h: String, next: List<&2, String>) -> List<&2, String>:
-  match value dashes gate:
-    case True{} _ _:
-      h <> next
-    case False{} True{} _:
-      Nil{}
-    case False{} False{} True{}:
-      "gate" <> next
-    case False{} False{} False{}:
-      next
-
-# The plugins asked for with --gate and --plugin. `value` is set while reading --plugin's value.
-def extras(argv: List<&2, String>, +value: Bool) -> List<&2, String>:
-  match argv:
-    case Nil{}:
-      Nil{}
-    case Con{+h, t}:
-      extras_pick(value, String.eq(h, "--"), String.eq(h, "--gate"), h,
-        extras(t, Bool.and(Bool.not(value), String.eq(h, "--plugin"))))
-
-def passes_pick(
-  value: Bool, dashes: Bool, gate: Bool, plugin: Bool, h: String, t: List<&2, String>, next: List<&2, String>
-) -> List<&2, String>:
-  match value dashes gate plugin:
-    case True{} _ _ _:
-      next
-    case False{} True{} _ _:
-      h <> t
-    case False{} False{} True{} _:
-      next
-    case False{} False{} False{} True{}:
-      next
-    case False{} False{} False{} False{}:
-      h <> next
-
-# The arguments left for Pi. Everything from `--` on passes unchanged.
-def passes(argv: List<&2, String>, +value: Bool) -> List<&2, String>:
-  match argv:
-    case Nil{}:
-      Nil{}
-    case Con{+h, +t}:
-      passes_pick(value, String.eq(h, "--"), String.eq(h, "--gate"), String.eq(h, "--plugin"), h, t,
-        passes(t, Bool.and(Bool.not(value), String.eq(h, "--plugin"))))
-
-def complete_pick(value: Bool, dashes: Bool, empty: Bool, next: Bool) -> Bool:
-  match value dashes:
-    case True{} _:
-      Bool.and(Bool.not(empty), next)
-    case False{} True{}:
-      True{}
-    case False{} False{}:
-      next
-
-# Whether every --plugin has a value.
-def complete(argv: List<&2, String>, +value: Bool) -> Bool:
-  match argv:
-    case Nil{}:
-      Bool.not(value)
-    case Con{+h, t}:
-      complete_pick(value, String.eq(h, "--"), String.is_empty(h),
-        complete(t, Bool.and(Bool.not(value), String.eq(h, "--plugin"))))
-
-# None when a --plugin has no name or path after it.
-def split_args(+argv: List<&2, String>) -> Maybe<&2, Args>:
-  extra rest = extras(argv, False{}) passes(argv, False{})
-  Bool.pick(Maybe<&2, Args>, complete(argv, False{}), Some{Args{extra, rest}}, None{})
-
 def unless(skip: Bool, xs: List<&2, String>) -> List<&2, String>:
   match skip:
     case False{}:
       xs
     case True{}:
       Nil{}
-
-# The arguments that put wizardry's colors on, unless the user asked for a theme of their own.
-def theme_args(rest: List<&2, String>, themes: String, pair: String) -> List<&2, String>:
-  List.append(&2, String, ["--theme", themes], unless(has(rest, "--use-theme"), ["--use-theme", pair]))
-
-# What switches off everything Pi would add to the agent by itself.
-def pi_bare() -> List<&2, String>:
-  ["--no-builtin-tools", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files"]
-
-# What keeps Pi from reading what lies around it: themes it would discover, MCP servers, and the
-# settings and add-ons of whatever project it is started in.
-def pi_apart() -> List<&2, String>:
-  ["--no-themes", "--no-mcp", "--no-approve"]
-
-# The arguments Pi starts with. Pi contributes the loop, the models and the terminal; everything
-# it would add to the agent by itself stays out, and so does whatever a project or another setup
-# holds for it. A session directory and a theme the user chose win.
-def pi_args(+rest: List<&2, String>, sessions: String, themes: String, pair: String) -> List<&2, String>:
-  List.concat(&2, String, [
-    pi_bare(),
-    pi_apart(),
-    unless(Bool.or(has(rest, "--session-dir"), has(rest, "--no-session")), ["--session-dir", sessions]),
-    theme_args(rest, themes, pair),
-    rest])
 
 # Restarting onto new code
 # ------------------------
@@ -390,114 +259,8 @@ def session_args(session: Maybe<&2, String>) -> List<&2, String>:
 def restart_args(rest: List<&2, String>, said: List<&2, String>, session: Maybe<&2, String>) -> List<&2, String>:
   List.append(&2, String, strip(unsaid(List.reverse(&2, String, rest), said, Nil{}), False{}), session_args(session))
 
-# What the user sees
-# ------------------
-
-# The logo: a wizard's cap. Plain ASCII, every row the same width.
-def hat() -> List<&2, String>:
-  [ "         /\\         ",
-    "        /  \\        ",
-    "       / *  \\       ",
-    "      /    . \\      ",
-    "     /  *     \\     ",
-    " ___/__________\\___ ",
-    "(__________________)"]
-
-# A spark on or around the cap: where it sits, and what it shows on each of the eight frames.
-type Spark is Data:
-  Spark{row: Nat, col: Nat, frames: String}
-
-# The first frame of every spark is what the plain cap has there.
-def sparks() -> List<&2, Spark>:
-  [ Spark{2n, 9n, "*+*.  .*"},
-    Spark{3n, 11n, ". .*+*. "},
-    Spark{4n, 8n, "*.  .*+*"},
-    Spark{0n, 13n, "  .*.   "},
-    Spark{1n, 5n, "     .*."},
-    Spark{2n, 16n, " .+.    "}]
-
-# `s` with `c` in place of its character at `col`. A text that short is left as it is.
-def put(s: String, col: Nat, c: Char) -> String:
-  match s col:
-    case SNil{} _:
-      SNil{}
-    case SCon{h, t} 0n:
-      SCon{c, t}
-    case SCon{h, t} 1n+p:
-      SCon{h, put(t, p, c)}
-
-def put_row(rows: List<&2, String>, row: Nat, col: Nat, c: Char) -> List<&2, String>:
-  match rows row:
-    case Nil{} _:
-      Nil{}
-    case Con{h, t} 0n:
-      put(h, col, c) <> t
-    case Con{h, t} 1n+p:
-      h <> put_row(t, p, col, c)
-
-def glyph(found: Maybe<&2, Char>) -> Char:
-  match found:
-    case None{}:
-      ' '
-    case Some{c}:
-      c
-
-# `rows` with every spark showing what it shows on frame `at`.
-def twinkle(sparks: List<&2, Spark>, rows: List<&2, String>, +at: Nat) -> List<&2, String>:
-  match sparks:
-    case Nil{}:
-      rows
-    case Con{Spark{row, col, frames}, t}:
-      twinkle(t, put_row(rows, row, col, glyph(String.get(frames, at))), at)
-
-# The cap's rows on one frame of its twinkle; the frames come round every eight.
-def hat_frame(frame: Nat) -> List<&2, String>:
-  twinkle(sparks(), hat(), Nat.mod(frame, 8n))
-
-# The small cap that stands where Pi's spinner did while the agent works: a spark drifting off
-# its tip, one frame per row.
-def small_hat() -> List<&2, String>:
-  [ "_/\\_   ",
-    "_/\\_.  ",
-    "_/\\_*  ",
-    "_/\\_ + ",
-    "_/\\_ * ",
-    "_/\\_  ."]
-
-# How wide each row is.
-def widths(rows: List<&2, String>) -> List<&2, Nat>:
-  match rows:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      String.length(h) <> widths(t)
-
-# The theme colors the caps are drawn in: blues and greys, in both themes.
-def inks() -> List<&2, String>:
-  ["accent", "mdLink", "dim", "text"]
-
-def ink_pick(plus: Bool, star: Bool, dot: Bool) -> String:
-  match plus star dot:
-    case True{} _ _:
-      "text"
-    case False{} True{} _:
-      "mdLink"
-    case False{} False{} True{}:
-      "dim"
-    case False{} False{} False{}:
-      "accent"
-
-def ink_of(+c: Char) -> String:
-  ink_pick(Char.is_eq(c, '+'), Char.is_eq(c, '*'), Char.is_eq(c, '.'))
-
-# The theme color a piece of a cap is drawn in, by its first character: the cap in the accent
-# blue, a spark pale blue at its brightest and grey as it fades.
-def ink(part: String) -> String:
-  match part:
-    case SNil{}:
-      "accent"
-    case SCon{h, t}:
-      ink_of(h)
+# Text
+# ----
 
 def is_sep(+c: Char, loose: Bool) -> Bool:
   Bool.or(Char.is_space(c), Bool.and(loose, Bool.or(Char.is_eq(c, '_'), Char.is_eq(c, '-'))))
@@ -525,30 +288,6 @@ def squash_go(s: String, +loose: Bool, +started: Bool, pending: Bool, acc: Strin
 def squash(s: String, loose: Bool) -> String:
   squash_go(s, loose, False{}, False{}, SNil{})
 
-# A name as words: "plugin_load" is "plugin load".
-def words(text: String) -> String:
-  squash(text, True{})
-
-# Whether a title already starts with the plugin's name.
-def mine(+title: String, +owner: String) -> Bool:
-  Bool.or(String.eq(title, owner), String.starts_with(title, String.append(owner, " ")))
-
-def title_pick(titled: Bool, native: Bool, mine: Bool, title: String, name: String, +said: String, owner: String) -> String:
-  match titled native mine:
-    case True{} _ _:
-      title
-    case False{} True{} _:
-      name
-    case False{} False{} True{}:
-      said
-    case False{} False{} False{}:
-      String.append(owner, SCon{' ', said})
-
-# What the user sees a call named as: the plugin, then what it did. `plugin_load` from `cordis`
-# reads "cordis plugin load". Pi's own tools keep their names, and an action's title overrides all.
-def action_title(+title: String, native: Bool, +name: String, +owner: String) -> String:
-  title_pick(Bool.not(String.is_empty(title)), native, mine(words(name), words(owner)), title, name, words(name), words(owner))
-
 # Whether `s` has at most `n` characters.
 def fits(s: String, n: Nat) -> Bool:
   match s n:
@@ -575,28 +314,6 @@ def brief(text: String) -> String:
   +line = squash(text, False{})
   Bool.pick(String, String.is_empty(line), "\"\"", clip(line, 72n))
 
-def expand_put(cr: Bool, tab: Bool, nl: Bool, c: Char, pad: String, acc: String) -> String:
-  match cr tab nl:
-    case True{} _ _:
-      acc
-    case False{} True{} _:
-      SCon{' ', SCon{' ', SCon{' ', acc}}}
-    case False{} False{} True{}:
-      String.append(String.reverse(pad), SCon{'\n', acc})
-    case False{} False{} False{}:
-      SCon{c, acc}
-
-def expand_go(s: String, +pad: String, acc: String) -> String:
-  match s:
-    case SNil{}:
-      String.reverse(acc)
-    case SCon{+c, t}:
-      expand_go(t, pad, expand_put(Char.is_eq(c, '\r'), Char.is_eq(c, '\t'), Char.is_eq(c, '\n'), c, pad, acc))
-
-# Text as the terminal shows it: no carriage returns, tabs as three spaces, `pad` after each newline.
-def expand(s: String, pad: String) -> String:
-  expand_go(s, pad, SNil{})
-
 def line_cur(nl: Bool, c: Char, cur: String) -> String:
   match nl:
     case True{}:
@@ -622,50 +339,6 @@ def lines_go(s: String, +cur: String, done: List<&2, String>) -> List<&2, String
 # The lines of a text, however many there are.
 def lines(s: String) -> List<&2, String>:
   lines_go(s, SNil{}, Nil{})
-
-# The first `limit` of `xs`.
-def first(xs: List<&2, String>, limit: Nat) -> List<&2, String>:
-  match xs limit:
-    case Nil{} _:
-      Nil{}
-    case Con{h, t} 0n:
-      Nil{}
-    case Con{h, t} 1n+p:
-      h <> first(t, p)
-
-# How many `xs` there are, on top of `acc`.
-def count(xs: List<&2, String>, acc: Nat) -> Nat:
-  match xs:
-    case Nil{}:
-      acc
-    case Con{h, t}:
-      count(t, 1n+acc)
-
-# How many of `xs` are past the first `limit`.
-def beyond(xs: List<&2, String>, limit: Nat) -> Nat:
-  match xs limit:
-    case Nil{} _:
-      0n
-    case Con{h, t} 0n:
-      count(t, 1n)
-    case Con{h, t} 1n+p:
-      beyond(t, p)
-
-# The part of a result the user is shown, and how many lines are one keypress away.
-type View is Data:
-  View{shown: List<&2, String>, more: Nat}
-
-def view_of(expanded: Bool, +lines: List<&2, String>, +limit: Nat) -> View:
-  match expanded:
-    case True{}:
-      View{lines, 0n}
-    case False{}:
-      shown more = first(lines, limit) beyond(lines, limit)
-      View{shown, more}
-
-# What a call came back with: its lines, the first ten unless expanded.
-def result_view(output: String, expanded: Bool) -> View:
-  view_of(expanded, lines(String.trim_end(expand(output, ""))), 10n)
 
 # The agent's own tools
 # ---------------------
@@ -784,9 +457,9 @@ def base_prompt(cwd: String, date: String) -> String:
   String.join([
     "You are wizardry, an agent working in a terminal on the user's machine.",
     "",
-    "The user states outcomes, often loosely, and may never have used a terminal. Act on the likeliest reading and say in a sentence what you took it to mean; ask first only when a wrong guess could not be undone. What only the user knows, leave as a marked blank. Answer in plain words: what now exists and how to use it.",
-    "Everything you can do is a tool call. Tools are actions open to you, not procedures you owe anyone: take the ones that serve the outcome and leave the rest. Each comes from a plugin, and you can inspect, load, write and unload plugins while you work. No action waits for approval.",
-    "When nothing you have does what is needed, make it (a script, an install, a plugin you write and load), and remove it afterwards unless it will be needed again. When an approach has failed twice, change the approach, not the wording.",
+    "The user states outcomes, often loosely, and may never have used a terminal. Act on the likeliest reading and say in a sentence what you took it to mean; ask first only when a wrong guess could not be undone: what stands in the way and can be put back as it was (a lock, a setting) is moved, put back, and said. What only the user knows, leave as a marked blank. What you make for them opens with a double-click (a page, a document) unless they ask for a program. Answer in plain words: what now exists and how to use it.",
+    "Everything you can do is a tool call. Tools are actions open to you, not procedures you owe anyone: take the ones that serve the outcome and leave the rest. No action waits for approval.",
+    "When nothing you have does what is needed, make it (a script, an install, or a plugin: `cordis_inspect` says how and brings the actions that load one), and remove it afterwards unless it will be needed again. When an approach has failed twice, change the approach, not the wording.",
     "Independent work runs at the same time: calls in one step, parts given to agents of their own. Work that does not split is not split.",
     "Done means checked: run what you made, and say what you could not check. Add nothing the outcome does not need.",
     "",
@@ -917,79 +590,6 @@ def no_such_actions(names: List<&2, String>) -> String:
 def unloaded_text(name: String) -> String:
   String.concat(["Unloaded \"", name, "\"."])
 
-# The command line, said
-# ----------------------
-
-def help() -> String:
-  String.join([
-    "wizardry - Pi on Cordis. Every plugin is a tool call; the agent chooses which to make.",
-    "",
-    "Usage:",
-    "  wizardry [options] [messages...]     Start a session (interactive unless -p)",
-    "  wizardry plugins                     List loaded plugins and the actions they provide",
-    "  wizardry update [on|off]             Update now, or turn automatic updates on or off",
-    "  wizardry auth <command>              Log in or out (wizardry keeps its own logins, apart from Pi's)",
-    "  wizardry export [folder]             Copy every conversation and memory to a folder you keep",
-    "  wizardry delete <what> [--yes]       Delete conversations, memories, old (Pi's own setup) or all",
-    "",
-    "Options:",
-    "  --plugin <name|path>   Load a plugin for this run (repeatable)",
-    "  --gate                 Load the \"gate\" plugin: ask before bash, write, edit and plugin changes",
-    "  --version, -v          Show the version",
-    "  --help, -h             Show this help",
-    "",
-    "Every other option goes to Pi unchanged: --model, --thinking, -p/--print, -c/--continue,",
-    "-r/--resume, --mode json|rpc, --no-session, and so on (see `pi --help`).",
-    "",
-    "Plugins load from ~/.wizardry/plugins/, ./.wizardry/plugins/, and ~/.wizardry/plugins.json.",
-    "wizardry updates itself in the background whenever it can; /update off in a session stops that.",
-    "Nothing asks for approval unless you pass --gate.",
-    "",
-    "wizardry is kept apart: its logins, settings, conversations and memories are all in ~/.wizardry,",
-    "and nothing of Pi's own setup (~/.pi) or of a project's .pi folder is read. `wizardry delete`",
-    "says what it would remove and removes nothing until you add --yes; it exports first.",
-    ""], "\n")
-
-def pi_only_text(+first: String, argv: List<&2, String>) -> String:
-  String.concat(["\"", first, "\" is a Pi command and wizardry does not use Pi's extensions or packages. Run `pi ",
-    String.join(argv, " "), "` instead.\n"])
-
-# Whether the arguments ask for the list of plugins.
-def lists_plugins(rest: List<&2, String>) -> Bool:
-  match rest:
-    case Nil{}:
-      False{}
-    case Con{h, t}:
-      String.eq(h, "plugins")
-
-def listing_actions(actions: List<&2, String>) -> String:
-  match actions:
-    case Nil{}:
-      ""
-    case Con{h, t}:
-      String.concat(["  ", String.join(h <> t, ", "), "\n"])
-
-# A plugin as `wizardry plugins` lists it.
-def listing(name: String, state: String, source: String, actions: List<&2, String>) -> String:
-  String.concat([name, " [", state, "] ", source, "\n", listing_actions(actions)])
-
-def switch_said(on: Bool) -> String:
-  String.concat(["Automatic updates are ", Bool.pick(String, on, "on", "off"), "."])
-
-def at_file(file: String) -> String:
-  SCon{'@', file}
-
-def at_files(files: List<&2, String>) -> List<&2, String>:
-  match files:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      at_file(h) <> at_files(t)
-
-# What was already said to a session that restarts: its messages, and its files as `@file`.
-def said_of(messages: List<&2, String>, files: List<&2, String>) -> List<&2, String>:
-  List.append(&2, String, messages, at_files(files))
-
 # The session
 # -----------
 
@@ -1020,6 +620,31 @@ def waiting(ws: List<&2, Waits>, +names: List<&2, String>, +called: List<&2, Str
       Nil{}
     case Con{Waits{name, behind}, t}:
       keep_if(waits(behind, names, called), name, waiting(t, names, called))
+
+# Walls
+# -----
+#
+# A call that fails, made again unchanged, fails again. How many times in a row a call has
+# failed is counted, and from the second time on the agent is told, with the failure, to change
+# the approach. Nothing is said before that, and nothing is refused: a call may be waiting for
+# something that will come.
+def fails_after(failed: Bool, before: Nat) -> Nat:
+  match failed:
+    case True{}:
+      1n+before
+    case False{}:
+      0n
+
+def walled(+fails: Nat, +said: String) -> String:
+  Bool.pick(String, Nat.is_ge(fails, 2n),
+    String.concat([said, "\n\nThis same call has now failed ", Nat.show(fails), " times. Do not make it again unchanged: change the approach (another route, another tool, or make what is missing)."]),
+    said)
+
+# What Pi's file tools say of themselves, each thing once: their parameters say the rest.
+# A tool not named here keeps Pi's words.
+def fs_describe(+name: String, pi: String) -> String:
+  Bool.pick(String, String.eq(name, "edit"), "Edit a single file by exact text replacement.",
+    Bool.pick(String, String.eq(name, "read"), "Read a file: text, or an image (jpg, png, gif, webp, bmp). Text is cut at 2000 lines or 50KB: continue with offset.", pi))
 
 # Whether a tool is in front of the agent once it has been declared (again). One Pi has not
 # seen, or one that comes back after its plugin was unloaded, is in front unless it waits. One
@@ -1152,164 +777,6 @@ def gate_no_one(name: String) -> String:
 def gate_declined(name: String) -> String:
   String.concat(["the user declined \"", name, "\""])
 
-# The header
-# ----------
-
-# A line of `count` items, when there is one, before the lines after it.
-def emit(count: Nat, rest: List<&2, Nat>) -> List<&2, Nat>:
-  match count:
-    case 0n:
-      rest
-    case 1n+p:
-      Con{1n+p, rest}
-
-# `count` items make the line being filled, `used` columns wide. The next item joins it when
-# there is one and the item fits after a separator; otherwise the line ends and the item starts
-# the next.
-def pack_go(widths: List<&2, Nat>, +count: Nat, +used: Nat, +sep: Nat, +width: Nat) -> List<&2, Nat>:
-  match widths:
-    case Nil{}:
-      emit(count, Nil{})
-    case Con{+w, t}:
-      +fits = Bool.and(Nat.is_gt(count, 0n), Nat.is_le(Nat.add(used, Nat.add(sep, w)), width))
-      emit(Bool.pick(Nat, fits, 0n, count),
-        pack_go(t, Bool.pick(Nat, fits, 1n+count, 1n), Bool.pick(Nat, fits, Nat.add(used, Nat.add(sep, w)), w), sep, width))
-
-# Items of these widths on as few lines as `width` allows, none broken in two: how many go on
-# each line, in order.
-def pack(widths: List<&2, Nat>, sep: Nat, width: Nat) -> List<&2, Nat>:
-  pack_go(widths, 0n, 0n, sep, width)
-
-# Where the header's text goes: beside the cap when at least 36 columns are left there, and
-# under it otherwise. `room` is how wide the text may be.
-type Layout is Data:
-  Beside{room: Nat}
-  Under{room: Nat}
-
-def layout_pick(beside: Bool, room: Nat, under: Nat) -> Layout:
-  match beside:
-    case True{}:
-      Beside{room}
-    case False{}:
-      Under{under}
-
-# One column of margin, the cap, three of gap, then the text.
-def layout(+width: Nat, hat_width: Nat) -> Layout:
-  +room = Nat.sub(width, Nat.add(4n, hat_width))
-  layout_pick(Nat.is_ge(room, 36n), room, Nat.max(1n, Nat.sub(width, 1n)))
-
-# `xs`, made `n` long with `fill` at the end; a longer list is left as it is.
-def pad_end(n: Nat, xs: List<&2, String>, +fill: String) -> List<&2, String>:
-  match n xs:
-    case 0n _:
-      xs
-    case 1n+p Nil{}:
-      fill <> pad_end(p, Nil{}, fill)
-    case 1n+p Con{h, t}:
-      h <> pad_end(p, t, fill)
-
-def blanks(n: Nat) -> List<&2, String>:
-  match n:
-    case 0n:
-      Nil{}
-    case 1n+p:
-      "" <> blanks(p)
-
-def beside_row(+left: String, +line: String) -> String:
-  Bool.pick(String, String.is_empty(line), left, String.concat([left, "   ", line]))
-
-def beside_zip(lefts: List<&2, String>, lines: List<&2, String>) -> List<&2, String>:
-  match lefts lines:
-    case Nil{} _:
-      Nil{}
-    case Con{h, t} Nil{}:
-      h <> beside_zip(t, Nil{})
-    case Con{h, t} Con{l, lt}:
-      beside_row(h, l) <> beside_zip(t, lt)
-
-def margined(rows: List<&2, String>) -> List<&2, String>:
-  match rows:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      SCon{' ', h} <> margined(t)
-
-# The header with its text beside the cap: the text sits against the brim, and when there is more
-# of it than cap it starts at the tip and runs on below.
-def header_beside(+hat: List<&2, String>, +lines: List<&2, String>, hat_width: Nat) -> List<&2, String>:
-  +tall = Nat.max(List.length(&2, String, hat), List.length(&2, String, lines))
-  margined(beside_zip(pad_end(tall, hat, String.repeat(" ", hat_width)),
-    pad_end(tall, List.append(&2, String, blanks(Nat.sub(List.length(&2, String, hat), List.length(&2, String, lines))), lines), "")))
-
-# The header with its text under the cap.
-def header_under(hat: List<&2, String>, lines: List<&2, String>) -> List<&2, String>:
-  margined(List.append(&2, String, hat, "" <> lines))
-
-# The cap moves only while redrawing it is cheap: on a screen of its own, or while nothing has
-# scrolled away above it.
-def cap_moves(viewport: Bool, at_top: Bool) -> Bool:
-  Bool.or(viewport, at_top)
-
-def next_frame(frame: Nat) -> Nat:
-  Nat.mod(1n+frame, 8n)
-
-def blank_lines(shown: List<&2, String>) -> Bool:
-  match shown:
-    case Nil{}:
-      False{}
-    case Con{h, t}:
-      Bool.and(String.is_empty(h), List.is_empty(&2, String, t))
-
-# Whether a result has nothing to show: one empty line and none hidden.
-def blank_view(shown: List<&2, String>, more: Nat) -> Bool:
-  Bool.and(blank_lines(shown), Nat.is_eq(more, 0n))
-
-def more_hint(more: Nat) -> String:
-  String.concat(["... (", Nat.show(more), " more lines,"])
-
-# A plugin that is loaded: what the header and the listings say of it.
-type Loaded is Data:
-  Loaded{name: String, state: String, source: String}
-
-def labels(plugins: List<&2, Loaded>) -> List<&2, String>:
-  match plugins:
-    case Nil{}:
-      Nil{}
-    case Con{Loaded{name, state, source}, t}:
-      label(name, state) <> labels(t)
-
-def widest(xs: List<&2, String>) -> Nat:
-  match xs:
-    case Nil{}:
-      0n
-    case Con{h, t}:
-      Nat.max(String.length(h), widest(t))
-
-def pad_right(+s: String, n: Nat) -> String:
-  String.append(s, String.repeat(" ", Nat.sub(n, String.length(s))))
-
-def wide_rows(plugins: List<&2, Loaded>, +wide: Nat) -> List<&2, String>:
-  match plugins:
-    case Nil{}:
-      Nil{}
-    case Con{Loaded{name, state, source}, t}:
-      String.concat(["  ", pad_right(label(name, state), wide), "  ", source]) <> wide_rows(t, wide)
-
-# The plugins, one to a row with where each comes from, the names in a column.
-def plugin_rows(+plugins: List<&2, Loaded>) -> List<&2, String>:
-  wide_rows(plugins, widest(labels(plugins)))
-
-# The plugins on one line, to be wrapped to the width.
-def plugin_line(plugins: List<&2, Loaded>) -> String:
-  String.join(labels(plugins), ", ")
-
-def indented(rows: List<&2, String>) -> List<&2, String>:
-  match rows:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      String.append("  ", h) <> indented(t)
-
 # What the agent is told about its runtime
 # ----------------------------------------
 
@@ -1417,186 +884,8 @@ def brought_said(files: List<&2, String>, own: String, +old: String) -> String:
   String.concat(["logins and settings are now its own, in ", own, ". ", brought_list(files), old,
     ", which is no longer read: `wizardry delete old` removes it, and `wizardry auth login` signs in here."])
 
-# Paths
-# -----
-
-def with_slash(+dir: String) -> String:
-  Bool.pick(String, String.ends_with(dir, "/"), dir, String.append(dir, "/"))
-
-# Whether `path` is `root` or lies somewhere under it.
-def inside(+path: String, +root: String) -> Bool:
-  Bool.or(String.eq(path, root), String.starts_with(path, with_slash(root)))
-
-# Whether deleting any of `paths` would take `keep` along.
-def takes(paths: List<&2, String>, +keep: String) -> Bool:
-  match paths:
-    case Nil{}:
-      False{}
-    case Con{h, t}:
-      Bool.or(inside(keep, h), takes(t, keep))
-
-# `paths`, or nothing at all when deleting them would take `keep` along.
-def sparing(+paths: List<&2, String>, +keep: String) -> List<&2, String>:
-  Bool.pick(List<&2, String>, takes(paths, keep), Nil{}, paths)
-
-def all_rooted(paths: List<&2, String>) -> Bool:
-  match paths:
-    case Nil{}:
-      True{}
-    case Con{h, t}:
-      Bool.and(String.starts_with(h, "/"), all_rooted(t))
-
-# `paths`, or nothing at all unless every one of them is a full path.
-def rooted(+paths: List<&2, String>) -> List<&2, String>:
-  Bool.pick(List<&2, String>, all_rooted(paths), paths, Nil{})
-
-# `rev` is a path backwards: what holds it starts after the first slash met.
-def parent_go(rev: String) -> String:
-  match rev:
-    case SNil{}:
-      SNil{}
-    case SCon{h, +t}:
-      Bool.pick(String, Char.is_eq(h, '/'), String.reverse(t), parent_go(t))
-
-# The directory a path is in.
-def parent(path: String) -> String:
-  parent_go(String.reverse(path))
-
-def parents(paths: List<&2, String>) -> List<&2, String>:
-  match paths:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      parent(h) <> parents(t)
-
-# Export
-# ------
-
-# Where conversations are kept.
-def sessions_dir(+home: String) -> String:
-  in_dir(home, "sessions")
-
-# Where an export goes: where the user said, else a folder in their home directory named for the
-# day, and for which export of that day it is when the name is taken.
-def export_dir(+chosen: String, userhome: String, day: String, +again: Nat) -> String:
-  Bool.pick(String, String.is_empty(chosen),
-    String.concat([userhome, "/wizardry-export-", day, Bool.pick(String, Nat.is_eq(again, 0n), "", String.append("-", Nat.show(1n+again)))]),
-    chosen)
-
-# A setup that keeps conversations, and where it keeps them.
-type Origin is Data:
-  Origin{name: String, dir: String}
-
-# The conversations an export copies: wizardry's own, and those of Pi's own setup.
-def origins(+home: String, +old: String) -> List<&2, Origin>:
-  [Origin{"wizardry", sessions_dir(home)}, Origin{"pi", in_dir(old, "sessions")}]
-
-def origin_dirs(origins: List<&2, Origin>) -> List<&2, String>:
-  match origins:
-    case Nil{}:
-      Nil{}
-    case Con{Origin{name, dir}, t}:
-      dir <> origin_dirs(t)
-
-# Whether an export may be written to `dir`: not into the very folders it copies from.
-def export_fits(+dir: String, +home: String, +old: String) -> Bool:
-  Bool.not(takes(origin_dirs(origins(home, old)), dir))
-
-# Whether a file is a conversation.
-def is_conversation(name: String) -> Bool:
-  String.ends_with(name, ".jsonl")
-
-# Where a conversation goes in an export: under the name of the setup it came from, at the path
-# it had there.
-def conversation_to(dir: String, origin: String, rel: String) -> String:
-  String.append(dir, String.concat(["/conversations/", origin, "/", rel]))
-
-# The file beside a conversation that holds it as text to read.
-def readable(+path: String) -> String:
-  Bool.pick(String, String.ends_with(path, ".jsonl"),
-    String.append(String.take(path, Nat.sub(String.length(path), 6n)), ".md"), String.append(path, ".md"))
-
-# A time to the minute: "2026-11-20 19:16:34" is "2026-11-20 19:16".
-def minute(stamp: String) -> String:
-  String.take(stamp, 16n)
-
-def transcript_head(file: String, cwd: String, started: String) -> String:
-  String.concat(["# Conversation of ", minute(started), "\n\n- Directory: ", cwd, "\n- Kept whole in: ", file, "\n\n"])
-
-# How a piece of a conversation is written down.
-type Voice is Data:
-  Said{who: String}
-  Call{}
-  Result{}
-  Ran{}
-  Image{}
-  Silent{}
-
-# What each kind of piece is. Thinking, the system prompt and everything that is not conversation
-# (model changes, what plugins note for themselves) are left to the .jsonl.
-def voice_of(+kind: String) -> Voice:
-  Bool.pick(Voice, String.eq(kind, "user"), Said{"User"},
-    Bool.pick(Voice, String.eq(kind, "assistant"), Said{"Assistant"},
-      Bool.pick(Voice, String.eq(kind, "toolCall"), Call{},
-        Bool.pick(Voice, String.eq(kind, "toolResult"), Result{},
-          Bool.pick(Voice, String.eq(kind, "bashExecution"), Ran{},
-            Bool.pick(Voice, String.eq(kind, "image"), Image{},
-              Bool.pick(Voice, has(["compaction", "branch_summary"], kind), Said{"Summary of what came before"},
-                Bool.pick(Voice, String.eq(kind, "custom_message"), Said{"Note"},
-                  Bool.pick(Voice, String.eq(kind, "error"), Said{"Error"}, Silent{})))))))))
-
-def said_block(who: String, at: String, +body: String) -> String:
-  Bool.pick(String, String.is_empty(body), "", String.concat(["## ", who, " · ", minute(at), "\n\n", body, "\n\n"]))
-
-def more_lines(+more: Nat) -> String:
-  Bool.pick(String, Nat.is_eq(more, 0n), "", String.concat(["\n    ... ", Nat.show(more), " more lines, in the .jsonl"]))
-
-def shown_block(view: View) -> String:
-  match view:
-    case View{shown, more}:
-      String.concat(["    ", String.join(shown, "\n    "), more_lines(more), "\n\n"])
-
-# What a call came back with: its first lines, set apart as a block.
-def result_block(text: String) -> String:
-  shown_block(result_view(text, False{}))
-
-def call_line(name: String, args: String) -> String:
-  String.concat(["> **", name, "** ", clip(squash(args, False{}), 200n), "\n\n"])
-
-def piece_as(voice: Voice, name: String, at: String, text: String) -> String:
-  match voice:
-    case Said{who}:
-      said_block(who, at, String.trim_end(text))
-    case Call{}:
-      call_line(name, text)
-    case Result{}:
-      result_block(text)
-    case Ran{}:
-      String.append(call_line("$", name), result_block(text))
-    case Image{}:
-      "*(an image)*\n\n"
-    case Silent{}:
-      ""
-
-# One piece of a conversation as text to read: what was said in full, a call on one line, what
-# it came back with by its first lines. Empty for what is not written down.
-def piece(kind: String, name: String, at: String, text: String) -> String:
-  piece_as(voice_of(kind), name, at, text)
-
 def counted(+n: Nat, one: String, many: String) -> String:
   String.concat([Nat.show(n), " ", Bool.pick(String, Nat.is_eq(n, 1n), one, many)])
-
-# How many conversations an export took from one setup.
-type Tally is Data:
-  Tally{name: String, from: String, count: Nat}
-
-def tally_lines(tallies: List<&2, Tally>) -> List<&2, String>:
-  match tallies:
-    case Nil{}:
-      Nil{}
-    case Con{Tally{name, from, +count}, t}:
-      keep_if(Bool.not(Nat.is_eq(count, 0n)),
-        String.concat([counted(count, "conversation", "conversations"), " from ", from, ", in conversations/", name, "/"]), tally_lines(t))
 
 def bulleted(lines: List<&2, String>) -> List<&2, String>:
   match lines:
@@ -1604,335 +893,6 @@ def bulleted(lines: List<&2, String>) -> List<&2, String>:
       Nil{}
     case Con{h, t}:
       String.append("- ", h) <> bulleted(t)
-
-def or_nothing(lines: List<&2, String>) -> List<&2, String>:
-  match lines:
-    case Nil{}:
-      ["nothing: no conversation and no memory was found"]
-    case Con{h, t}:
-      h <> t
-
-# The folders of wizardry's directory that are not a plugin's data: the program, the plugins,
-# the conversations (copied one by one), Pi's directory, whose logins stay where they are, and
-# the tools installed for plugins (`tools`, `bin`), which are programs and can be installed again.
-def own_folders() -> List<&2, String>:
-  ["app", "plugins", "sessions", "pi", "update.lock", "tools", "bin"]
-
-# A plugin that keeps data keeps it in a folder of wizardry's directory and exports it into a
-# folder of the same name. The folders nobody exported are copied as they are, so that nothing
-# kept is missing from an export because its plugin was switched off or does not export.
-def left_over(folders: List<&2, String>, written: List<&2, String>) -> List<&2, String>:
-  without(without(folders, own_folders()), written)
-
-def left_over_line(name: String) -> String:
-  String.concat([name, "/ as it was kept: no loaded plugin exported it"])
-
-# What an export holds: the conversations taken from each setup, then what each plugin wrote.
-def export_lines(tallies: List<&2, Tally>, wrote: List<&2, String>) -> List<&2, String>:
-  or_nothing(List.append(&2, String, tally_lines(tallies), wrote))
-
-# The note left in an export, saying what is in it.
-def export_readme(day: String, +lines: List<&2, String>) -> String:
-  String.concat(["# wizardry export of ", day, "\n\n",
-    "Everything here is a copy: nothing was removed from where it was kept.\n\n",
-    String.join(bulleted(lines), "\n"), "\n\n",
-    "Each conversation is here twice. The `.jsonl` is the session exactly as it was kept, and\n",
-    "`wizardry --session <that file>` carries it on. The `.md` beside it is the same conversation\n",
-    "as text to read.\n"])
-
-# What `wizardry export` says when it is done.
-def export_said(dir: String, lines: List<&2, String>) -> String:
-  String.concat(["exported to ", dir, ":\n", String.join(indented(lines), "\n"), "\n"])
-
-def export_inside(dir: String) -> String:
-  String.concat(["not exported: ", dir, " is inside the conversations it would copy. Name another folder."])
-
-def export_taken(dir: String) -> String:
-  String.concat(["not exported: ", dir, " is not empty. Name a new folder, so that nothing in it is overwritten."])
-
-def export_broke(why: String) -> String:
-  String.append("the export did not finish: ", why)
-
-def export_usage() -> String:
-  "usage: wizardry export [folder]"
-
-# The command line of export and delete
-# -------------------------------------
-
-def is_option(arg: String) -> Bool:
-  String.starts_with(arg, "-")
-
-# The arguments that are neither options nor the value of --to. `value` is set while reading it.
-def bare(argv: List<&2, String>, +value: Bool) -> List<&2, String>:
-  match argv:
-    case Nil{}:
-      Nil{}
-    case Con{+h, t}:
-      keep_if(Bool.not(Bool.or(value, is_option(h))), h, bare(t, Bool.and(Bool.not(value), String.eq(h, "--to"))))
-
-def options(argv: List<&2, String>) -> List<&2, String>:
-  match argv:
-    case Nil{}:
-      Nil{}
-    case Con{+h, t}:
-      keep_if(is_option(h), h, options(t))
-
-def first_of(xs: List<&2, String>) -> String:
-  match xs:
-    case Nil{}:
-      ""
-    case Con{h, t}:
-      h
-
-# What follows `flag` among the arguments, or nothing.
-def value_after(argv: List<&2, String>, +flag: String) -> String:
-  match argv:
-    case Nil{}:
-      ""
-    case Con{h, +t}:
-      Bool.pick(String, String.eq(h, flag), first_of(t), value_after(t, flag))
-
-# `wizardry export [folder]`: the folder asked for (empty for none), or nothing when unclear.
-def export_asked(+argv: List<&2, String>) -> Maybe<&2, String>:
-  +words = bare(argv, False{})
-  Bool.pick(Maybe<&2, String>, Bool.and(List.is_empty(&2, String, options(argv)), Nat.is_lt(List.length(&2, String, words), 2n)),
-    Some{first_of(words)}, None{})
-
-# What `wizardry delete` was asked: what to delete, whether to go ahead, whether the export is
-# waived, where the export goes, and whether all of that was clear.
-type Removal is Data:
-  Removal{what: String, yes: Bool, waived: Bool, to: String, clear: Bool}
-
-def delete_asked(+argv: List<&2, String>) -> Removal:
-  +words = bare(argv, False{})
-  Removal{first_of(words), Bool.or(has(argv, "--yes"), has(argv, "-y")), has(argv, "--no-export"), value_after(argv, "--to"),
-    Bool.and(Nat.is_eq(List.length(&2, String, words), 1n), covers(["--yes", "-y", "--no-export", "--to"], options(argv)))}
-
-# Delete
-# ------
-
-# What can be deleted.
-type What is Data:
-  Conversations{}
-  Memories{}
-  Old{}
-  All{}
-  Unknown{}
-
-def what_pick(conversations: Bool, memories: Bool, old: Bool, all: Bool) -> What:
-  match conversations memories old all:
-    case True{} _ _ _:
-      Conversations{}
-    case False{} True{} _ _:
-      Memories{}
-    case False{} False{} True{} _:
-      Old{}
-    case False{} False{} False{} True{}:
-      All{}
-    case False{} False{} False{} False{}:
-      Unknown{}
-
-def what_of(+word: String) -> What:
-  what_pick(String.eq(word, "conversations"), String.eq(word, "memories"), String.eq(word, "old"), String.eq(word, "all"))
-
-# Pi's own setup counts as old only when it is neither wizardry's directory nor inside it.
-def old_wanted(+old: String, +home: String) -> List<&2, String>:
-  sparing(Bool.pick(List<&2, String>, inside(old, home), Nil{}, [old]), home)
-
-# `paths`, or nothing at all unless wizardry's directory is itself a full path.
-def based(+home: String, paths: List<&2, String>) -> List<&2, String>:
-  unless(Bool.not(String.starts_with(home, "/")), paths)
-
-# What each word names: wizardry's conversations, its memories, Pi's own setup, or all of wizardry.
-def wanted(what: What, +home: String, +old: String) -> List<&2, String>:
-  match what:
-    case Conversations{}:
-      based(home, [sessions_dir(home)])
-    case Memories{}:
-      based(home, [in_dir(home, "memory")])
-    case Old{}:
-      based(home, old_wanted(old, home))
-    case All{}:
-      based(home, [home])
-    case Unknown{}:
-      Nil{}
-
-# What `wizardry delete <what>` removes. It is nothing at all unless every path is a full one,
-# and nothing at all when removing them would take the user's home directory along, or the
-# export that was just made of them.
-def doomed(what: What, +home: String, +old: String, +userhome: String, +to: String) -> List<&2, String>:
-  sparing(sparing(rooted(wanted(what, home, old)), userhome), to)
-
-# How an export asked for before a deletion ended.
-type Exported is Data:
-  Kept{}
-  Failed{}
-  Waived{}
-
-# Of what would be removed, what is: all of it once the user said --yes and the export is kept
-# (or was waived with --no-export), and otherwise nothing.
-def goes(paths: List<&2, String>, yes: Bool, exported: Exported) -> List<&2, String>:
-  match yes exported:
-    case True{} Kept{}:
-      paths
-    case True{} Waived{}:
-      paths
-    case True{} Failed{}:
-      Nil{}
-    case False{} _:
-      Nil{}
-
-# The folders left empty by deleting Pi's own setup (~/.pi, once ~/.pi/agent is gone). They are
-# removed only if empty, and never the user's home directory.
-def emptied(what: What, doomed: List<&2, String>, +userhome: String) -> List<&2, String>:
-  match what:
-    case Old{}:
-      sparing(rooted(parents(doomed)), userhome)
-    case Conversations{}:
-      Nil{}
-    case Memories{}:
-      Nil{}
-    case All{}:
-      Nil{}
-    case Unknown{}:
-      Nil{}
-
-# A command on the PATH that is a link, and what it points to.
-type Link is Data:
-  Link{path: String, target: String}
-
-# The links that would point at nothing once `doomed` is deleted. They go with it.
-def dangling(links: List<&2, Link>, +doomed: List<&2, String>) -> List<&2, String>:
-  match links:
-    case Nil{}:
-      Nil{}
-    case Con{Link{path, target}, t}:
-      keep_if(takes(doomed, target), path, dangling(t, doomed))
-
-# Where commands that are links are looked for: beside the one wizardry was started by, where the
-# installer puts them, and the link an old install left at ~/.izardry.
-def link_dirs(invoked: String, named: String, userhome: String) -> List<&2, String>:
-  without(add(add([parent(invoked)], named), String.append(userhome, "/.local/bin")), [""])
-
-def old_home_link(userhome: String) -> String:
-  String.append(userhome, "/.izardry")
-
-def delete_usage() -> String:
-  String.join([
-    "usage: wizardry delete <what> [--yes] [--to <folder>] [--no-export]",
-    "",
-    "  conversations   every conversation wizardry has kept",
-    "  memories        everything wizardry remembers",
-    "  old             Pi's own setup, which wizardry no longer reads: its logins, settings,",
-    "                  conversations, extensions and the pi program",
-    "  all             all of wizardry: the program, its plugins, logins, conversations and memories",
-    "",
-    "Without --yes it says what would be deleted and deletes nothing. With --yes it first exports",
-    "every conversation and memory (to --to <folder>, else ~/wizardry-export-<day>), and deletes",
-    "only once that is done; --no-export skips the export.",
-    ""], "\n")
-
-def why_pick(unknown: Bool, based: Bool, none: Bool, loose: Bool, home: Bool, export: Bool, +old: String, +to: String) -> String:
-  match unknown based none loose home export:
-    case True{} _ _ _ _ _:
-      "say what to delete: conversations, memories, old or all"
-    case False{} False{} _ _ _ _:
-      "nothing was deleted: wizardry's directory is not a full path"
-    case False{} True{} True{} _ _ _:
-      String.concat(["nothing to delete: Pi's own directory (", old, ") is wizardry's, inside it, or holds it, so it is not an old setup"])
-    case False{} True{} False{} True{} _ _:
-      String.concat(["nothing was deleted: ", old, " is not a full path"])
-    case False{} True{} False{} False{} True{} _:
-      "nothing was deleted: that would take your home directory along"
-    case False{} True{} False{} False{} False{} True{}:
-      String.concat(["nothing was deleted: the export would go to ", to, ", inside what is deleted. Name another folder with --to."])
-    case False{} True{} False{} False{} False{} False{}:
-      ""
-
-def is_unknown(what: What) -> Bool:
-  match what:
-    case Unknown{}:
-      True{}
-    case Conversations{}:
-      False{}
-    case Memories{}:
-      False{}
-    case Old{}:
-      False{}
-    case All{}:
-      False{}
-
-# Why `wizardry delete <what>` removes nothing, or empty when it would remove something.
-def why_not(+what: What, +home: String, +old: String, +userhome: String, +to: String) -> String:
-  +paths = wanted(what, home, old)
-  why_pick(is_unknown(what), String.starts_with(home, "/"), List.is_empty(&2, String, paths), Bool.not(all_rooted(paths)),
-    takes(paths, userhome), takes(paths, to), old, to)
-
-# A path that would be deleted, and how much is in it.
-type Row is Data:
-  Row{path: String, bytes: Nat}
-
-def size_text(+bytes: Nat) -> String:
-  Bool.pick(String, Nat.is_lt(bytes, 1000n), counted(bytes, "byte", "bytes"),
-    Bool.pick(String, Nat.is_lt(bytes, 1000000n), String.append(Nat.show(Nat.div(bytes, 1000n)), " KB"),
-      Bool.pick(String, Nat.is_lt(bytes, 1000000000n), String.append(Nat.show(Nat.div(bytes, 1000000n)), " MB"),
-        String.append(Nat.show(Nat.div(bytes, 1000000000n)), " GB"))))
-
-def row_lines(rows: List<&2, Row>) -> List<&2, String>:
-  match rows:
-    case Nil{}:
-      Nil{}
-    case Con{Row{path, bytes}, t}:
-      String.concat(["  ", path, "  (", size_text(bytes), ")"]) <> row_lines(t)
-
-def link_lines(links: List<&2, String>) -> List<&2, String>:
-  match links:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      String.concat(["  ", h, "  (a command that points into it)"]) <> link_lines(t)
-
-def export_line(waived: Bool, to: String, first: String, then: String) -> String:
-  match waived:
-    case True{}:
-      "Nothing is exported first: you said --no-export."
-    case False{}:
-      String.concat([first, to, then])
-
-# What `wizardry delete <what>` says without --yes: what would go, and that nothing has.
-def delete_preview(+word: String, rows: List<&2, Row>, links: List<&2, String>, to: String, +waived: Bool) -> String:
-  String.join(List.concat(&2, String, [
-    [String.concat(["wizardry delete ", word, " would delete:"])],
-    row_lines(rows),
-    link_lines(links),
-    [export_line(waived, to, "First, every conversation and memory is exported to ", "."),
-      String.concat(["Nothing has been deleted. To go ahead: wizardry delete ", word, " --yes", Bool.pick(String, waived, " --no-export", "")]),
-      ""]]), "\n")
-
-# What it says once it has deleted.
-def deleted_said(rows: List<&2, Row>, links: List<&2, String>, to: String, waived: Bool) -> String:
-  String.join(List.concat(&2, String, [
-    ["deleted:"],
-    row_lines(rows),
-    link_lines(links),
-    [export_line(waived, to, "Every conversation and memory was exported first, to ", "."), ""]]), "\n")
-
-# What is said when what was named is not on this machine.
-def nothing_there(what: What) -> String:
-  match what:
-    case Conversations{}:
-      "nothing to delete: wizardry has kept no conversation"
-    case Memories{}:
-      "nothing to delete: wizardry remembers nothing"
-    case Old{}:
-      "nothing to delete: there is no setup of Pi's own on this machine"
-    case All{}:
-      "nothing to delete: wizardry's directory is not there"
-    case Unknown{}:
-      "nothing to delete"
-
-def export_first_failed(why: String) -> String:
-  String.concat(["nothing was deleted: the export did not finish (", why, "). Fix that, or pass --no-export to delete without one."])
 
 # /default: this session's setup, made the one new sessions start with
 # --------------------------------------------------------------------

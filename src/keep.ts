@@ -1,6 +1,6 @@
 import {
   copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmdirSync,
-  rmSync, unlinkSync, writeFileSync,
+  rmSync, writeFileSync,
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, relative, resolve } from 'node:path'
@@ -259,7 +259,8 @@ export async function deleteCommand(argv: string[], invoked = process.argv[1]) {
   const going = core.goes(doomed, asked.yes, exported)
   if (!going.length) return 1
   for (const path of going) rmSync(path, { recursive: true, force: true })
-  for (const link of core.goes(links, asked.yes, exported)) unlinkSync(link)
+  // A folder named two ways lists its links twice: a link already gone is gone.
+  for (const link of core.goes(links, asked.yes, exported)) rmSync(link, { force: true })
   for (const dir of core.goes(core.emptied(asked.what, doomed, at.userhome), asked.yes, exported)) {
     try {
       rmdirSync(dir)

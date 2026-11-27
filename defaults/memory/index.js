@@ -605,16 +605,15 @@ export function apply(ctx, config = {}) {
   recall({
     name: 'mem_search',
     title: 'memory search',
-    description: 'Search memory: what was said, done, decided, fixed and learned in this and past sessions on this machine, and the topics ' +
-      'kept for each project. Returns a compact index of ids. Step 1 of 3: look around a hit with mem_timeline, then read only the ids ' +
-      'worth reading with mem_get_observations. With no query it returns what memory holds for the project: its journey, its topics and ' +
-      'the latest observations.',
+    description: 'Search memory: what was said, done, decided, fixed and learned in this and past sessions on this machine. Returns a ' +
+      'compact index of ids, and puts mem_timeline (what happened around an id) and mem_get_observations (the full text of ids) in ' +
+      'front of you from the next step. With no query: the project\'s journey, topics and latest observations.',
     parameters: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Words to look for. Any of them may match; the best matches come first.' },
-        project: { type: 'string', description: 'A project (normally a directory name), or "all". Default: the current one.' },
-        kind: { type: 'string', enum: ['observation', 'prompt', 'topic', 'journey'], description: 'Only this kind of memory.' },
+        query: { type: 'string', description: 'Words to look for; any may match.' },
+        project: { type: 'string', description: 'A directory name, or "all". Default: the current one.' },
+        kind: { type: 'string', enum: ['observation', 'prompt', 'topic', 'journey'] },
         limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Default 10.' },
       },
     },
@@ -639,6 +638,7 @@ export function apply(ctx, config = {}) {
 
   recall({
     name: 'mem_timeline',
+    after: 'mem_search',
     title: 'memory timeline',
     description: 'What happened around a memory: the observations and prompts of its project just before and after an id (anchor), or ' +
       'around the best match for a query. Supply exactly one of anchor or query.',
@@ -667,6 +667,7 @@ export function apply(ctx, config = {}) {
 
   recall({
     name: 'mem_get_observations',
+    after: 'mem_search',
     title: 'memory read',
     description: 'The full text of the memories with these ids, found by mem_search or mem_timeline. A topic id returns the whole topic.',
     parameters: {

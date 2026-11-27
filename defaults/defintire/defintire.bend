@@ -711,9 +711,9 @@ def method(hillclimb: String, jacobian: String, home: String, saved: List<&2, St
     saved_lines(saved)]), "\n")
 
 def describe() -> String:
-  String.concat(["The defintire skill: turn anything, mathematical or not, into an explicit formal definition (objects, axioms, examples and non-examples, in ",
-    "mathematical notation and in Bend where Bend can say it), tie numbers to it, and improve things against it. ",
-    "Returns the method, which tools for it are on this machine, and the definitions kept so far. Calling it puts defintire_define, defintire_measure, defintire_rank and defintire_climb in front of you, from the next step."])
+  String.concat(["The defintire skill: turn anything, mathematical or not, into an explicit definition (objects, axioms, examples, non-examples, ",
+    "what happens when reality goes otherwise), tie numbers to it, and improve things against it. ",
+    "Returns the method and the definitions kept so far. Calling it puts defintire_define, defintire_measure, defintire_rank and defintire_climb in front of you, from the next step."])
 
 def describe_define() -> String:
   "Keep a definition: what is defined, the question it answers, its objects, axioms, examples, non-examples, the complications (what goes otherwise in reality than on paper, and what happens then) and the criteria that score things against it. Refused, with what is missing, when it is not yet a definition."
@@ -818,20 +818,20 @@ def known_lines(known: List<&2, Known>, room: Nat) -> List<&2, String>:
     case Nil{} _:
       Nil{}
     case Con{h, t} 0n:
-      ["- and more: `defintire` lists them"]
+      ["more"]
     case Con{Known{name, answers}, t} 1n+p:
-      String.concat(["- ", name, ": ", C.clip(C.squash(answers, False{}), 110n)]) <> known_lines(t, p)
+      name <> known_lines(t, p)
 
 def known_part(known: List<&2, Known>) -> List<&2, String>:
   match known:
     case Nil{}:
       Nil{}
     case Con{h, t}:
-      "Defined already (score against these with `defintire_measure` rather than by feel):" <> known_lines(h <> t, 5n)
+      [String.concat(["Defined already (`defintire` lists them; score against one rather than by feel): ", String.join(known_lines(h <> t, 8n), ", "), "."])]
 
 # The little that defintire adds to the standing prompt: a habit of mind, and what is defined.
 # wizardry lets it in by name and cuts it short; every other plugin reaches the agent by actions.
 def mind(known: List<&2, Known>) -> String:
   String.join(List.append(&2, String, [
-    "A habit you keep (from defintire): when what you are asked to make, judge or improve is vague, say what it is before you work on it — the things it speaks of, the condition that must hold of them, and one thing that fails it. Then leave the paper: name what could go otherwise in reality (the missing, the empty, the late, the wrong estimate) and what happens then, so that every case ends in an outcome. When something is called better, name the number that would show it. Keep this to a line or two unless asked for more; `defintire` holds the full method."],
+    "A habit you keep (from defintire): when what you are asked to make, judge or improve is vague, say what it is before you work on it — the things it speaks of, the condition that must hold of them, and one thing that fails it — and what happens when reality goes otherwise than assumed (the missing, the empty, the late). When something is called better, name the number that would show it. A line or two; `defintire` holds the method."],
     known_part(known)), "\n")

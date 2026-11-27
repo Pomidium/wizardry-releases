@@ -209,7 +209,7 @@ export function apply(ctx, config) {
   // and the names of what is defined go into the standing prompt, read again at every turn.
   // wizardry lets this plugin in by name and cuts the text short (core.bend, "The one way in").
   try {
-    ctx.get('pi')?.mind(() => bend.mind(list(known().slice(0, 6).map((slug) => {
+    ctx.get('pi')?.mind(() => bend.mind(list(known().slice(0, 9).map((slug) => {
       try {
         const def = JSON.parse(readFileSync(join(home, slug, 'definition.json'), 'utf8'))
         return { $: 'Known', name: String(def.name ?? slug), answers: String(def.answers ?? '') }
